@@ -19,11 +19,11 @@ To ensure consistency and portability, this project adheres to the following sta
 ## Test-bed
 
 The networked components for the testbed are arranged for with Raikou
-See [Raikou folder](../raikou/) for details
-Our testbed is based on [](../bdd/raikou/bdd_raikou/config-prpl.json) and [](../raikou/examples/double_hop/docker-compose-prpl.yaml) with details on the component docker files to be found in [](../raikou/components/)
+See [Raikou](https://github.com/lgirdk/raikou-factory) for details
+Our testbed is based on [](./raikou/config.json) and [](./raikou/docker-compose.yaml) with details on the component docker files to be found in [](./raikou/components/)
 
 Boardfarm is used to further configure the details where necessary of the component configurations, load files for instance on a TFPT server, create settings on a CPE etc.
-The boardfarm configuration files we are using are located at: [](../boardfarm-tests/bdd/test-infra/bf_configs)
+The boardfarm configuration files we are using are located at: [](./bf_configs)
 
 
 ## Development Workflow

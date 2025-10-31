@@ -1,0 +1,55 @@
+# DEBIAN DHCP Image start from here.
+FROM ssh:v1.2.0
+
+LABEL maintainer="ktewari@libertyglobal.com"
+LABEL version=""
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV DNS_UPSTREAM=8.8.8.8
+ENV LEGACY="no"
+
+COPY ./resources.isc/init /root/init
+
+# hadolint ignore=DL3008
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    dante-server \
+    dnsmasq \
+    dnsutils \
+    iperf \
+    iperf3 \
+    iproute2 \
+    iptables \
+    iputils-ping \
+    isc-dhcp-server \
+    lighttpd \
+    net-tools \
+    netcat-openbsd \
+    nmap \
+    procps \
+    psmisc \
+    snmp \
+    tcpdump \
+    tftpd-hpa \
+    traceroute \
+    tshark \
+    vsftpd \
+    wget \
+    xinetd \
+    xxd \
+    webfs \
+    && rm -rf /var/lib/apt/lists/* && \
+    pip --no-cache-dir install pysnmp==4.4.12 && \
+    mkdir /tftpboot && \
+    rm -rf /var/www/html && \
+    ln -s /tftpboot /var/www/html && \
+    chmod +x /root/init
+
+COPY ./resources.isc/dhcpd.conf /etc/dhcp/dhcpd.conf
+COPY ./resources.isc/dhcpd6.conf /etc/dhcp/dhcpd6.conf
+COPY ./resources.isc/isc-dhcp-server.conf /etc/default/isc-dhcp-server
+
+EXPOSE 69/udp
+EXPOSE 80/tcp
+
+CMD ["/bin/bash", "/root/init"]
