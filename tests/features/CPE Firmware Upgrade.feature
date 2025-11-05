@@ -67,3 +67,4 @@ Feature: CPE Firmware Upgrade
     But the CPE's subscriber credentials and LAN configuration are reset to factory defaults
     And the subscriber re-configures user credentials and LAN settings
     And the use case succeeds with the configuration loss noted
+
