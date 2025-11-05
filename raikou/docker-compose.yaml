@@ -5,7 +5,7 @@ services:
         ports:
             - 4000:22
         environment:
-            - ENABLE_NAT_ON=eth1
+            - ENABLE_NAT_ON=eth0
             - FRR_AUTO_CONF=yes
             - TRIPLE_PLAY=no
             - CPE_DATA_IFACE=cpe
@@ -18,10 +18,7 @@ services:
     cpe:
         container_name: cpe
         restart: always
-        build:
-            context: ./components/cpe/prplos
-            tags:
-                - cpe:v1.2.0
+        image: ghcr.io/ketantewari/raikou/cpe:v1
         ports:
             - 4004:22
         privileged: true

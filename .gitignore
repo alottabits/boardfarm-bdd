@@ -147,7 +147,7 @@ style.css
 *.swp
 
 # Alternate config files
-*.json
+#*.json
 
 # Patch foo
 *.rej
