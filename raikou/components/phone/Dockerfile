@@ -15,6 +15,14 @@ COPY ./utils/isolate_docker_iface /usr/bin/isolate_docker_iface
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /root/
 
+# Configure apt to use archive repositories if this is Buster-based (defensive approach)
+# This handles cases where debian:stable-slim might resolve to Buster
+RUN if grep -q "buster" /etc/os-release 2>/dev/null; then \
+        sed -i 's/deb.debian.org/archive.debian.org/g' /etc/apt/sources.list && \
+        sed -i 's/security.debian.org/archive.debian.org/g' /etc/apt/sources.list && \
+        echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until; \
+    fi
+
 # hadolint ignore=DL3008, DL3009
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -30,7 +38,7 @@ RUN apt-get update && \
     && sed -i 's/.*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config \
     && sed -i 's/.*Gateway Ports.*/GatewayPorts yes/' /etc/ssh/sshd_config \
     && sed -i 's/.*PermitTunnel.*/PermitTunnel yes/' /etc/ssh/sshd_config \
-    && mkdir /var/run/sshd \
+    && mkdir -p /var/run/sshd \
     && chmod +x /root/init.sh \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

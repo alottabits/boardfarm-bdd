@@ -1,6 +1,13 @@
 # Build Stage for bind.so
 FROM node:18-buster AS bind-build-stage
 
+# Configure apt to use archive repositories for Debian Buster
+# Replace sources.list with archive repositories and disable Valid-Until check
+RUN echo "deb http://archive.debian.org/debian buster main" > /etc/apt/sources.list && \
+    echo "deb http://archive.debian.org/debian buster-updates main" >> /etc/apt/sources.list && \
+    echo "deb http://archive.debian.org/debian-security buster/updates main" >> /etc/apt/sources.list && \
+    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until
+
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
@@ -22,6 +29,11 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN echo "root:bigfoot1" | chpasswd
 
 RUN mkdir /var/log/ssh
+
+# Configure apt to use archive repositories if this is Buster-based (defensive approach)
+RUN sed -i 's/deb.debian.org/archive.debian.org/g' /etc/apt/sources.list 2>/dev/null || true && \
+    sed -i 's/security.debian.org/archive.debian.org/g' /etc/apt/sources.list 2>/dev/null || true && \
+    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until
 
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \

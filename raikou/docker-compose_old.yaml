@@ -1,30 +1,19 @@
 ---
 services:
-    ssh_service:
-        build:
-            context: ./components/ssh/
-            tags:
-                - ssh:v1.2.0
-
     router:
         container_name: router
         ports:
             - 4000:22
         environment:
-            - ENABLE_NAT_ON=eth1
+            - ENABLE_NAT_ON=eth0
             - FRR_AUTO_CONF=yes
             - TRIPLE_PLAY=no
             - CPE_DATA_IFACE=cpe
             - CPE_DATA_BUNDLE=10.1.1.1/24,2001:dead:cafe:1::1/64
             - DHCP_RELAY=eth1,172.25.1.20,2001:dead:beef:2::20
-        build:
-            context: ./components/router
-            tags:
-                - router:v1.2.0
+        image: ghcr.io/ketantewari/raikou/router:v1
         privileged: true
         hostname: router
-        depends_on:
-            - ssh_service
 
     cpe:
         container_name: cpe
@@ -39,29 +28,10 @@ services:
         network_mode: none
         command: [/bin/ash, -c, sleep 30 && /sbin/init]
 
-    wan:
-        container_name: wan
-        build:
-            context: ./components/wan
-            tags:
-                - wan:v1.2.0
-        ports:
-            - 4001:22
-            - 8001:8080
-        environment:
-            - DNS_UPSTREAM=172.30.180.2
-            - LEGACY=no
-        privileged: true
-        hostname: wan
-        depends_on:
-            - ssh_service
 
     sipcenter:
         container_name: sipcenter
-        build:
-            context: ./components/sip
-            tags:
-                - sip:v1.2.0
+        image: ghcr.io/ketantewari/raikou/sipcenter:v1
         ports:
             - 4005:22
         environment:
@@ -71,45 +41,42 @@ services:
             - LEGACY=no
         privileged: true
         hostname: sipcenter
-        depends_on:
-            - ssh_service
 
     lan-phone:
         container_name: lan-phone
-        build:
-            context: ./components/phone
-            tags:
-                - phone:v1.2.0
+        image: ghcr.io/ketantewari/raikou/sipphone:v1
         ports:
             - 4006:22
         environment:
             - LEGACY=no
         privileged: true
         hostname: lan-phone
-        depends_on:
-            - ssh_service
 
     wan-phone:
         container_name: wan-phone
-        build:
-            context: ./components/phone
-            tags:
-                - phone:v1.2.0
+        image: ghcr.io/ketantewari/raikou/sipphone:v1
         ports:
             - 4007:22
         environment:
             - LEGACY=no
         privileged: true
         hostname: wan-phone
-        depends_on:
-            - ssh_service
+
+    wan:
+        container_name: wan
+        image: ghcr.io/ketantewari/raikou/wan:v1
+        ports:
+            - 4001:22
+            - 8001:8080
+        environment:
+            - DNS_UPSTREAM=172.30.180.2
+            - LEGACY=no
+        privileged: true
+        hostname: wan
 
     lan:
         container_name: lan
-        build:
-            context: ./components/lan
-            tags:
-                - lan:v1.2.0
+        image: ghcr.io/ketantewari/raikou/lan:v1
         ports:
             - 4002:22
             - 8002:8080
@@ -117,15 +84,10 @@ services:
             - LEGACY=no
         privileged: true
         hostname: lan
-        depends_on:
-            - ssh_service
 
     dhcp:
         container_name: dhcp
-        build:
-            context: ./components/dhcp
-            tags:
-                - dhcp:v1.2.0
+        image: ghcr.io/ketantewari/raikou/dhcp:v1
         ports:
             - 4003:22
         environment:
@@ -135,8 +97,6 @@ services:
         volumes:
             - ./config/kea-dhcp4.conf:/etc/kea/kea-dhcp4.conf
             - ./config/kea-dhcp6.conf:/etc/kea/kea-dhcp6.conf
-        depends_on:
-            - ssh_service
 
     mongo:
         image: mongo:4.4
@@ -158,10 +118,7 @@ services:
     acs:
         depends_on:
             - mongo
-        build:
-            context: ./components/acs
-            tags:
-                - acs:v1.2.0
+        image: ghcr.io/ketantewari/raikou/acs:v1
         restart: always
         container_name: acs
         hostname: acs
@@ -219,5 +176,5 @@ networks:
     default:
         ipam:
             config:
-                - subnet: 192.168.55.0/24
-                  gateway: 192.168.55.1
+                - subnet: 192.168.56.0/24
+                  gateway: 192.168.56.1

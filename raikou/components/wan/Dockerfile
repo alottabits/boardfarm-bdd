@@ -1,6 +1,13 @@
 # AFTR package build stage.
 FROM debian:buster-20220316-slim AS builder
 
+# Configure apt to use archive repositories for Debian Buster
+# Replace sources.list with archive repositories and disable Valid-Until check
+RUN echo "deb http://archive.debian.org/debian buster main" > /etc/apt/sources.list && \
+    echo "deb http://archive.debian.org/debian buster-updates main" >> /etc/apt/sources.list && \
+    echo "deb http://archive.debian.org/debian-security buster/updates main" >> /etc/apt/sources.list && \
+    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until
+
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
