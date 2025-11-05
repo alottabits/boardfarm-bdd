@@ -47,21 +47,21 @@ user-goal
 The CPE's pre-configured periodic `Inform` interval elapses, causing it to initiate a TR-069 session with the ACS, while a pending firmware upgrade is queued on the ACS.
 
 ## Main Success Scenario
-1. An operator places the new, signed firmware file on a **TFTP server** that is routable from the CPE's WAN interface. The file path and server IP are recorded.
-2. An operator configures the ACS to issue a `Download` command for the target CPE during its next TR-069 session. The command is configured with the TFTP server URL and the firmware's metadata.
+1. An operator places the new, signed firmware file on an image server that is routable from the CPE's WAN interface.
+2. An operator configures the ACS to issue a `Download` command for the target CPE.
 3. The CPE sends an `Inform` message to the ACS when its periodic interval elapses.
-4. The ACS identifies the CPE and detects the pending `Download` command.
-5. The ACS issues the pre-configured `Download` RPC.
-6. The CPE downloads the firmware from the TFTP server.
-7. After internally verifying the firmware, the CPE installs it and automatically **reboots**.
-8. The CPE reconnects to the ACS and sends a `1 BOOT` `Inform` message.
+4. The ACS issues the pre-configured `Download` RPC.
+5. The CPE downloads the firmware from the image server.
+6. The CPE validates the firmware.
+7. After successful validation, the CPE installs the firmware and automatically **reboots**.
+8. The CPE reconnects to the ACS.
 9. The ACS reflects the updated software version for the CPE.
 10. Use case succeeds and all success guarantees are met.
 
 ## Extensions
 
-- **7.a Firmware Verification Fails**:
-    1. The CPE attempts to download the firmware but rejects it due to validation failure.
+- **6.a Firmware Verification Fails**:
+    1. The CPE verifies the firmware but rejects it due to validation failure.
     2. The CPE reports the failed verification to the ACS.
     3. The ACS records the failure with a non-zero fault code.
     4. The CPE does not reboot and remains on the previous firmware version.
@@ -73,7 +73,7 @@ The CPE's pre-configured periodic `Inform` interval elapses, causing it to initi
     3. The CPE reconnects and resumes normal operation on the original firmware.
     4. Use case fails; minimal guarantees are met.
 
-- **11.a Subscriber Credentials are Reset to Factory Default**:
+- **10.a Subscriber Credentials are Reset to Factory Default**:
     1. The firmware upgrade succeeds, but user-configured settings are lost.
     2. Subscriber re-configures user credentials and LAN settings.
     3. Use case succeeds with comments, noting the configuration loss.
