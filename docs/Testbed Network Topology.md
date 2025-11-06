@@ -1,31 +1,37 @@
-# Network Topology Analysis: Raikou + Boardfarm Testbed
+# Network Topology Reference: Raikou + Boardfarm Testbed
 
-## Executive Summary
+## Overview
 
-This document captures the comprehensive analysis of the Raikou + Boardfarm testbed network topology, focusing on how the containerized home gateway components interact to enable firmware upgrades and realistic network simulation.
+The Raikou + Boardfarm testbed simulates a complete home gateway environment using containerized components. The testbed operates on two distinct network layers:
 
-## Key Findings
+- **Docker Management Network** (`192.168.56.0/24`): Provides SSH access to all containers for configuration and management
+- **Simulated Network** (`172.25.1.0/24`, `10.1.1.0/24`): The testbed topology created by Raikou using OVS bridges
 
-### 1. **Home Gateway Architecture**
-The complete home gateway functionality is represented by **three core containers**:
-- **CPE Container**: The actual home gateway device (PrplOS firmware)
-- **Router Container**: Network gateway with routing and NAT functionality  
-- **LAN Container**: Local network services and home network simulation
+## Network Architecture
 
-### 2. **Network Interface Configuration Issue Resolved**
-**Critical Discovery**: The router's NAT configuration was incorrectly set to `ENABLE_NAT_ON=eth0`, but the actual CPE interface was named `cpe`. 
+### Home Gateway Components
 
-**Initial Solution**: Changed to `ENABLE_NAT_ON=cpe` to enable NAT on the interface connecting to the CPE.
+| Component | Description | Image |
+|-----------|-------------|-------|
+| **CPE** | Home gateway device (PrplOS firmware) | `cpe:v1.2.0` |
+| **Router** | Network gateway with FRR routing and NAT | `router:v1.2.0` |
+| **LAN** | Local network services and home network simulation | `lan:v1.2.0` |
 
-**Corrected Solution**: Should be `ENABLE_NAT_ON=eth1` to enable NAT on the WAN interface, which is the correct direction for masquerading traffic going out to the internet/WAN services.
+### Infrastructure Services
 
-### 3. **Dual Network Architecture**
-The testbed operates on **two distinct network layers**:
-- **Docker Management Network** (`192.168.56.0/24`): **ALL containers** have SSH access via port forwarding for Boardfarm configuration and management
-- **Simulated Network** (`172.25.1.0/24`, `10.1.1.0/24`): The actual testbed topology created by Raikou
+| Component | Description | Image |
+|-----------|-------------|-------|
+| **WAN** | Network services container (HTTP/TFTP/FTP/DNS/proxy/testing tools) | `wan:v1.2.0` |
+| **ACS** | TR-069 management server | `acs:v1.2.0` |
+| **DHCP** | Network provisioning server | `dhcp:v1.2.0` |
+| **SIP Center** | Voice services | `sip:v1.2.0` |
 
-### 4. **Network Service Access**
-The CPE accesses services on the **simulated network** (`172.25.1.2`), not the Docker management network (`192.168.56.6`).
+### Client Devices
+
+| Component | Description | Image |
+|-----------|-------------|-------|
+| **LAN Phone** | Phone device on LAN network | `phone:v1.2.0` |
+| **WAN Phone** | Phone device on WAN network | `phone:v1.2.0` |
 
 ## Network Topology Diagrams
 
@@ -34,7 +40,7 @@ The CPE accesses services on the **simulated network** (`172.25.1.2`), not the D
 ```mermaid
 graph TB
     subgraph "Docker Management Network (192.168.56.0/24)"
-        HOST[Host Machine<br/>192.168.56.1]
+        MGMT[Boardfarm / Host<br/>192.168.56.1<br/>Management & Testing]
         
         subgraph "Container Management Interfaces"
             WAN_MGMT[WAN Container eth0<br/>192.168.56.6<br/>SSH:4001 HTTP:8001]
@@ -47,41 +53,25 @@ graph TB
             LAN_PHONE_MGMT[LAN Phone eth0<br/>192.168.56.x<br/>SSH:4006]
             WAN_PHONE_MGMT[WAN Phone eth0<br/>192.168.56.x<br/>SSH:4007]
         end
-        
-        subgraph "Boardfarm Access"
-            BOARDFARM[Boardfarm Test Framework<br/>Configuration & Testing]
-        end
     end
     
     %% Management Connections
-    HOST -.->|SSH/Management| WAN_MGMT
-    HOST -.->|SSH/Management| ROUTER_MGMT
-    HOST -.->|SSH/Management| LAN_MGMT
-    HOST -.->|SSH/Management| DHCP_MGMT
-    HOST -.->|SSH/Management| ACS_MGMT
-    HOST -.->|SSH/Management| CPE_MGMT
-    HOST -.->|SSH/Management| SIP_MGMT
-    HOST -.->|SSH/Management| LAN_PHONE_MGMT
-    HOST -.->|SSH/Management| WAN_PHONE_MGMT
-    
-    BOARDFARM -.->|SSH/Config| WAN_MGMT
-    BOARDFARM -.->|SSH/Config| ROUTER_MGMT
-    BOARDFARM -.->|SSH/Config| LAN_MGMT
-    BOARDFARM -.->|SSH/Config| DHCP_MGMT
-    BOARDFARM -.->|SSH/Config| ACS_MGMT
-    BOARDFARM -.->|docker exec| CPE_MGMT
-    BOARDFARM -.->|SSH/Config| SIP_MGMT
-    BOARDFARM -.->|SSH/Config| LAN_PHONE_MGMT
-    BOARDFARM -.->|SSH/Config| WAN_PHONE_MGMT
+    MGMT -.->|SSH/Management| WAN_MGMT
+    MGMT -.->|SSH/Management| ROUTER_MGMT
+    MGMT -.->|SSH/Management| LAN_MGMT
+    MGMT -.->|SSH/Management| DHCP_MGMT
+    MGMT -.->|SSH/Management| ACS_MGMT
+    MGMT -.->|docker exec| CPE_MGMT
+    MGMT -.->|SSH/Management| SIP_MGMT
+    MGMT -.->|SSH/Management| LAN_PHONE_MGMT
+    MGMT -.->|SSH/Management| WAN_PHONE_MGMT
     
     %% Styling - Using default theme for automatic light/dark mode support
-    classDef host stroke-width:3px
+    classDef mgmt stroke-width:3px
     classDef management stroke-width:2px
-    classDef boardfarm stroke-width:2px
     
-    class HOST host
+    class MGMT mgmt
     class WAN_MGMT,ROUTER_MGMT,LAN_MGMT,DHCP_MGMT,ACS_MGMT,CPE_MGMT,SIP_MGMT,LAN_PHONE_MGMT,WAN_PHONE_MGMT management
-    class BOARDFARM boardfarm
 ```
 
 ### Simulated Network Topology
@@ -102,7 +92,7 @@ graph TB
     end
     
     subgraph "Infrastructure Services"
-        WAN[WAN Container<br/>HTTP/TFTP Server<br/>eth1: 172.25.1.2/24<br/>Service Hosting]
+        WAN[WAN Container<br/>Network Services<br/>eth1: 172.25.1.2/24<br/>HTTP/TFTP/FTP/DNS/Testing]
         ACS[ACS Container<br/>TR-069 Management<br/>eth1: 172.25.1.40/24]
         DHCP[DHCP Container<br/>Network Provisioning<br/>eth1: 172.25.1.20/24]
         SIP[SIP Center<br/>Voice Services<br/>eth1: 172.25.1.5/24]
@@ -142,86 +132,136 @@ graph TB
     class BRIDGE_CPE_RTR,BRIDGE_LAN_CPE,BRIDGE_RTR_WAN,BRIDGE_RTR_UPLINK bridge
 ```
 
-## Detailed Network Analysis
+## Network Segments Reference
 
-### Network Segments
+### CPE-Router Segment (`cpe-rtr` bridge)
 
-#### 1. **CPE-Router Segment** (`cpe-rtr` bridge)
-- **CPE eth1**: `10.1.1.x/24` (DHCP assigned)
-- **Router cpe**: `10.1.1.1/24` (Gateway)
-- **Purpose**: WAN connectivity for CPE
+| Component | Interface | IP Address | Purpose |
+|-----------|-----------|------------|---------|
+| CPE | eth1 | `10.1.1.x/24` (DHCP) | WAN connectivity |
+| Router | cpe | `10.1.1.1/24` | Gateway |
 
-#### 2. **LAN Segment** (`lan-cpe` bridge)
-- **CPE eth0**: Connected to `br-lan` bridge
-- **LAN Container**: Provides home network services
-- **LAN Phone**: Connected to home network
-- **Purpose**: Local network simulation
+### LAN Segment (`lan-cpe` bridge)
 
-#### 3. **WAN Segment** (`rtr-wan` bridge)
-- **Router eth1**: `172.25.1.1/24` (Gateway)
-- **WAN Container**: `172.25.1.2/24` (Firmware server)
-- **ACS**: `172.25.1.40/24` (TR-069 management)
-- **DHCP**: `172.25.1.20/24` (Provisioning)
-- **SIP Center**: `172.25.1.5/24` (Voice services)
-- **Purpose**: Internet/cloud simulation
+| Component | Interface | Connection | Purpose |
+|-----------|-----------|------------|---------|
+| CPE | eth0 | Connected to `br-lan` | LAN interface |
+| LAN Container | eth1 | Connected to `br-lan` | Home network services |
+| LAN Phone | eth1 | Connected to `br-lan` | Client device |
 
-#### 4. **Uplink Segment** (`rtr-uplink` bridge)
-- **Router aux0**: `172.25.2.1/24`
-- **Purpose**: External connectivity simulation
+### WAN Segment (`rtr-wan` bridge)
+
+| Component | Interface | IP Address | Purpose |
+|-----------|-----------|------------|---------|
+| Router | eth1 | `172.25.1.1/24` | Gateway |
+| WAN Container | eth1 | `172.25.1.2/24` | Network services (HTTP/TFTP/FTP/DNS/proxy/testing) |
+| ACS Container | eth1 | `172.25.1.40/24` | TR-069 management |
+| DHCP Container | eth1 | `172.25.1.20/24` | Network provisioning |
+| SIP Center | eth1 | `172.25.1.5/24` | Voice services |
+| WAN Phone | eth1 | `172.25.1.3/24` | Client device |
+
+### Uplink Segment (`rtr-uplink` bridge)
+
+| Component | Interface | IP Address | Purpose |
+|-----------|-----------|------------|---------|
+| Router | aux0 | `172.25.2.1/24` | External connectivity simulation |
+
+## Container Specifications
+
+### Container Ports and Access
+
+| Container | SSH Port | Other Ports | Connection Method |
+|-----------|----------|-------------|-------------------|
+| router | 4000 | - | `ssh -p 4000 root@localhost` |
+| wan | 4001 | 8001 (HTTP) | `ssh -p 4001 root@localhost` |
+| lan | 4002 | 8002 (HTTP) | `ssh -p 4002 root@localhost` |
+| dhcp | 4003 | - | `ssh -p 4003 root@localhost` |
+| acs | 4503 | 7547 (TR-069), 7557, 7567, 3000 (UI) | `ssh -p 4503 root@localhost` |
+| cpe | 4004 | - | `docker exec -it cpe ash` |
+| sipcenter | 4005 | - | `ssh -p 4005 root@localhost` |
+| lan-phone | 4006 | - | `ssh -p 4006 root@localhost` |
+| wan-phone | 4007 | - | `ssh -p 4007 root@localhost` |
+
+**Default Credentials**: `root` / `bigfoot1`
+
+## Router Configuration
+
+### Interface Configuration
+
+| Interface | Bridge | IP Address | Purpose |
+|-----------|--------|------------|---------|
+| cpe | cpe-rtr | `10.1.1.1/24` | CPE-facing (LAN side) |
+| eth1 | rtr-wan | `172.25.1.1/24` | WAN-facing (internet-facing) |
+| aux0 | rtr-uplink | `172.25.2.1/24` | Auxiliary uplink |
+| eth0 | Docker network | `192.168.56.x/24` | Management (isolated) |
+
+### NAT Configuration
+
+```yaml
+environment:
+    - ENABLE_NAT_ON=eth1
+```
+
+**NAT Interface**: `eth1` (WAN interface)  
+**NAT Behavior**: Masquerades traffic from `10.1.1.0/24` as `172.25.1.1` when accessing WAN services
 
 ### Network Communication Flow
 
-1. **CPE** (`10.1.1.x`) sends network request to `172.25.1.2`
-2. **Router** receives on `cpe` interface, routes to `eth1`
-3. **Router** applies NAT (source: `10.1.1.x` → `172.25.1.1`)
-4. **WAN Container** receives request, processes service
-5. **Router** routes response back to CPE
-6. **CPE** receives service response
+1. CPE (`10.1.1.x`) sends request to `172.25.1.2`
+2. Router receives on `cpe` interface, routes to `eth1`
+3. Router applies NAT (source: `10.1.1.x` → `172.25.1.1`)
+4. WAN Container receives request, processes service
+5. Router routes response back to CPE
+6. CPE receives service response
 
-### Critical Configuration Details
+## Boardfarm Integration
 
-#### Router NAT Configuration
-```yaml
-environment:
-    - ENABLE_NAT_ON=eth1  # ✅ Correct: NAT on WAN interface
-    # NOT eth0 (Docker management) or cpe (LAN interface)
-```
+### Device Mapping
 
-#### Interface Naming Convention
-- **`cpe`**: Interface connecting to CPE (LAN side)
-- **`eth1`**: Interface connecting to WAN services (internet-facing)
-- **`aux0`**: Auxiliary uplink interface
-- **`eth0`**: Docker management interface (not part of simulation)
+| Boardfarm Device | Container | Connection Method |
+|------------------|-----------|-------------------|
+| `bf_cpe` | cpe | `docker exec -it cpe ash` |
+| `bf_wan` | wan | SSH port 4001 |
+| `bf_lan` | lan | SSH port 4002 |
+| `bf_acs` | acs | SSH port 4503 |
+| `bf_dhcp` | dhcp | SSH port 4003 |
+| `bf_phone` | lan-phone, wan-phone | SSH ports 4006, 4007 |
 
-#### NAT Interface Rationale
-**Why `ENABLE_NAT_ON=eth1` is correct:**
-- **Traffic Direction**: NAT masquerades traffic going OUT to the WAN/internet
-- **Real-world Behavior**: Matches actual home gateway NAT configuration on WAN interface
-- **Network Semantics**: `eth1` is the internet-facing side of the router
-- **Traffic Flow**: CPE (`10.1.1.x`) → Router `cpe` → Router `eth1` → WAN (`172.25.1.2`)
-- **NAT Purpose**: Masquerade private IPs (`10.1.1.x`) as router's WAN IP (`172.25.1.1`) when accessing internet services
+### Boot Process
 
-#### Network Isolation
-- **Docker Management** (`192.168.56.0/24`): **ALL containers** accessible via SSH for Boardfarm configuration, testing, and management
-- **Simulated Network**: Complete testbed topology for realistic network behavior
-- **No cross-communication** between management and simulated networks
+1. **Raikou**: Creates network topology and starts containers
+2. **Boardfarm**: Connects to containers via Docker management network and provisions devices
+3. **CPE**: Obtains IP via DHCP and registers with ACS
+4. **Testing**: Network validation and service access
 
-## Troubleshooting Guide
+## Troubleshooting Reference
 
 ### Common Issues
 
-1. **CPE Cannot Reach WAN**
-   - Check: CPE has IP on eth1 (`10.1.1.x/24`)
-   - Check: Router NAT enabled on `eth1` interface
-   - Check: Router has routes between `10.1.1.0/24` and `172.25.1.0/24`
+#### CPE Cannot Reach WAN
 
-2. **Wrong IP Address for Testing**
-   - Use `172.25.1.2` for WAN services (simulated network)
-   - NOT `192.168.56.6` (Docker management)
+**Checks:**
+- CPE has IP on eth1 (`10.1.1.x/24`)
+- Router NAT enabled on `eth1` interface
+- Router has routes between `10.1.1.0/24` and `172.25.1.0/24`
 
-3. **NAT Not Working**
-   - Verify `ENABLE_NAT_ON=eth1` (not `eth0` or `cpe`)
-   - Check iptables rules: `iptables -t nat -L`
+**Verification:**
+```bash
+docker exec -it cpe ash -c "ping -c 3 10.1.1.1"    # Router gateway
+docker exec -it cpe ash -c "ping -c 3 172.25.1.2"  # WAN container
+docker exec -it router bash -c "ip route show"
+```
+
+#### Wrong IP Address for Testing
+
+**Use**: `172.25.1.2` for WAN services (simulated network)  
+**Do NOT use**: `192.168.56.6` (Docker management network)
+
+#### NAT Not Working
+
+**Check Configuration:**
+- Verify `ENABLE_NAT_ON=eth1` in docker-compose.yaml
+- Check iptables rules: `docker exec -it router bash -c "iptables -t nat -L"`
 
 ### Verification Commands
 
@@ -235,43 +275,40 @@ docker exec -it router bash -c "iptables -t nat -L"
 
 # Check network topology
 docker exec -it router bash -c "ip route show"
+
+# Check container status
+docker compose ps
+
+# Check SSH service
+./validate-ssh.sh
 ```
 
-## Integration with Boardfarm
+## Quick Reference Tables
 
-### Device Mapping
-- **`bf_cpe`**: Maps to CPE container (via `docker exec`)
-- **`bf_wan`**: Maps to WAN container (via SSH port 4001)
-- **`bf_lan`**: Maps to LAN container (via SSH port 4002)
-- **`bf_acs`**: Maps to ACS container (via SSH port 4503)
-- **`bf_dhcp`**: Maps to DHCP container (via SSH port 4003)
-- **`bf_phone`**: Maps to phone containers (via SSH ports 4006/4007)
+### Network Addresses Summary
 
-### Boardfarm Connection Methods
-- **CPE**: Uses `docker exec -it cpe ash` (direct container access)
-- **All Other Devices**: Use SSH connections via Docker management network:
-  - `localhost:4001` → WAN container
-  - `localhost:4002` → LAN container  
-  - `localhost:4003` → DHCP container
-  - `localhost:4503` → ACS container
-  - `localhost:4004` → CPE container
-  - `localhost:4005` → SIP Center
-  - `localhost:4006` → LAN Phone
-  - `localhost:4007` → WAN Phone
+| Network | Subnet | Purpose |
+|--------|--------|---------|
+| Docker Management | `192.168.56.0/24` | Container SSH access |
+| CPE-Router | `10.1.1.0/24` | CPE WAN connectivity |
+| WAN Services | `172.25.1.0/24` | Infrastructure services |
+| Uplink | `172.25.2.0/24` | External connectivity |
 
-### Boot Process
-1. **Raikou**: Creates network topology and starts containers
-2. **Boardfarm**: Connects to containers via Docker management network and provisions devices
-3. **CPE**: Obtains IP via DHCP and registers with ACS
-4. **Testing**: Network validation and service access
+### Service IP Addresses
 
-## Conclusion
+| Service | IP Address | Ports |
+|---------|------------|-------|
+| WAN Server | `172.25.1.2` | 80 (HTTP), 69 (TFTP), 21 (FTP), 53 (DNS) |
+| ACS Server | `172.25.1.40` | 7547 (TR-069) |
+| DHCP Server | `172.25.1.20` | 67, 547 |
+| SIP Server | `172.25.1.5` | 5060 (SIP) |
+| Router Gateway | `172.25.1.1` | - |
 
-The testbed successfully simulates a complete home gateway environment with:
-- ✅ Realistic network topology using OVS bridges
-- ✅ Proper NAT configuration for internet access simulation
-- ✅ Complete network service access via HTTP/TFTP
-- ✅ TR-069 management and provisioning
-- ✅ Voice services and client device simulation
+### OVS Bridges
 
-The key insight is understanding the **dual network architecture** where Docker management networks are separate from the simulated testbed topology, ensuring realistic network behavior for testing home gateway functionality.
+| Bridge | Connected Components | Purpose |
+|--------|---------------------|---------|
+| cpe-rtr | CPE eth1, Router cpe | CPE WAN connectivity |
+| lan-cpe | CPE eth0, LAN eth1, LAN Phone | Home network |
+| rtr-wan | Router eth1, WAN, ACS, DHCP, SIP, WAN Phone | WAN services |
+| rtr-uplink | Router aux0 | External connectivity |
