@@ -43,6 +43,7 @@ graph TB
         MGMT[Boardfarm / Host<br/>192.168.56.1<br/>Management & Testing]
         
         subgraph "Container Management Interfaces"
+            direction LR
             WAN_MGMT[WAN Container eth0<br/>192.168.56.6<br/>SSH:4001 HTTP:8001]
             ROUTER_MGMT[Router Container eth0<br/>192.168.56.8<br/>SSH:4000]
             LAN_MGMT[LAN Container eth0<br/>192.168.56.x<br/>SSH:4002 HTTP:8002]
