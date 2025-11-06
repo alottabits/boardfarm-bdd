@@ -74,10 +74,10 @@ graph TB
     BOARDFARM -.->|SSH/Config| LAN_PHONE_MGMT
     BOARDFARM -.->|SSH/Config| WAN_PHONE_MGMT
     
-    %% Styling
-    classDef host fill:#fff3e0,stroke:#e65100,stroke-width:3px
-    classDef management fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef boardfarm fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    %% Styling - Using default theme for automatic light/dark mode support
+    classDef host stroke-width:3px
+    classDef management stroke-width:2px
+    classDef boardfarm stroke-width:2px
     
     class HOST host
     class WAN_MGMT,ROUTER_MGMT,LAN_MGMT,DHCP_MGMT,ACS_MGMT,CPE_MGMT,SIP_MGMT,LAN_PHONE_MGMT,WAN_PHONE_MGMT management
@@ -130,11 +130,11 @@ graph TB
     
     ROUTER <-->|aux0| BRIDGE_RTR_UPLINK
     
-    %% Styling
-    classDef gateway fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef infrastructure fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef client fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
-    classDef bridge fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    %% Styling - Using default theme for automatic light/dark mode support
+    classDef gateway stroke-width:2px
+    classDef infrastructure stroke-width:2px
+    classDef client stroke-width:2px
+    classDef bridge stroke-width:2px
     
     class CPE,ROUTER,LAN gateway
     class WAN,ACS,DHCP,SIP infrastructure
