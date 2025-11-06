@@ -38,24 +38,20 @@ The Raikou + Boardfarm testbed simulates a complete home gateway environment usi
 ### Docker Management Network
 
 ```mermaid
-graph TB
-    subgraph "Docker Management Network (192.168.56.0/24)"
-        MGMT[Boardfarm / Host<br/>192.168.56.1<br/>Management & Testing]
-        
-        subgraph "Container Management Interfaces"
-            direction LR
-            WAN_MGMT[WAN Container eth0<br/>192.168.56.6<br/>SSH:4001 HTTP:8001]
-            ROUTER_MGMT[Router Container eth0<br/>192.168.56.8<br/>SSH:4000]
-            LAN_MGMT[LAN Container eth0<br/>192.168.56.x<br/>SSH:4002 HTTP:8002]
-            DHCP_MGMT[DHCP Container eth0<br/>192.168.56.x<br/>SSH:4003]
-            ACS_MGMT[ACS Container eth0<br/>192.168.56.x<br/>SSH:4503 TR-069:7547 UI:3000]
-            CPE_MGMT[CPE Container eth0<br/>192.168.56.x<br/>SSH:4004]
-            SIP_MGMT[SIP Center eth0<br/>192.168.56.x<br/>SSH:4005]
-            LAN_PHONE_MGMT[LAN Phone eth0<br/>192.168.56.x<br/>SSH:4006]
-            WAN_PHONE_MGMT[WAN Phone eth0<br/>192.168.56.x<br/>SSH:4007]
-        end
-    end
+flowchart TB
+    MGMT[Boardfarm / Host<br/>192.168.56.1<br/>Management & Testing]
     
+    WAN_MGMT[WAN Container eth0<br/>192.168.56.6<br/>SSH:4001 HTTP:8001]
+    ROUTER_MGMT[Router Container eth0<br/>192.168.56.8<br/>SSH:4000]
+    LAN_MGMT[LAN Container eth0<br/>192.168.56.x<br/>SSH:4002 HTTP:8002]
+    DHCP_MGMT[DHCP Container eth0<br/>192.168.56.x<br/>SSH:4003]
+    ACS_MGMT[ACS Container eth0<br/>192.168.56.x<br/>SSH:4503 TR-069:7547 UI:3000]
+    CPE_MGMT[CPE Container eth0<br/>192.168.56.x<br/>SSH:4004]
+    SIP_MGMT[SIP Center eth0<br/>192.168.56.x<br/>SSH:4005]
+    LAN_PHONE_MGMT[LAN Phone eth0<br/>192.168.56.x<br/>SSH:4006]
+    WAN_PHONE_MGMT[WAN Phone eth0<br/>192.168.56.x<br/>SSH:4007]
+    
+       
     %% Management Connections
     MGMT -.->|SSH/Management| WAN_MGMT
     MGMT -.->|SSH/Management| ROUTER_MGMT
@@ -67,7 +63,7 @@ graph TB
     MGMT -.->|SSH/Management| LAN_PHONE_MGMT
     MGMT -.->|SSH/Management| WAN_PHONE_MGMT
     
-    %% Styling - Using default theme for automatic light/dark mode support
+    %% Styling
     classDef mgmt stroke-width:3px
     classDef management stroke-width:2px
     
