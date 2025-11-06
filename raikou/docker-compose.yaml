@@ -1,3 +1,4 @@
+name: boardfarm-bdd
 ---
 services:
     ssh_service:
