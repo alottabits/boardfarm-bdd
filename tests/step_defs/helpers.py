@@ -74,3 +74,4 @@ def install_file_on_tftp(tftp_server: WanTemplate, filename: str) -> None:
     # The copy_local_file_to_tftpboot method handles the SCP transfer.
     tftp_server.copy_local_file_to_tftpboot(local_file_path)
 
+
