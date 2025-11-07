@@ -75,12 +75,17 @@ services:
         depends_on:
             - ssh_service
 
-    lan-phone:
-        container_name: lan-phone
+    phone-image:
         build:
             context: ./components/phone
             tags:
                 - phone:v1.2.0
+        depends_on:
+            - ssh_service
+
+    lan-phone:
+        container_name: lan-phone
+        image: phone:v1.2.0
         ports:
             - 4006:22
         environment:
@@ -88,14 +93,11 @@ services:
         privileged: true
         hostname: lan-phone
         depends_on:
-            - ssh_service
+            - phone-image
 
     wan-phone:
         container_name: wan-phone
-        build:
-            context: ./components/phone
-            tags:
-                - phone:v1.2.0
+        image: phone:v1.2.0
         ports:
             - 4007:22
         environment:
@@ -103,7 +105,7 @@ services:
         privileged: true
         hostname: wan-phone
         depends_on:
-            - ssh_service
+            - phone-image
 
     lan:
         container_name: lan
