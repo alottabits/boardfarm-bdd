@@ -2,19 +2,44 @@
 
 ## Summary
 
-A multi-stage, self-healing process was designed to simulate a software upgrade for the containerized PrplOS device. The final architecture uses a "Wrapper + Hook" strategy to intercept the native PrplOS upgrade process. This approach is highly robust and future-proof, as it executes the official `sysupgrade` script, preserving all its validation logic, while injecting our container-specific behavior at the precise moment it's needed.
+A minimal-intervention approach was designed to enable validation of UC-12345 firmware upgrade behavior in a containerized testbed environment. The architecture uses a "Wrapper + Hook" strategy to bridge the gap where containerization prevents normal PrplOS operations (specifically, writing to FLASH memory), while preserving all native PrplOS behavior for validation purposes.
 
-This intercepted process seamlessly connects to a self-healing mechanism, orchestrated by a simulated bootloader (`/docker-entrypoint.sh`), which makes the container an autonomous unit capable of recovering from a failed upgrade without external intervention.
+The testbed's purpose is to validate that the CPE, ACS, and file server components perform their usual activities correctly, not to simulate production behavior. Where containerization creates gaps (e.g., no FLASH memory), we use minimal hooks to bridge those gaps without interfering with the native PrplOS upgrade process.
 
-## The "Wrapper + Hook" Upgrade Initiation
+## Purpose: Enabling Validation, Not Simulation
 
-To guard against future changes in the PrplOS upgrade scripts, the initial stage of the upgrade does not replace the official `/sbin/sysupgrade` script, but rather intercepts its final step.
+The containerized testbed is designed to **validate** UC-12345 firmware upgrade behavior, not to simulate a production environment. The testbed must allow:
+
+- **CPE**: To perform its normal upgrade activities (TR-069 processing, firmware validation, installation)
+- **ACS**: To perform its normal management activities (issuing Download RPCs, receiving status updates)
+- **File Server**: To serve firmware images via standard protocols (TFTP/HTTP)
+
+### **The Containerization Gap:**
+
+Containerization creates one fundamental gap: **no FLASH memory**. In a real CPE, firmware is written to dedicated FLASH partitions. In a container, we must bridge this gap with minimal intervention.
+
+### **Minimal Intervention Principle:**
+
+We intervene **only** where containerization prevents normal operation:
+- ✅ **Intercept FLASH writes**: Redirect to container filesystem operations
+- ✅ **Handle URL downloads**: Convert TR-069 URLs to local file paths
+- ❌ **Do NOT build self-healing mechanisms**: That's what we're validating, not simulating
+- ❌ **Do NOT modify TR-069 behavior**: PrplOS handles this natively
+- ❌ **Do NOT change validation logic**: PrplOS handles this natively
+
+The goal is to enable validation of UC-12345's Main Success Scenario and Extensions, ensuring that PrplOS's native upgrade process works correctly in a containerized test environment.
+
+## The "Wrapper + Hook" Minimal Intervention Strategy
+
+To enable validation of UC-12345 while preserving native PrplOS behavior, we use minimal hooks that bridge only the containerization gap (no FLASH memory). We do **not** replace PrplOS functionality; we only redirect operations that cannot work in a container.
+
+**Key Principle**: Every hook should answer "Does containerization prevent this from working?" If yes, bridge the gap. If no, let PrplOS handle it natively.
 
 1.  **Renaming:** The `Dockerfile` renames the original `/sbin/sysupgrade` to `/sbin/sysupgrade.orig`.
-2.  **The Wrapper:** A thin wrapper script is placed at `/sbin/sysupgrade`. When triggered by the high-level `ubus` call, its only job is to handle a potential URL by downloading the firmware to a local file. It then uses `exec` to hand off control to the original `/sbin/sysupgrade.orig` script.
+2.  **The Wrapper:** A thin wrapper script is placed at `/sbin/sysupgrade`. When triggered by the high-level `ubus` call or TR-069 Download command, its only job is to handle a potential URL by downloading the firmware to a local file. It then uses `exec` to hand off control to the original `/sbin/sysupgrade.orig` script.
 3.  **The Hook:** A platform hook script (`container-hooks.sh`) is placed in `/lib/upgrade/`. The original `sysupgrade.orig` script is designed to automatically source any scripts in this directory. Our hook script defines a function called `platform_do_upgrade`.
-4.  **The Interception:** The `sysupgrade.orig` script runs all of its internal validation logic. When it reaches the final step where it would normally write to flash memory, it instead calls our `platform_do_upgrade` function. This function executes our custom logic: it extracts the new root filesystem to `/new_rootfs_pending` and creates the `/boot/.do_upgrade` flag.
-5.  **Reboot:** The `sysupgrade.orig` script then completes its execution and reboots the device, initiating the self-healing phase.
+4.  **The Interception:** The `sysupgrade.orig` script runs all of its internal validation logic (signature verification, device compatibility, etc.). When it reaches the final step where it would normally write to flash memory, it instead calls our `platform_do_upgrade` function. This function bridges the containerization gap: it extracts the new root filesystem to `/new_rootfs_pending` and creates the `/boot/.do_upgrade` flag.
+5.  **Reboot:** The `sysupgrade.orig` script then completes its execution and reboots the device. The container entrypoint applies the new filesystem at boot time.
 
 ## Native PrplOS Process Preservation
 
@@ -27,14 +52,16 @@ The containerized upgrade process maintains **maximum compatibility** with the n
 3. **Block Device Writing:** Writes raw partition data directly to block devices (e.g., `/dev/sda2`)
 4. **Filesystem Mounting:** At boot time, the kernel mounts the partition as the root filesystem
 
-### **Container Adaptation Strategy:**
+### **Bridging the Containerization Gap:**
 
-Instead of reimplementing complex partition parsing logic, our approach **intercepts only at the block device write point** and redirects the output to a file:
+The **only** gap containerization creates is the absence of FLASH memory. We bridge this gap at the precise point where PrplOS would write to FLASH:
 
 1. **Native Functions:** Uses the exact same `get_partitions()` and `get_image_dd()` functions that PrplOS uses
 2. **Raw Partition Data:** Extracts the same raw partition data that would be written to flash memory
-3. **Loop Device Mounting:** Uses PrplOS's built-in loop device support (`/dev/loop0-37`) to mount SquashFS images
-4. **Filesystem Operations:** Performs standard Linux filesystem operations to install the new rootfs
+3. **Gap Bridge:** Instead of writing to `/dev/sda2` (FLASH), we write to a container filesystem location (`/new_rootfs_pending`)
+4. **Boot-Time Application:** The container entrypoint (`/docker-entrypoint.sh`) applies the new filesystem at boot time
+
+**Key Point**: This is the **only** modification to PrplOS behavior. Everything else (validation, TR-069, configuration preservation) works exactly as PrplOS designed it.
 
 ### **Key Advantages:**
 
@@ -43,6 +70,7 @@ Instead of reimplementing complex partition parsing logic, our approach **interc
 - **Native Compatibility:** Uses battle-tested PrplOS code paths
 - **No External Dependencies:** Uses only tools already present in PrplOS
 - **Security Preservation:** Maintains all validation and signature checking
+- **Validation-Focused:** Enables validation of PrplOS behavior without simulating production systems
 
 ## Native PrplOS Configuration Preservation
 
@@ -63,14 +91,16 @@ The containerized upgrade process leverages PrplOS's **native configuration pres
    - Merges user accounts using sophisticated `missing_lines()` logic
    - Syncs filesystem to prevent corruption
 
-### **Container Adaptation for Configuration Preservation:**
+### **Container Handling for Configuration Preservation:**
 
-Instead of implementing custom configuration restoration logic, our approach **intercepts only at the configuration backup preservation point**:
+Configuration preservation requires **no container-specific modifications**. PrplOS handles this entirely natively:
 
 1. **Native Backup Creation:** PrplOS creates `/tmp/sysupgrade.tgz` using its standard process
-2. **Hook Preservation:** Our container hooks preserve this backup alongside the rootfs image
-3. **Native Restoration:** PrplOS handles configuration restoration during boot using its proven logic
+2. **Native Preservation:** The container filesystem preserves this backup across container restarts (standard Docker behavior)
+3. **Native Restoration:** PrplOS handles configuration restoration during boot using its proven logic (`/lib/preinit/80_mount_root`)
 4. **User Account Merging:** PrplOS's sophisticated user account preservation ensures no data loss
+
+**Key Point**: Configuration preservation is validated exactly as it works in native PrplOS deployments. The testbed enables this validation without any modifications.
 
 ### **Configuration Files Preserved:**
 
@@ -241,22 +271,74 @@ This bypasses validation but preserves the native PrplOS upgrade process.
 
 This validation process ensures that firmware images are compatible with the PrplOS upgrade system while maintaining the security and reliability standards expected in production environments.
 
-## The Self-Healing Mechanism
+## UC-12345 Validation Capabilities
 
-The rest of the process is a state machine managed by the `/docker-entrypoint.sh` script, using flags in `/boot`.
+The containerized testbed enables validation of UC-12345 requirements:
 
-### Stage 1: Upgrade Activation & Watchdog Arming (Entrypoint)
+### **Main Success Scenario Validation:**
 
-On boot, the entrypoint script detects the `/boot/.do_upgrade` flag and proceeds to:
-1.  Back up the current root filesystem to `/old_root`.
-2.  Move the new filesystem from `/new_rootfs_pending` into place.
-3.  **Arm the recovery mechanism:** It creates a new flag, `/boot/.upgrade_in_progress`, and launches a background `/upgrade-watchdog.sh` script.
-4.  It removes the `.do_upgrade` flag and proceeds to boot the new firmware.
+| UC Step | PrplOS Native Behavior | Testbed Intervention |
+|---------|----------------------|---------------------|
+| 5. CPE downloads firmware | TR-069 client handles download | Wrapper converts URL to local file |
+| 6. CPE validates firmware | Native validation logic | **None** - PrplOS handles validation |
+| 7. CPE installs & reboots | Native installation logic | Hook redirects FLASH write to filesystem |
+| 8. CPE reconnects to ACS | Native TR-069 reconnection | **None** - PrplOS handles reconnection |
+| 9. ACS reflects version | Native TR-069 reporting | **None** - PrplOS handles reporting |
 
-### Stage 2: Health Check (Live System)
+### **Extension Validation:**
 
-A service script (`/etc/init.d/health-check`) runs and, if it sees the `.upgrade_in_progress` flag, it polls for a successful boot (e.g., WAN interface is up). If the check passes, it creates a `/boot/.boot_successful` flag and removes the `.upgrade_in_progress` flag, marking the upgrade as complete.
+- **6.a (Validation Failure)**: PrplOS's native validation failure handling is preserved; testbed validates that PrplOS reports failures correctly to ACS
+- **8.a (Rollback)**: If PrplOS has native rollback, testbed preserves it; if not, this is a PrplOS requirement, not a testbed simulation
+- **10.a (Config Reset)**: Testbed validates PrplOS's native configuration preservation behavior
 
-### Stage 3: Automatic Rollback (Watchdog & Entrypoint)
+### **What We Do NOT Simulate:**
 
-The `/upgrade-watchdog.sh` script acts as a dead man's switch. After a timeout, it checks for the `/boot/.boot_successful` flag. If the flag is missing, it forces a reboot. On this next boot, the entrypoint script sees that the `.upgrade_in_progress` flag is still present, which is the definitive signal of a failed boot. It then triggers the rollback: restoring the backup from `/old_root`, clearing all flags, and booting safely with the original firmware.
+- ❌ Self-healing mechanisms (that's what we validate)
+- ❌ TR-069 protocol behavior (PrplOS handles this)
+- ❌ Firmware validation logic (PrplOS handles this)
+- ❌ Configuration preservation (PrplOS handles this)
+- ❌ ACS communication (PrplOS handles this)
+
+The testbed provides the **minimal infrastructure** needed to validate that PrplOS performs these functions correctly.
+
+## Container Boot-Time Upgrade Application
+
+The container entrypoint (`/docker-entrypoint.sh`) handles the application of the new filesystem at boot time, bridging the containerization gap where FLASH operations would normally occur.
+
+### **Upgrade Application Process:**
+
+On boot, the entrypoint script detects the `/boot/.do_upgrade` flag (created by the hook during upgrade) and proceeds to:
+
+1. **Backup Current Rootfs:** Back up the current root filesystem to `/old_root` for potential rollback validation
+2. **Apply New Filesystem:** Move the new filesystem from `/new_rootfs_pending` into place
+3. **Remove Flag:** Remove the `.do_upgrade` flag
+4. **Continue Boot:** Proceed to boot the new firmware using PrplOS's standard boot process
+
+**Key Point**: This process bridges the containerization gap (no FLASH) but does not implement production rollback mechanisms. If rollback validation is needed (UC-12345 Extension 8.a), it would be handled by PrplOS's native mechanisms, not by testbed simulation.
+
+## Validating Rollback Behavior (UC-12345 Extension 8.a)
+
+UC-12345 Extension 8.a specifies that "the device rolls back autonomously to the previous firmware and reboots" if provisioning fails after upgrade.
+
+**Important**: The testbed does **not** implement this rollback mechanism. Instead, the testbed enables validation of whether PrplOS's native rollback behavior (if it exists) works correctly.
+
+### **Containerization Impact on Rollback Validation:**
+
+If PrplOS has native rollback capabilities, our container hooks must preserve that behavior:
+- The hook's filesystem operations should not interfere with PrplOS's rollback detection
+- Configuration preservation should work identically to native PrplOS
+- Any rollback mechanisms in PrplOS should function normally
+- The backup stored at `/old_root` enables validation of rollback behavior if PrplOS implements it
+
+If PrplOS does **not** have native rollback capabilities, then Extension 8.a represents a requirement for PrplOS itself, not something the testbed should simulate.
+
+### **Testbed Responsibility:**
+
+The testbed's responsibility is to:
+1. Enable the upgrade process to complete (bridging the FLASH gap)
+2. Allow validation of post-upgrade behavior (ACS reconnection, provisioning)
+3. Enable detection of upgrade failures (if PrplOS reports them natively)
+4. Preserve any native PrplOS rollback mechanisms without modification
+5. **NOT** to implement rollback mechanisms that PrplOS doesn't have
+
+This ensures we validate actual PrplOS behavior, not simulated testbed behavior.
