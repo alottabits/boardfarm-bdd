@@ -14,18 +14,18 @@ from pytest_boardfarm3.boardfarm_fixtures import bf_context
 def acs_configured_for_upgrade(
     acs: AcsTemplate,
     cpe: CpeTemplate,
-    tftp_server: WanTemplate,
+    http_server: WanTemplate,
     filename: str,
     bf_context: Any,
 ) -> None:
     """Configure the ACS to send a Download RPC on the CPE's next inform."""
-    tftp_ip = tftp_server.get_eth_interface_ipv4_address()
-    tftp_url = f"tftp://{tftp_ip}/{filename}"
+    http_server_ip = http_server.get_eth_interface_ipv4_address()
+    http_url = f"http://{http_server_ip}/{filename}"
 
     # Instruct the ACS to send a Download RPC to the CPE.
     # The ACS will queue this command and send it when the CPE next checks in.
     acs.Download(
-        url=tftp_url,
+        url=http_url,
         filetype="1 Firmware Upgrade Image",
         cpe_id=cpe.sw.cpe_id,
     )

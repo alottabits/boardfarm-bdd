@@ -11,7 +11,7 @@ Feature: CPE Firmware Upgrade
     Given the operator installs a new signed firmware file "prplos_upgrade.img" on the image server
     And the user has set the CPE GUI username to "john" and password to "pass"
     And the user has set the SSID to "mynetwork"
-    And the ACS is configured to issue a Download command for the CPE
+    And the ACS is configured to upgrade the CPE with "prplos_upgrade.img"
     When the CPE performs its periodic TR-069 check-in
     Then the ACS issues the Download RPC
     And the CPE downloads the firmware from the image server
@@ -26,7 +26,7 @@ Feature: CPE Firmware Upgrade
   @UC-12345-6.a
   Scenario: Firmware Verification Fails due to Invalid Signature
     Given the operator installs a new firmware file "prplos_corrupt.img" with an invalid signature on the image server
-    And the ACS is configured to issue a Download command for the CPE
+    And the ACS is configured to upgrade the CPE with "prplos_corrupt.img"
     When the CPE performs its periodic TR-069 check-in
     Then the ACS issues the Download RPC
     And the CPE downloads the firmware from the image server
@@ -40,7 +40,7 @@ Feature: CPE Firmware Upgrade
   @UC-12345-8.a
   Scenario: Upgrade Fails and Rolls Back Due to Post-Reboot Provisioning Failure
     Given the operator installs a new signed firmware file "prplos_upgrade.img" on the image server
-    And the ACS is configured to issue a Download command for the CPE
+    And the ACS is configured to upgrade the CPE with "prplos_upgrade.img"
     When the CPE performs its periodic TR-069 check-in
     Then the ACS issues the Download RPC
     And the CPE downloads the firmware from the image server
@@ -55,7 +55,7 @@ Feature: CPE Firmware Upgrade
   @UC-12345-10.a
   Scenario: Upgrade Succeeds but Device Configuration is Reset
     Given the operator installs a new signed firmware file "firmware-v2-resets-config.bin" on the image server
-    And the ACS is configured to issue a Download command for the CPE
+    And the ACS is configured to upgrade the CPE with "firmware-v2-resets-config.bin"
     When the CPE performs its periodic TR-069 check-in
     Then the ACS issues the Download RPC
     And the CPE downloads the firmware from the image server

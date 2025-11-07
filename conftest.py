@@ -29,14 +29,14 @@ from tests.step_defs import (  # noqa: F401
 from tests.step_defs.helpers import (
     get_console_uptime_seconds,
     gpv_value,
-    install_file_on_tftp,
+    install_file_on_http_server,
 )
 
 # Expose helpers with original names for backward compatibility
 # (if any code still uses the underscore-prefixed names)
 _gpv_value = gpv_value
 _get_console_uptime_seconds = get_console_uptime_seconds
-_install_file_on_tftp = install_file_on_tftp
+_install_file_on_http_server = install_file_on_http_server
 
 
 # Fixtures for easy device access
@@ -54,5 +54,11 @@ def ACS(device_manager: DeviceManager) -> AcsTemplate:
 
 @pytest.fixture(scope="session")
 def WAN(device_manager: DeviceManager) -> WanTemplate:
-    """Fixture providing access to the WAN device (acts as TFTP server)."""
+    """Fixture providing access to the WAN device (acts as HTTP server for firmware files)."""
     return device_manager.get_device_by_type(WanTemplate)  # type: ignore[type-abstract]
+
+
+@pytest.fixture(scope="session")
+def http_server(WAN: WanTemplate) -> WanTemplate:
+    """Alias fixture for WAN device, emphasizing its role as HTTP server for firmware files."""
+    return WAN

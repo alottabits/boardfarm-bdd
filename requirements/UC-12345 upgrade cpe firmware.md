@@ -80,9 +80,9 @@ The CPE's pre-configured periodic `Inform` interval elapses, causing it to initi
 
 ## Technology & Data Variations List
 
-- **Firmware hosting protocol**: TFTP or HTTP. The delivery protocol may vary per environment; behavior is identical from the use-case perspective.
+- **Firmware hosting protocol**: HTTP or HTTPS. The WAN container in the testbed provides HTTP service via lighttpd, and native PrplOS sysupgrade handles HTTP/HTTPS URLs directly. This eliminates the need for TFTP-specific handling logic.
 - **Artifact resolution source**: Artifact (filename/URI/version) can be derived from device inventory/configuration or explicitly provided in the test context.
-- **Firmware file location**: IP address/host and path on the selected server (TFTP or HTTP).
+- **Firmware file location**: IP address/host and path on the HTTP server (e.g., `http://172.25.1.2/firmware.bin`).
 - **TR-069 trigger method**: The CPE's periodic `Inform` interval or an ACS-triggered `ScheduleInform`.
 
 ## Related information

@@ -158,3 +158,6 @@ geckodriver.log
 
 # VS Code
 .vscode/
+
+# embedded images
+.img

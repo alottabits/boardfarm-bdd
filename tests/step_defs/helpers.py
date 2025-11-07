@@ -47,8 +47,13 @@ def get_console_uptime_seconds(cpe: CpeTemplate) -> int:
         return int(float(out.strip() or "0"))
 
 
-def install_file_on_tftp(tftp_server: WanTemplate, filename: str) -> None:
-    """Helper to copy a firmware file to the TFTP server."""
+def install_file_on_http_server(http_server: WanTemplate, filename: str) -> None:
+    """Helper to copy a firmware file to the HTTP server.
+    
+    The WAN container serves files via HTTP from /tftpboot directory
+    (which is symlinked to /var/www/html). Files placed in /tftpboot
+    are accessible via HTTP at http://<wan_ip>/<filename>.
+    """
     # Construct the absolute path to the firmware file.
     # We need to find the project root (where conftest.py is located)
     # Start from this file's location and go up to find the root
@@ -70,9 +75,10 @@ def install_file_on_tftp(tftp_server: WanTemplate, filename: str) -> None:
         local_file_path
     ), f"Firmware file not found at {local_file_path}"
 
-    # Copy the file to the TFTP server's tftpboot directory.
+    # Copy the file to the HTTP server's /tftpboot directory.
     # The copy_local_file_to_tftpboot method handles the SCP transfer.
-    tftp_server.copy_local_file_to_tftpboot(local_file_path)
+    # Files in /tftpboot are served via HTTP (lighttpd) at http://<wan_ip>/<filename>
+    http_server.copy_local_file_to_tftpboot(local_file_path)
 
 
 
