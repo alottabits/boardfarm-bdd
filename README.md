@@ -5,12 +5,10 @@ With this project, we aim to create a consistent set of system requirements as u
 Capturing requirements in Markdown formatted use cases allows the organization to use Git as the version control system of the requirements, enabling us to treat documentation, test cases and reports with the same collaborative processes as code.
 With the standardization of the test interface by Boardfarm, LLMs have a clear reference to translate BDD scenario steps into python code for execution. Pytest-bdd provides a powerful execution and reporting engine in this setup.
 
-<figure style="margin-bottom: 20px;">
-    <img src="./docs/Requirements_and_Test_framework.excalidraw.png" alt="Process flow">
-    <figcaption>Process Flow</figcaption>
-</figure>
+![Process Flow](./docs/Requirements_and_Test_framework.excalidraw.png)
 
-Many thanks to Mike Vogel who inspired me to pursue this requirements structure. Please see details of his approach here: [Agile Requirements Framework](https://globallyunique.github.io/agile-requirements-framework/)
+Many thanks to Mike Vogel who inspired me to pursue this requirements structure. 
+Please see details of his approach here: [Agile Requirements Framework](https://globallyunique.github.io/agile-requirements-framework/)
 
 
 *Important note: this project is still very much under development, references mentioned here may not be correct yet....*
