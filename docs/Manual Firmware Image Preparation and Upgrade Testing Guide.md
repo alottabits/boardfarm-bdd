@@ -44,11 +44,17 @@ openwrt-x86-64-generic-squashfs-combined-efi.img2    2048    <end>    <size>  <s
 Check if the image already has metadata:
 
 ```bash
+# Create firmware directory in container
+docker exec cpe mkdir -p /firmware
+
 # Copy image to container
-docker cp openwrt-x86-64-generic-squashfs-combined-efi.img cpe:/tmp/test_firmware.img
+docker cp openwrt-x86-64-generic-squashfs-combined-efi.img cpe:/firmware/test_firmware.img
+
+# Verify file was copied successfully
+docker exec cpe ls -lh /firmware/test_firmware.img
 
 # Check for existing metadata
-docker exec cpe fwtool -i /tmp/metadata_check.json /tmp/test_firmware.img
+docker exec cpe fwtool -i /tmp/metadata_check.json /firmware/test_firmware.img
 
 # View metadata if present
 docker exec cpe cat /tmp/metadata_check.json 2>/dev/null || echo "No metadata found"
@@ -101,14 +107,17 @@ cat metadata.json
 Add metadata to the firmware image using `fwtool`:
 
 ```bash
+# Ensure firmware directory exists
+docker exec cpe mkdir -p /firmware
+
 # Copy metadata to container
 docker cp metadata.json cpe:/tmp/metadata.json
 
 # Add metadata to firmware image
-docker exec cpe fwtool -I /tmp/metadata.json /tmp/test_firmware.img
+docker exec cpe fwtool -I /tmp/metadata.json /firmware/test_firmware.img
 
 # Verify metadata was added
-docker exec cpe fwtool -i /tmp/metadata_verify.json /tmp/test_firmware.img
+docker exec cpe fwtool -i /tmp/metadata_verify.json /firmware/test_firmware.img
 docker exec cpe cat /tmp/metadata_verify.json
 ```
 
@@ -132,7 +141,7 @@ Validate the image using PrplOS validation script:
 
 ```bash
 # Run validation
-docker exec cpe /usr/libexec/validate_firmware_image /tmp/test_firmware.img
+docker exec cpe /usr/libexec/validate_firmware_image /firmware/test_firmware.img
 ```
 
 **Expected Output** (successful validation):
@@ -159,7 +168,7 @@ Copy the prepared image back to your host:
 
 ```bash
 # Copy validated image back
-docker cp cpe:/tmp/test_firmware.img ./openwrt-x86-64-generic-squashfs-combined-efi-prepared.img
+docker cp cpe:/firmware/test_firmware.img ./openwrt-x86-64-generic-squashfs-combined-efi-prepared.img
 
 # Verify file
 ls -lh openwrt-x86-64-generic-squashfs-combined-efi-prepared.img
@@ -224,6 +233,9 @@ docker exec cpe ls -la /new_rootfs_pending 2>/dev/null && echo "New rootfs exist
 
 # Check for old rootfs backup
 docker exec cpe ls -la /old_root 2>/dev/null && echo "Old rootfs backup exists!" || echo "No backup"
+
+# Check firmware directory
+docker exec cpe ls -la /firmware/ 2>/dev/null || echo "Firmware directory does not exist"
 ```
 
 ### Step 12: Trigger Upgrade via sysupgrade
@@ -234,9 +246,10 @@ Test the upgrade process manually using sysupgrade:
 # Option A: Use HTTP URL (recommended - tests full flow)
 docker exec cpe sysupgrade -v http://172.25.1.2/openwrt-x86-64-generic-squashfs-combined-efi-prepared.img
 
-# Option B: Copy image to container and use local file
-docker cp openwrt-x86-64-generic-squashfs-combined-efi-prepared.img cpe:/tmp/upgrade.img
-docker exec cpe sysupgrade -v /tmp/upgrade.img
+# Option B: Copy image to container and use local file from /firmware directory
+docker exec cpe mkdir -p /firmware
+docker cp openwrt-x86-64-generic-squashfs-combined-efi-prepared.img cpe:/firmware/upgrade.img
+docker exec cpe sysupgrade -v /firmware/upgrade.img
 ```
 
 **Expected Behavior**:
@@ -260,6 +273,7 @@ docker logs -f cpe
 # Or check upgrade progress
 docker exec cpe ls -la /new_rootfs_pending 2>/dev/null | head -10
 docker exec cpe ls -la /boot/.do_upgrade 2>/dev/null
+docker exec cpe ls -la /firmware/ 2>/dev/null
 ```
 
 ### Step 14: Wait for Reboot
@@ -322,14 +336,14 @@ docker exec cpe cat /etc/config/network 2>/dev/null | head -20
 **Solutions**:
 ```bash
 # Check metadata
-docker exec cpe fwtool -i /tmp/check.json /tmp/test_firmware.img
+docker exec cpe fwtool -i /tmp/check.json /firmware/test_firmware.img
 docker exec cpe cat /tmp/check.json
 
 # Verify board name matches
 docker exec cpe cat /tmp/sysinfo/board_name
 
 # Use --force flag if signature check fails (test images only)
-docker exec cpe sysupgrade --force -v /tmp/test_firmware.img
+docker exec cpe sysupgrade --force -v /firmware/test_firmware.img
 ```
 
 ### Issue: Upgrade Doesn't Trigger
@@ -389,10 +403,13 @@ After testing, clean up:
 
 ```bash
 # Remove test image from container
-docker exec cpe rm -f /tmp/test_firmware.img /tmp/upgrade.img
+docker exec cpe rm -f /firmware/test_firmware.img /firmware/upgrade.img
 
 # Remove metadata files
 docker exec cpe rm -f /tmp/metadata*.json
+
+# Optional: Remove firmware directory if empty
+docker exec cpe rmdir /firmware 2>/dev/null || echo "Directory not empty or doesn't exist"
 
 # Remove prepared image from host (optional)
 # rm openwrt-x86-64-generic-squashfs-combined-efi-prepared.img
@@ -403,9 +420,10 @@ docker exec cpe rm -f /tmp/metadata*.json
 ## Quick Reference: Complete Workflow
 
 ```bash
-# 1. Prepare image
+# 1. Create firmware directory and prepare image
 cd /home/rjvisser/projects/req-tst/boardfarm-bdd/tests/test_artifacts
-docker cp openwrt-x86-64-generic-squashfs-combined-efi.img cpe:/tmp/test_firmware.img
+docker exec cpe mkdir -p /firmware
+docker cp openwrt-x86-64-generic-squashfs-combined-efi.img cpe:/firmware/test_firmware.img
 
 # 2. Create and add metadata
 cat > metadata.json << 'EOF'
@@ -417,13 +435,13 @@ cat > metadata.json << 'EOF'
 }
 EOF
 docker cp metadata.json cpe:/tmp/metadata.json
-docker exec cpe fwtool -I /tmp/metadata.json /tmp/test_firmware.img
+docker exec cpe fwtool -I /tmp/metadata.json /firmware/test_firmware.img
 
 # 3. Validate
-docker exec cpe /usr/libexec/validate_firmware_image /tmp/test_firmware.img
+docker exec cpe /usr/libexec/validate_firmware_image /firmware/test_firmware.img
 
 # 4. Copy to HTTP server
-docker cp cpe:/tmp/test_firmware.img wan:/tftpboot/openwrt-upgrade.img
+docker cp cpe:/firmware/test_firmware.img wan:/tftpboot/openwrt-upgrade.img
 
 # 5. Trigger upgrade
 docker exec cpe sysupgrade -v http://172.25.1.2/openwrt-upgrade.img
