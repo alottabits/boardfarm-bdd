@@ -1,8 +1,13 @@
 #!/bin/sh
-# Script to populate HWMACADDRESS and MANUFACTUREROUI in /etc/environment
+# Script to populate HWMACADDRESS and MANUFACTUREROUI in /var/etc/environment
 # This runs after the container is fully booted and interfaces are available
-# Similar to how VCPE_OFW uses /etc/boot.d/start
-# The MAC address is fixed in Raikou config.json, ensuring stability across reboots
+# PrplOS generates /var/etc/environment, but HWMACADDRESS needs to be updated
+# from eth1 MAC address (set by Raikou from config.json)
+#
+# Note: PrplOS generates /var/etc/environment with all environment variables including
+# SOFTWAREVERSION. We only update HWMACADDRESS and MANUFACTUREROUI here to match the
+# container's eth1 MAC address, which reflects real-world behavior where these values
+# come from hardware.
 
 # Wait for eth1 interface to be available (added by Raikou)
 TIMEOUT=120
@@ -17,21 +22,23 @@ while [ $ELAPSED -lt $TIMEOUT ]; do
             # MAC format: c2:68:68:c9:bc:ae -> OUI: C26868
             OUI=$(echo "$ETH1_MAC" | tr -d ':' | cut -c1-6 | tr '[:lower:]' '[:upper:]')
             
-            # Update or add HWMACADDRESS to /etc/environment
-            if grep -q "^export HWMACADDRESS=" /etc/environment 2>/dev/null; then
-                sed -i "s|^export HWMACADDRESS=.*|export HWMACADDRESS=\"$ETH1_MAC\"|" /etc/environment
+            # Update HWMACADDRESS in /var/etc/environment (where PrplOS generates it)
+            # PrplOS may have generated an initial value, but we need to match eth1 MAC
+            if grep -q "^export HWMACADDRESS=" /var/etc/environment 2>/dev/null; then
+                sed -i "s|^export HWMACADDRESS=.*|export HWMACADDRESS=\"$ETH1_MAC\"|" /var/etc/environment
             else
-                echo "export HWMACADDRESS=\"$ETH1_MAC\"" >> /etc/environment
+                echo "export HWMACADDRESS=\"$ETH1_MAC\"" >> /var/etc/environment
             fi
             
-            # Update or add MANUFACTUREROUI to /etc/environment (derived from MAC)
-            if grep -q "^export MANUFACTUREROUI=" /etc/environment 2>/dev/null; then
-                sed -i "s|^export MANUFACTUREROUI=.*|export MANUFACTUREROUI=\"$OUI\"|" /etc/environment
+            # Update MANUFACTUREROUI in /var/etc/environment (derived from MAC)
+            # PrplOS may have generated an initial value, but we need to match eth1 MAC
+            if grep -q "^export MANUFACTUREROUI=" /var/etc/environment 2>/dev/null; then
+                sed -i "s|^export MANUFACTUREROUI=.*|export MANUFACTUREROUI=\"$OUI\"|" /var/etc/environment
             else
-                echo "export MANUFACTUREROUI=\"$OUI\"" >> /etc/environment
+                echo "export MANUFACTUREROUI=\"$OUI\"" >> /var/etc/environment
             fi
             
-            echo "Set HWMACADDRESS=$ETH1_MAC and MANUFACTUREROUI=$OUI in /etc/environment"
+            echo "Set HWMACADDRESS=$ETH1_MAC and MANUFACTUREROUI=$OUI in /var/etc/environment"
             
             # Configure eth1 as WAN interface with DHCP in UCI
             # This ensures PrplOS's netifd starts DHCP client on eth1

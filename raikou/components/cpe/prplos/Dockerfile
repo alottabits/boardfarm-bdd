@@ -32,10 +32,15 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 # Copy script to populate MAC address after boot (runs via init system)
 COPY set-mac-address.sh /etc/init.d/set-mac-address
 
-# Make scripts executable and enable MAC address script via init system
+# Copy script to deduplicate /etc/environment after PrplOS config restoration
+COPY deduplicate-environment.sh /etc/init.d/deduplicate-environment
+
+# Make scripts executable and enable via init system
 RUN chmod +x /docker-entrypoint.sh && \
     chmod +x /lib/upgrade/z-container-hooks.sh && \
     chmod +x /etc/init.d/set-mac-address && \
+    chmod +x /etc/init.d/deduplicate-environment && \
+    ln -s ../init.d/deduplicate-environment /etc/rc.d/S99z-deduplicate-environment && \
     ln -s ../init.d/set-mac-address /etc/rc.d/S99set-mac-address
 # --- End containerized upgrade support ---
 

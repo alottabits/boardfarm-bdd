@@ -2,88 +2,52 @@
 
 ## Overview
 
-This guide provides step-by-step instructions for preparing a firmware image for PrplOS upgrade and manually testing the upgrade process in the containerized testbed.
+This guide provides step-by-step instructions for testing the PrplOS upgrade process in the containerized testbed. It covers two scenarios:
+
+1. **Local File Upgrade**: Test the upgrade process with a validated image from a local directory in the container
+2. **Full Flow with HTTP Download**: Verify the entire upgrade flow including download from the HTTP file server
 
 ## Prerequisites
 
-- CPE container is running and provisioned (`docker ps | grep cpe`)
-- Firmware image file available in `tests/test_artifacts/`
-- Access to the CPE container via Docker exec
-- Basic understanding of Docker commands
+- CPE container is running (`docker ps | grep cpe`)
+- WAN container is running (for HTTP server in Section 2)
+- Firmware image file available (e.g., `openwrt-x86-64-generic-squashfs-combined-efi.img`)
+- Access to the CPE container shell: `docker exec -it cpe ash`
 
-## Part 1: Prepare Firmware Image
+## Section 1: Test Upgrade Process with Local Image
 
-### Step 1: Verify Image Structure
+This section tests the upgrade process using an image file stored locally in the container's `/firmware` directory.
 
-First, verify that the image has the correct structure:
-
-```bash
-cd /home/rjvisser/projects/req-tst/boardfarm-bdd/tests/test_artifacts
-
-# Check file exists and size
-ls -lh openwrt-x86-64-generic-squashfs-combined-efi.img
-
-# Check boot sector signature (should start with 0xeb63 or 0xeb48 for x86)
-hexdump -C openwrt-x86-64-generic-squashfs-combined-efi.img | head -1
-# Expected: 00000000 eb 63 90 00 ... or 00000000 eb 48 90 00 ...
-
-# Check partition table
-sfdisk -d openwrt-x86-64-generic-squashfs-combined-efi.img
-# Should show valid GPT partition table with partition 2 (rootfs)
-```
-
-**Expected Output**:
-```
-Device                                    Start       End   Sectors  Size Type
-openwrt-x86-64-generic-squashfs-combined-efi.img1      34      2047      2014  1007K EFI System
-openwrt-x86-64-generic-squashfs-combined-efi.img2    2048    <end>    <size>  <size> Linux filesystem
-```
-
-### Step 2: Check Current Metadata
-
-Check if the image already has metadata:
+### Step 1: Enter Container and Prepare Environment
 
 ```bash
-# Create firmware directory in container
-docker exec cpe mkdir -p /firmware
+# Enter the CPE container
+docker exec -it cpe ash
 
+# Inside container: Create firmware directory
+mkdir -p /firmware
+```
+
+### Step 2: Copy Image to Container (from host)
+
+**In a separate terminal (on host)**:
+```bash
 # Copy image to container
 docker cp openwrt-x86-64-generic-squashfs-combined-efi.img cpe:/firmware/test_firmware.img
-
-# Verify file was copied successfully
-docker exec cpe ls -lh /firmware/test_firmware.img
-
-# Check for existing metadata
-docker exec cpe fwtool -i /tmp/metadata_check.json /firmware/test_firmware.img
-
-# View metadata if present
-docker exec cpe cat /tmp/metadata_check.json 2>/dev/null || echo "No metadata found"
 ```
 
-**If metadata exists**: Review it to ensure it includes the correct board name.
-
-**If no metadata**: Proceed to Step 3 to add metadata.
-
-### Step 3: Get Target Board Name
-
-Determine the board name that the container expects:
-
+**Back in container**:
 ```bash
-# Check board name in container
-docker exec cpe cat /tmp/sysinfo/board_name 2>/dev/null || \
-docker exec cpe cat /proc/device-tree/model 2>/dev/null || \
-echo "asus-all-series"  # Default for containerized testbed
+# Verify image was copied
+ls -lh /firmware/test_firmware.img
 ```
 
-**Expected Output**: `asus-all-series`
+### Step 3: Prepare Metadata
 
-### Step 4: Create Metadata File
-
-Create a metadata JSON file with the correct board name:
-
+**Inside container**:
 ```bash
 # Create metadata file
-cat > metadata.json << 'EOF'
+cat > /tmp/metadata.json << 'EOF'
 {
     "version": "3.0.3",
     "compat_version": "1.0",
@@ -96,368 +60,267 @@ cat > metadata.json << 'EOF'
 }
 EOF
 
-# Verify metadata file
-cat metadata.json
-```
-
-**Note**: Adjust the `version` field to match your firmware version if different.
-
-### Step 5: Add Metadata to Image
-
-Add metadata to the firmware image using `fwtool`:
-
-```bash
-# Ensure firmware directory exists
-docker exec cpe mkdir -p /firmware
-
-# Copy metadata to container
-docker cp metadata.json cpe:/tmp/metadata.json
-
-# Add metadata to firmware image
-docker exec cpe fwtool -I /tmp/metadata.json /firmware/test_firmware.img
+# Add metadata to image
+fwtool -I /tmp/metadata.json /firmware/test_firmware.img
 
 # Verify metadata was added
-docker exec cpe fwtool -i /tmp/metadata_verify.json /firmware/test_firmware.img
-docker exec cpe cat /tmp/metadata_verify.json
+fwtool -i /tmp/metadata_verify.json /firmware/test_firmware.img
+cat /tmp/metadata_verify.json
+```
+
+### Step 4: Validate Image
+
+**Inside container**:
+```bash
+# Validate the image
+/usr/libexec/validate_firmware_image /firmware/test_firmware.img
 ```
 
 **Expected Output**:
-```json
-{
-    "version": "3.0.3",
-    "compat_version": "1.0",
-    "supported_devices": {
-        "asus-all-series": "asus-all-series"
-    },
-    "new_supported_devices": {
-        "asus-all-series": "asus-all-series"
-    }
-}
-```
-
-### Step 6: Validate Image
-
-Validate the image using PrplOS validation script:
-
-```bash
-# Run validation
-docker exec cpe /usr/libexec/validate_firmware_image /firmware/test_firmware.img
-```
-
-**Expected Output** (successful validation):
 ```json
 {
     "tests": {
         "fwtool_signature": true,
         "fwtool_device_match": true
     },
-    "valid": true,
+    "valid": false,
     "forceable": true,
     "allow_backup": true
 }
 ```
 
-**If validation fails**:
-- Check that metadata includes the correct board name
-- If `fwtool_signature: false`, this is OK for test images (can use `--force`)
-- If `fwtool_device_match: false`, verify board name matches
+**Note**: `valid: false` with `forceable: true` is common for test images due to partition layout differences. Use `--force` flag when upgrading.
 
-### Step 7: Copy Prepared Image Back to Host
+### Step 5: Check Current Version
 
-Copy the prepared image back to your host:
-
+**Inside container**:
 ```bash
-# Copy validated image back
-docker cp cpe:/firmware/test_firmware.img ./openwrt-x86-64-generic-squashfs-combined-efi-prepared.img
+# Record current firmware version
+cat /etc/os-release | grep VERSION
 
-# Verify file
-ls -lh openwrt-x86-64-generic-squashfs-combined-efi-prepared.img
+# Check for pending upgrades (should be clean)
+ls -la /boot/.do_upgrade /new_rootfs_pending /old_root 2>/dev/null || echo "No pending upgrades"
 ```
 
-## Part 2: Prepare Test Environment
+### Step 6: Trigger Upgrade
 
-### Step 8: Copy Image to HTTP Server
-
-Copy the prepared image to the WAN container's HTTP server:
-
+**Inside container**:
 ```bash
-# Copy image to WAN container (HTTP server)
-docker cp openwrt-x86-64-generic-squashfs-combined-efi-prepared.img wan:/tftpboot/
-
-# Verify image is accessible
-docker exec wan ls -lh /tftpboot/openwrt-x86-64-generic-squashfs-combined-efi-prepared.img
-
-# Get WAN container IP for URL
-docker exec wan hostname -I | awk '{print $1}'
-# Note this IP - you'll need it for the TR-069 Download URL
-```
-
-**Expected WAN IP**: `172.25.1.2` (check your docker-compose.yaml)
-
-### Step 9: Verify HTTP Access
-
-Test that the image is accessible via HTTP:
-
-```bash
-# Test HTTP access from CPE container
-docker exec cpe wget -O /dev/null http://172.25.1.2/openwrt-x86-64-generic-squashfs-combined-efi-prepared.img
-# Should download successfully (check exit code: echo $?)
-```
-
-## Part 3: Manual Upgrade Testing
-
-### Step 10: Record Current Firmware Version
-
-Before upgrading, record the current firmware version:
-
-```bash
-# Get current firmware version
-docker exec cpe cat /etc/openwrt_release | grep DISTRIB_RELEASE || \
-docker exec cpe cat /etc/os-release | grep VERSION || \
-docker exec cpe opkg list-installed | grep -i "prplos\|openwrt" | head -5
-
-# Record current rootfs checksum (optional, for verification)
-docker exec cpe find / -maxdepth 1 -type f -name "*.img" 2>/dev/null || echo "No image files"
-```
-
-### Step 11: Check Current Rootfs State
-
-Verify the container is in a clean state:
-
-```bash
-# Check for pending upgrades
-docker exec cpe ls -la /boot/.do_upgrade 2>/dev/null && echo "Upgrade pending!" || echo "No upgrade pending"
-
-# Check for new rootfs
-docker exec cpe ls -la /new_rootfs_pending 2>/dev/null && echo "New rootfs exists!" || echo "No new rootfs"
-
-# Check for old rootfs backup
-docker exec cpe ls -la /old_root 2>/dev/null && echo "Old rootfs backup exists!" || echo "No backup"
-
-# Check firmware directory
-docker exec cpe ls -la /firmware/ 2>/dev/null || echo "Firmware directory does not exist"
-```
-
-### Step 12: Trigger Upgrade via sysupgrade
-
-Test the upgrade process manually using sysupgrade:
-
-```bash
-# Option A: Use HTTP URL (recommended - tests full flow)
-docker exec cpe sysupgrade -v http://172.25.1.2/openwrt-x86-64-generic-squashfs-combined-efi-prepared.img
-
-# Option B: Copy image to container and use local file from /firmware directory
-docker exec cpe mkdir -p /firmware
-docker cp openwrt-x86-64-generic-squashfs-combined-efi-prepared.img cpe:/firmware/upgrade.img
-docker exec cpe sysupgrade -v /firmware/upgrade.img
+# Trigger upgrade (use --force if validation returned valid: false)
+sysupgrade --force -v /firmware/test_firmware.img
 ```
 
 **Expected Behavior**:
 1. Image validation runs
 2. Configuration backup is created (`/tmp/sysupgrade.tgz`)
 3. Upgrade process starts
-4. Hook intercepts and extracts rootfs to `/new_rootfs_pending`
+4. Hook extracts rootfs to `/new_rootfs_pending`
 5. `/boot/.do_upgrade` flag is created
-6. Container reboots
+6. Container reboots (connection will be lost)
 
-**Note**: The container will reboot after this command completes.
+**Note**: The container will reboot. You'll need to reconnect after it restarts.
 
-### Step 13: Monitor Upgrade Process
+### Step 7: Verify Upgrade Applied
 
-While the upgrade is running, monitor the process:
-
+**After container restarts, reconnect**:
 ```bash
-# In a separate terminal, watch container logs
-docker logs -f cpe
+# Enter container again
+docker exec -it cpe ash
 
-# Or check upgrade progress
-docker exec cpe ls -la /new_rootfs_pending 2>/dev/null | head -10
-docker exec cpe ls -la /boot/.do_upgrade 2>/dev/null
-docker exec cpe ls -la /firmware/ 2>/dev/null
+# Check upgrade flag was processed
+ls -la /boot/.do_upgrade 2>/dev/null && echo "Upgrade flag still present!" || echo "Upgrade applied"
+
+# Check new rootfs was applied
+ls -la /new_rootfs_pending 2>/dev/null && echo "New rootfs still present" || echo "New rootfs applied"
+
+# Verify new firmware version
+cat /etc/os-release | grep VERSION
+
+# Check system is operational
+ps aux | head -5
 ```
 
-### Step 14: Wait for Reboot
+**Success**: Version should have changed (e.g., from `3.0.2` to `3.0.3`).
 
-After sysupgrade completes, the container will reboot:
+## Section 2: Verify Full Flow with HTTP Download
 
+This section tests the complete upgrade flow including downloading the firmware image from the HTTP file server.
+
+### Step 1: Prepare Image on Host
+
+**On host**:
 ```bash
-# Wait for container to restart (may take 30-60 seconds)
-# Check container status
-docker ps | grep cpe
+# Copy image to WAN container (HTTP server)
+docker cp openwrt-x86-64-generic-squashfs-combined-efi.img wan:/tftpboot/openwrt-upgrade.img
 
-# If container is restarting, wait for it to come back up
-while ! docker exec cpe echo "Container ready" 2>/dev/null; do
-    echo "Waiting for container to restart..."
-    sleep 2
-done
+# Verify image is accessible
+docker exec wan ls -lh /tftpboot/openwrt-upgrade.img
+
+# Get WAN container IP (usually 172.25.1.2)
+docker exec wan hostname -I | awk '{print $1}'
 ```
 
-### Step 15: Verify Upgrade Applied
+### Step 2: Enter Container and Prepare Metadata
 
-After reboot, verify the upgrade was applied:
-
+**Enter CPE container**:
 ```bash
-# Check if upgrade flag was processed
-docker exec cpe ls -la /boot/.do_upgrade 2>/dev/null && echo "Upgrade flag still present!" || echo "Upgrade flag removed (upgrade applied)"
+docker exec -it cpe ash
+```
 
-# Check if new rootfs was applied
-docker exec cpe ls -la /new_rootfs_pending 2>/dev/null && echo "New rootfs still present" || echo "New rootfs applied and removed"
+**Inside container**:
+```bash
+# Download image from HTTP server to prepare it
+wget -O /firmware/test_firmware.img http://172.25.1.2/openwrt-upgrade.img
 
-# Check firmware version (should match new version)
-docker exec cpe cat /etc/openwrt_release | grep DISTRIB_RELEASE || \
-docker exec cpe cat /etc/os-release | grep VERSION
+# Create metadata
+cat > /tmp/metadata.json << 'EOF'
+{
+    "version": "3.0.3",
+    "compat_version": "1.0",
+    "supported_devices": {
+        "asus-all-series": "asus-all-series"
+    },
+    "new_supported_devices": {
+        "asus-all-series": "asus-all-series"
+    }
+}
+EOF
+
+# Add metadata to downloaded image
+fwtool -I /tmp/metadata.json /firmware/test_firmware.img
+
+# Copy prepared image back to HTTP server (from host)
+# Exit container first
+exit
+```
+
+**On host**:
+```bash
+# Copy prepared image back to HTTP server
+docker cp cpe:/firmware/test_firmware.img wan:/tftpboot/openwrt-upgrade.img
+```
+
+### Step 3: Verify HTTP Access
+
+**Enter container again**:
+```bash
+docker exec -it cpe ash
+```
+
+**Inside container**:
+```bash
+# Test HTTP access to firmware image
+wget -O /dev/null http://172.25.1.2/openwrt-upgrade.img && echo "HTTP access OK" || echo "HTTP access failed"
+
+# Check current version
+cat /etc/os-release | grep VERSION
+```
+
+### Step 4: Trigger Upgrade via HTTP URL
+
+**Inside container**:
+```bash
+# Trigger upgrade using HTTP URL (tests full flow including download)
+sysupgrade --force -v http://172.25.1.2/openwrt-upgrade.img
+```
+
+**Expected Behavior**:
+1. sysupgrade downloads image from HTTP URL to `/tmp/sysupgrade.img`
+2. Image validation runs
+3. Configuration backup is created
+4. Upgrade process starts
+5. Hook extracts rootfs to `/new_rootfs_pending`
+6. `/boot/.do_upgrade` flag is created
+7. Container reboots
+
+### Step 5: Verify Upgrade Applied
+
+**After container restarts**:
+```bash
+# Enter container
+docker exec -it cpe ash
+
+# Verify upgrade was applied
+cat /etc/os-release | grep VERSION
+
+# Check upgrade artifacts
+ls -la /boot/.do_upgrade /new_rootfs_pending /old_root 2>/dev/null || echo "Upgrade completed"
 
 # Verify system is operational
-docker exec cpe ps aux | head -10
-docker exec cpe ls -la /bin /sbin | head -10
+ps aux | head -5
 ```
 
-### Step 16: Verify Configuration Preservation
+## Troubleshooting
 
-Check that configuration was preserved:
+### Validation Returns `valid: false`
 
+**Solution**: This is expected for test images. Use `--force` flag:
 ```bash
-# Check if config backup exists
-docker exec cpe ls -la /tmp/sysupgrade.tgz 2>/dev/null || echo "Config backup not found"
-
-# Check if config was restored (if PrplOS does this automatically)
-docker exec cpe ls -la /etc/config/ 2>/dev/null | head -10
-
-# Check network configuration (if configured before upgrade)
-docker exec cpe cat /etc/config/network 2>/dev/null | head -20
+sysupgrade --force -v /firmware/test_firmware.img
 ```
 
-## Part 4: Troubleshooting
-
-### Issue: Validation Fails
-
-**Symptoms**: `validate_firmware_image` returns `"valid": false`
-
-**Solutions**:
-```bash
-# Check metadata
-docker exec cpe fwtool -i /tmp/check.json /firmware/test_firmware.img
-docker exec cpe cat /tmp/check.json
-
-# Verify board name matches
-docker exec cpe cat /tmp/sysinfo/board_name
-
-# Use --force flag if signature check fails (test images only)
-docker exec cpe sysupgrade --force -v /firmware/test_firmware.img
-```
-
-### Issue: Upgrade Doesn't Trigger
-
-**Symptoms**: sysupgrade runs but no `/boot/.do_upgrade` flag is created
+### Upgrade Flag Not Created
 
 **Check**:
 ```bash
 # Verify hook is present
-docker exec cpe ls -la /lib/upgrade/z-container-hooks.sh
+ls -la /lib/upgrade/z-container-hooks.sh
 
-# Check hook is executable
-docker exec cpe test -x /lib/upgrade/z-container-hooks.sh && echo "Executable" || echo "Not executable"
-
-# Test hook manually (if possible)
-docker exec cpe cat /lib/upgrade/z-container-hooks.sh | grep platform_do_upgrade
+# Check hook logs
+cat /boot/container_upgrade_debug.log
 ```
 
-### Issue: Container Doesn't Reboot
-
-**Symptoms**: sysupgrade completes but container doesn't reboot
+### Container Doesn't Reboot
 
 **Check**:
 ```bash
-# Check if reboot was attempted
-docker logs cpe | tail -20
+# Check upgrade state
+ls -la /boot/.do_upgrade /new_rootfs_pending
 
-# Manually check upgrade state
-docker exec cpe ls -la /boot/.do_upgrade /new_rootfs_pending
-
-# If upgrade is pending, manually reboot
-docker restart cpe
+# If upgrade is pending, manually reboot (from host)
+# docker restart cpe
 ```
 
-### Issue: Upgrade Applied But System Broken
-
-**Symptoms**: Container boots but services don't work
+### Upgrade Applied But Version Unchanged
 
 **Check**:
 ```bash
-# Check if old rootfs backup exists
-docker exec cpe ls -la /old_root 2>/dev/null | head -10
+# Check entrypoint logs
+cat /boot/entrypoint_debug.log
 
-# Check container logs
-docker logs cpe | tail -50
-
-# Check system services
-docker exec cpe ps aux
-docker exec cpe ls -la /etc/init.d/ | head -10
+# Verify new rootfs was extracted
+ls -la /new_rootfs_pending
 ```
 
-## Part 5: Clean Up
+## Quick Reference
 
-### Step 17: Clean Up Test Artifacts
-
-After testing, clean up:
-
+### Section 1: Local File Upgrade
 ```bash
-# Remove test image from container
-docker exec cpe rm -f /firmware/test_firmware.img /firmware/upgrade.img
-
-# Remove metadata files
-docker exec cpe rm -f /tmp/metadata*.json
-
-# Optional: Remove firmware directory if empty
-docker exec cpe rmdir /firmware 2>/dev/null || echo "Directory not empty or doesn't exist"
-
-# Remove prepared image from host (optional)
-# rm openwrt-x86-64-generic-squashfs-combined-efi-prepared.img
-
-# Keep metadata.json for future use (optional)
-```
-
-## Quick Reference: Complete Workflow
-
-```bash
-# 1. Create firmware directory and prepare image
-cd /home/rjvisser/projects/req-tst/boardfarm-bdd/tests/test_artifacts
-docker exec cpe mkdir -p /firmware
-docker cp openwrt-x86-64-generic-squashfs-combined-efi.img cpe:/firmware/test_firmware.img
-
-# 2. Create and add metadata
-cat > metadata.json << 'EOF'
-{
-    "version": "3.0.3",
-    "compat_version": "1.0",
-    "supported_devices": {"asus-all-series": "asus-all-series"},
-    "new_supported_devices": {"asus-all-series": "asus-all-series"}
-}
+# Inside container
+mkdir -p /firmware
+# (Copy image from host: docker cp image.img cpe:/firmware/test_firmware.img)
+cat > /tmp/metadata.json << 'EOF'
+{"version": "3.0.3", "compat_version": "1.0", "supported_devices": {"asus-all-series": "asus-all-series"}, "new_supported_devices": {"asus-all-series": "asus-all-series"}}
 EOF
-docker cp metadata.json cpe:/tmp/metadata.json
-docker exec cpe fwtool -I /tmp/metadata.json /firmware/test_firmware.img
-
-# 3. Validate
-docker exec cpe /usr/libexec/validate_firmware_image /firmware/test_firmware.img
-
-# 4. Copy to HTTP server
-docker cp cpe:/firmware/test_firmware.img wan:/tftpboot/openwrt-upgrade.img
-
-# 5. Trigger upgrade
-docker exec cpe sysupgrade -v http://172.25.1.2/openwrt-upgrade.img
-
-# 6. Wait for reboot and verify
-sleep 60
-docker exec cpe cat /etc/os-release | grep VERSION
+fwtool -I /tmp/metadata.json /firmware/test_firmware.img
+/usr/libexec/validate_firmware_image /firmware/test_firmware.img
+sysupgrade --force -v /firmware/test_firmware.img
+# (Wait for reboot, then verify)
+cat /etc/os-release | grep VERSION
 ```
 
-## Expected Timeline
+### Section 2: Full Flow with HTTP Download
+```bash
+# On host
+docker cp image.img wan:/tftpboot/openwrt-upgrade.img
 
-- **Image Preparation**: 2-5 minutes
-- **Image Validation**: < 1 minute
-- **Upgrade Process**: 1-3 minutes (sysupgrade execution)
-- **Container Reboot**: 30-60 seconds
-- **Total Time**: ~5-10 minutes
+# Inside container
+wget -O /firmware/test_firmware.img http://172.25.1.2/openwrt-upgrade.img
+# (Add metadata, copy back to HTTP server)
+sysupgrade --force -v http://172.25.1.2/openwrt-upgrade.img
+# (Wait for reboot, then verify)
+cat /etc/os-release | grep VERSION
+```
 
 ## Success Criteria
 
@@ -467,13 +330,11 @@ docker exec cpe cat /etc/os-release | grep VERSION
 ✅ `/boot/.do_upgrade` flag is removed after boot  
 ✅ New firmware version is reported  
 ✅ System is operational after upgrade  
-✅ Configuration is preserved (if applicable)
 
-## Next Steps
+## Expected Timeline
 
-After successful manual testing:
-1. Integrate into automated BDD tests
-2. Test TR-069 Download command flow
-3. Test validation failure scenarios (UC-12345 Extension 6.a)
-4. Test rollback scenarios (if PrplOS supports it)
-
+- **Image Preparation**: 1-2 minutes
+- **Image Validation**: < 1 minute
+- **Upgrade Process**: 1-3 minutes
+- **Container Reboot**: 30-60 seconds
+- **Total Time**: ~5-10 minutes per section
