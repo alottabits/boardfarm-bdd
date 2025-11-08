@@ -29,9 +29,14 @@ COPY z-container-hooks.sh /lib/upgrade/z-container-hooks.sh
 # Copy entrypoint script that applies new rootfs at boot time
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 
-# Make scripts executable
+# Copy script to populate MAC address after boot (runs via init system)
+COPY set-mac-address.sh /etc/init.d/set-mac-address
+
+# Make scripts executable and enable MAC address script via init system
 RUN chmod +x /docker-entrypoint.sh && \
-    chmod +x /lib/upgrade/z-container-hooks.sh
+    chmod +x /lib/upgrade/z-container-hooks.sh && \
+    chmod +x /etc/init.d/set-mac-address && \
+    ln -s ../init.d/set-mac-address /etc/rc.d/S99set-mac-address
 # --- End containerized upgrade support ---
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

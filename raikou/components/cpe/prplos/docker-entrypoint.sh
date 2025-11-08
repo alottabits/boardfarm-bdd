@@ -6,28 +6,6 @@ UPGRADE_FLAG="/boot/.do_upgrade"
 NEW_ROOTFS="/new_rootfs_pending"
 OLD_ROOTFS="/old_root"
 
-# Wait for eth1 interface to be available (added by Raikou)
-# and populate HWMACADDRESS in /etc/environment if not already set
-if ! grep -q 'HWMACADDRESS="[^"]*"' /etc/environment 2>/dev/null; then
-    # Wait for eth1 to be created by Raikou
-    while [ ! -f /sys/class/net/eth1/address ]; do
-        echo "Waiting for eth1 interface to be created by Raikou..."
-        sleep 1
-    done
-    
-    # Read MAC address from eth1
-    ETH1_MAC=$(cat /sys/class/net/eth1/address 2>/dev/null || echo "")
-    if [ -n "$ETH1_MAC" ]; then
-        # Update or add HWMACADDRESS to /etc/environment
-        if grep -q "^export HWMACADDRESS=" /etc/environment 2>/dev/null; then
-            sed -i "s|^export HWMACADDRESS=.*|export HWMACADDRESS=\"$ETH1_MAC\"|" /etc/environment
-        else
-            echo "export HWMACADDRESS=\"$ETH1_MAC\"" >> /etc/environment
-        fi
-        echo "Set HWMACADDRESS=$ETH1_MAC in /etc/environment"
-    fi
-fi
-
 # Check if upgrade is pending
 if [ -f "$UPGRADE_FLAG" ]; then
     echo "Container upgrade: Applying new rootfs..."
