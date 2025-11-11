@@ -157,7 +157,7 @@ style.css
 geckodriver.log
 
 # VS Code
-.vscode/
+# .vscode/
 
 # embedded images
 .img
