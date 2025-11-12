@@ -10,24 +10,32 @@ The testbed's purpose is to validate that the CPE, ACS, and file server componen
 
 The containerized testbed is designed to **validate** UC-12345 firmware upgrade behavior, not to simulate a production environment. The testbed must allow:
 
-- **CPE**: To perform its normal upgrade activities (TR-069 processing, firmware validation, installation)
+- **CPE**: To perform its normal upgrade activities (TR-069 processing, firmware validation, config backup creation)
 - **ACS**: To perform its normal management activities (issuing Download RPCs, receiving status updates)
 - **File Server**: To serve firmware images via standard protocols (TFTP/HTTP)
 
-### **The Containerization Gap:**
-
-Containerization creates one fundamental gap: **no FLASH memory**. In a real CPE, firmware is written to dedicated FLASH partitions. In a container, we must bridge this gap with minimal intervention.
-
 ### **Minimal Intervention Principle:**
 
-We intervene **only** where containerization prevents normal operation:
-- ✅ **Intercept FLASH writes**: Redirect to container filesystem operations
-- ✅ **Handle URL downloads**: Convert TR-069 URLs to local file paths
-- ❌ **Do NOT build self-healing mechanisms**: That's what we're validating, not simulating
-- ❌ **Do NOT modify TR-069 behavior**: PrplOS handles this natively
-- ❌ **Do NOT change validation logic**: PrplOS handles this natively
+We intervene **only** where containerization prevents normal operation. Containerization creates two fundamental gaps:
 
-The goal is to enable validation of UC-12345's Main Success Scenario and Extensions, ensuring that PrplOS's native upgrade process works correctly in a containerized test environment.
+1. **No FLASH memory**: In a real CPE, firmware is written to dedicated FLASH partitions. In a container, we store the firmware image and extract/apply it at boot time.
+2. **`/tmp` cleared on restart**: PrplOS creates config backup in `/tmp/sysupgrade.tgz`, but `/tmp` is cleared on container restart. We preserve it to `/boot/sysupgrade.tgz` and restore it before PrplOS boot continues.
+
+**What PrplOS Does Natively** (we do NOT modify):
+
+- ✅ TR-069 processing (receives Download RPC, downloads firmware, reports status)
+- ✅ Firmware validation (signature, device compatibility, partition structure)
+- ✅ Configuration backup creation (`/tmp/sysupgrade.tgz` with user settings and accounts)
+- ✅ Configuration restoration (during boot from `/sysupgrade.tgz`)
+
+**What We Do** (bridging containerization gaps):
+
+- ✅ Store firmware image to persistent location (`/firmware/pending/`) instead of writing to FLASH
+- ✅ Preserve config backup (`/tmp/sysupgrade.tgz` → `/boot/sysupgrade.tgz`) before reboot
+- ✅ Extract rootfs using `unsquashfs` directly (no loop devices) and apply at boot time
+- ✅ Restore config backup to where PrplOS expects it (`/sysupgrade.tgz`)
+
+**Key Point**: We do **NOT** perform firmware installation in the PrplOS sense (writing to FLASH). Instead, we bridge the containerization gap by storing the firmware image and extracting/applying it at boot time. PrplOS still handles all validation, config backup creation, and config restoration natively.
 
 ## The "Wrapper + Hook" Minimal Intervention Strategy
 
@@ -35,33 +43,26 @@ To enable validation of UC-12345 while preserving native PrplOS behavior, we use
 
 **Key Principle**: Every hook should answer "Does containerization prevent this from working?" If yes, bridge the gap. If no, let PrplOS handle it natively.
 
-1.  **Renaming:** The `Dockerfile` renames the original `/sbin/sysupgrade` to `/sbin/sysupgrade.orig`.
-2.  **The Wrapper:** A thin wrapper script is placed at `/sbin/sysupgrade`. When triggered by the high-level `ubus` call or TR-069 Download command, its only job is to handle a potential URL by downloading the firmware to a local file. It then uses `exec` to hand off control to the original `/sbin/sysupgrade.orig` script.
-3.  **The Hook:** A platform hook script (`container-hooks.sh`) is placed in `/lib/upgrade/`. The original `sysupgrade.orig` script is designed to automatically source any scripts in this directory. Our hook script defines a function called `platform_do_upgrade`.
-4.  **The Interception:** The `sysupgrade.orig` script runs all of its internal validation logic (signature verification, device compatibility, etc.). When it reaches the final step where it would normally write to flash memory, it instead calls our `platform_do_upgrade` function. This function bridges the containerization gap: it extracts the new root filesystem to `/new_rootfs_pending` and creates the `/boot/.do_upgrade` flag.
-5.  **Reboot:** The `sysupgrade.orig` script then completes its execution and reboots the device. The container entrypoint applies the new filesystem at boot time.
+### **Upgrade Flow:**
 
-## Native PrplOS Process Preservation
+**PrplOS Native Process:**
+1. **Native sysupgrade:** PrplOS `/sbin/sysupgrade` handles HTTP/HTTPS URLs natively - no wrapper needed.
+2. **Firmware Validation:** PrplOS validates image signature, device compatibility, partition structure - **we do NOT modify this**.
+3. **Config Backup Creation:** PrplOS creates `/tmp/sysupgrade.tgz` with user settings and accounts - **we do NOT modify this**.
+4. **Platform Hook Call:** PrplOS calls `platform_do_upgrade()` function (normally writes to FLASH) - **we intercept this**.
 
-The containerized upgrade process maintains **maximum compatibility** with the native PrplOS upgrade flow by leveraging the exact same functions and processes that PrplOS uses internally.
+**Container Bridge:**
 
-### **Native PrplOS Image Processing Flow:**
+1. **The Interception:** Our hook script (`z-container-hooks.sh`) overrides `platform_do_upgrade()` and bridges the containerization gap:
+   - Stores full firmware image to `/firmware/pending/firmware_<timestamp>.img` (instead of writing to FLASH)
+   - Preserves config backup: `/tmp/sysupgrade.tgz` → `/boot/sysupgrade.tgz` (since `/tmp` is cleared on restart)
+   - Creates `/boot/.do_upgrade` flag with firmware image path
+2. **Reboot:** PrplOS `sysupgrade` script completes its execution and reboots the device - **we do NOT modify this**.
+3. **Boot-Time Application:** The container entrypoint (`/docker-entrypoint.sh`) detects the upgrade flag, extracts rootfs using `unsquashfs` directly on the firmware image, restores config backup to `/sysupgrade.tgz`, applies the new filesystem, and continues boot.
 
-1. **Image Parsing:** Uses `get_partitions()` function to parse GPT partition tables using `dd` and `hexdump`
-2. **Partition Extraction:** Uses `get_image_dd()` function to extract raw partition data from firmware images
-3. **Block Device Writing:** Writes raw partition data directly to block devices (e.g., `/dev/sda2`)
-4. **Filesystem Mounting:** At boot time, the kernel mounts the partition as the root filesystem
+**PrplOS Native Process:**
 
-### **Bridging the Containerization Gap:**
-
-The **only** gap containerization creates is the absence of FLASH memory. We bridge this gap at the precise point where PrplOS would write to FLASH:
-
-1. **Native Functions:** Uses the exact same `get_partitions()` and `get_image_dd()` functions that PrplOS uses
-2. **Raw Partition Data:** Extracts the same raw partition data that would be written to flash memory
-3. **Gap Bridge:** Instead of writing to `/dev/sda2` (FLASH), we write to a container filesystem location (`/new_rootfs_pending`)
-4. **Boot-Time Application:** The container entrypoint (`/docker-entrypoint.sh`) applies the new filesystem at boot time
-
-**Key Point**: This is the **only** modification to PrplOS behavior. Everything else (validation, TR-069, configuration preservation) works exactly as PrplOS designed it.
+1. **Configuration Restoration:** PrplOS `/lib/preinit/80_mount_root` detects `/sysupgrade.tgz` and restores configuration automatically - **we do NOT modify this**.
 
 ### **Key Advantages:**
 
@@ -74,48 +75,18 @@ The **only** gap containerization creates is the absence of FLASH memory. We bri
 
 ## Native PrplOS Configuration Preservation
 
-The containerized upgrade process leverages PrplOS's **native configuration preservation mechanism** to maintain user settings across firmware upgrades, ensuring a seamless user experience without requiring manual reconfiguration.
+The containerized upgrade process leverages PrplOS's **native configuration preservation mechanism** to maintain user settings across firmware upgrades. We only bridge the gap where `/tmp` is cleared on container restart.
 
-### **Native PrplOS Configuration Flow:**
+**PrplOS Native Process:**
+- During `sysupgrade`, PrplOS automatically creates `/tmp/sysupgrade.tgz` containing user configuration files, modified package configs, user accounts, and custom files specified in `/etc/sysupgrade.conf` and `/lib/upgrade/keep.d/`
+- During boot, PrplOS's `/lib/preinit/80_mount_root` script detects `/sysupgrade.tgz`, extracts the configuration archive, and merges user accounts using sophisticated logic
 
-1. **Configuration Backup Creation:** During `sysupgrade`, PrplOS automatically creates `/tmp/sysupgrade.tgz` containing:
-   - User configuration files from `/etc/config/` (wireless, network, system settings)
-   - Modified package configuration files
-   - User account information (`/etc/passwd`, `/etc/group`, `/etc/shadow`)
-   - Custom files specified in `/etc/sysupgrade.conf` and `/lib/upgrade/keep.d/`
+**Container Handling:**
+- Our hook preserves `/tmp/sysupgrade.tgz` to `/boot/sysupgrade.tgz` before reboot (since `/tmp` is cleared on container restart)
+- Our entrypoint restores `/boot/sysupgrade.tgz` to `/sysupgrade.tgz` and `/tmp/sysupgrade.tgz` before applying new rootfs
+- PrplOS then handles configuration restoration automatically during boot using its proven logic
 
-2. **Configuration Restoration:** During boot, PrplOS's `/lib/preinit/80_mount_root` script:
-   - Detects `/sysupgrade.tgz` or `/tmp/sysupgrade.tar`
-   - Preserves existing user accounts by backing them up to `/tmp`
-   - Extracts the configuration archive to `/`
-   - Merges user accounts using sophisticated `missing_lines()` logic
-   - Syncs filesystem to prevent corruption
-
-### **Container Handling for Configuration Preservation:**
-
-Configuration preservation requires **no container-specific modifications**. PrplOS handles this entirely natively:
-
-1. **Native Backup Creation:** PrplOS creates `/tmp/sysupgrade.tgz` using its standard process
-2. **Native Preservation:** The container filesystem preserves this backup across container restarts (standard Docker behavior)
-3. **Native Restoration:** PrplOS handles configuration restoration during boot using its proven logic (`/lib/preinit/80_mount_root`)
-4. **User Account Merging:** PrplOS's sophisticated user account preservation ensures no data loss
-
-**Key Point**: Configuration preservation is validated exactly as it works in native PrplOS deployments. The testbed enables this validation without any modifications.
-
-### **Configuration Files Preserved:**
-
-- **Network Settings:** WiFi SSIDs, passwords, security settings (`/etc/config/wireless`)
-- **System Configuration:** Hostname, timezone, IP addresses (`/etc/config/network`, `/etc/config/system`)
-- **User Accounts:** SSH keys, user passwords, group memberships (`/etc/dropbear/`, `/etc/passwd`)
-- **Custom Settings:** Any files specified in `/etc/sysupgrade.conf` and `/lib/upgrade/keep.d/`
-
-### **Benefits of Native Configuration Preservation:**
-
-- **Zero User Intervention:** Users don't need to reconfigure WiFi, passwords, or network settings
-- **Proven Reliability:** Uses PrplOS's battle-tested configuration preservation logic
-- **Account Safety:** Sophisticated user account merging prevents data loss
-- **Future Compatibility:** Automatically inherits any PrplOS configuration improvements
-- **No Configuration Conflicts:** Eliminates infinite loops caused by configuration mismatches
+**Configuration Preserved:** Network settings (WiFi SSIDs, passwords), system configuration (hostname, timezone, IP addresses), user accounts (SSH keys, passwords), and custom files specified in configuration.
 
 ## Firmware Image Requirements and Validation
 
@@ -279,11 +250,13 @@ The containerized testbed enables validation of UC-12345 requirements:
 
 | UC Step | PrplOS Native Behavior | Testbed Intervention |
 |---------|----------------------|---------------------|
-| 5. CPE downloads firmware | TR-069 client handles download | Wrapper converts URL to local file |
+| 5. CPE downloads firmware | TR-069 client handles download | **None** - PrplOS handles HTTP/HTTPS URLs natively |
 | 6. CPE validates firmware | Native validation logic | **None** - PrplOS handles validation |
-| 7. CPE installs & reboots | Native installation logic | Hook redirects FLASH write to filesystem |
+| 7. CPE installs & reboots | Native installation logic (writes to FLASH) | **Bridge gap** - Store firmware image, extract/apply at boot |
 | 8. CPE reconnects to ACS | Native TR-069 reconnection | **None** - PrplOS handles reconnection |
 | 9. ACS reflects version | Native TR-069 reporting | **None** - PrplOS handles reporting |
+
+**Note on Step 7**: In native PrplOS, "installation" means writing firmware to FLASH partitions. In containers, we bridge this gap by storing the firmware image and extracting/applying the rootfs at boot time. PrplOS still handles all validation, config backup creation, and config restoration natively.
 
 ### **Extension Validation:**
 
@@ -300,21 +273,6 @@ The containerized testbed enables validation of UC-12345 requirements:
 - ❌ ACS communication (PrplOS handles this)
 
 The testbed provides the **minimal infrastructure** needed to validate that PrplOS performs these functions correctly.
-
-## Container Boot-Time Upgrade Application
-
-The container entrypoint (`/docker-entrypoint.sh`) handles the application of the new filesystem at boot time, bridging the containerization gap where FLASH operations would normally occur.
-
-### **Upgrade Application Process:**
-
-On boot, the entrypoint script detects the `/boot/.do_upgrade` flag (created by the hook during upgrade) and proceeds to:
-
-1. **Backup Current Rootfs:** Back up the current root filesystem to `/old_root` for potential rollback validation
-2. **Apply New Filesystem:** Move the new filesystem from `/new_rootfs_pending` into place
-3. **Remove Flag:** Remove the `.do_upgrade` flag
-4. **Continue Boot:** Proceed to boot the new firmware using PrplOS's standard boot process
-
-**Key Point**: This process bridges the containerization gap (no FLASH) but does not implement production rollback mechanisms. If rollback validation is needed (UC-12345 Extension 8.a), it would be handled by PrplOS's native mechanisms, not by testbed simulation.
 
 ## Validating Rollback Behavior (UC-12345 Extension 8.a)
 

@@ -99,7 +99,9 @@ cat /tmp/metadata_verify.json
 cat /etc/os-release | grep VERSION
 
 # Check for pending upgrades (should be clean)
-ls -la /boot/.do_upgrade /new_rootfs_pending /old_root 2>/dev/null || echo "No pending upgrades"
+ls -la /boot/.do_upgrade 2>/dev/null && echo "Upgrade pending!" || echo "No pending upgrades"
+ls -lh /firmware/pending/ 2>/dev/null || echo "No firmware images in pending"
+ls -lh /firmware/backups/ 2>/dev/null || echo "No rootfs backups"
 ```
 
 ### Step 6: Trigger Upgrade
@@ -114,9 +116,10 @@ sysupgrade --force -v /firmware/test_firmware.img
 1. Image validation runs
 2. Configuration backup is created (`/tmp/sysupgrade.tgz`)
 3. Upgrade process starts
-4. Hook extracts rootfs to `/new_rootfs_pending`
-5. `/boot/.do_upgrade` flag is created
-6. Container reboots (connection will be lost)
+4. Hook stores full firmware image to `/firmware/pending/firmware_<timestamp>.img`
+5. Hook preserves config backup: `/tmp/sysupgrade.tgz` → `/boot/sysupgrade.tgz`
+6. `/boot/.do_upgrade` flag is created with firmware image path
+7. Container reboots (connection will be lost)
 
 **Note**: The container will reboot. You'll need to reconnect after it restarts.
 
@@ -130,17 +133,30 @@ docker exec -it cpe ash
 # Check upgrade flag was processed
 ls -la /boot/.do_upgrade 2>/dev/null && echo "Upgrade flag still present!" || echo "Upgrade applied"
 
-# Check new rootfs was applied
-ls -la /new_rootfs_pending 2>/dev/null && echo "New rootfs still present" || echo "New rootfs applied"
+# Check firmware image was stored
+ls -lh /firmware/pending/ 2>/dev/null || echo "No firmware images in pending"
+
+# Check old rootfs backup was created (optional)
+ls -lh /firmware/backups/ 2>/dev/null || echo "No rootfs backups"
+
+# Check config backup was preserved
+ls -lh /boot/sysupgrade.tgz 2>/dev/null && echo "Config backup preserved" || echo "Config backup restored (normal after upgrade)"
 
 # Verify new firmware version
 cat /etc/os-release | grep VERSION
+
+# Verify configuration was restored (check network settings, etc.)
+uci show network | head -5
+uci show system | head -5
 
 # Check system is operational
 ps aux | head -5
 ```
 
-**Success**: Version should have changed (e.g., from `3.0.2` to `3.0.3`).
+**Success**: 
+- Version should have changed (e.g., from `3.0.2` to `3.0.3`)
+- Configuration should be restored (network settings, user accounts preserved)
+- System should be operational
 
 ## Section 2: Verify Full Flow with HTTP Download
 
@@ -227,11 +243,12 @@ sysupgrade --force -v http://172.25.1.2/openwrt-upgrade.img
 **Expected Behavior**:
 1. sysupgrade downloads image from HTTP URL to `/tmp/sysupgrade.img`
 2. Image validation runs
-3. Configuration backup is created
+3. Configuration backup is created (`/tmp/sysupgrade.tgz`)
 4. Upgrade process starts
-5. Hook extracts rootfs to `/new_rootfs_pending`
-6. `/boot/.do_upgrade` flag is created
-7. Container reboots
+5. Hook stores full firmware image to `/firmware/pending/firmware_<timestamp>.img`
+6. Hook preserves config backup: `/tmp/sysupgrade.tgz` → `/boot/sysupgrade.tgz`
+7. `/boot/.do_upgrade` flag is created with firmware image path
+8. Container reboots
 
 ### Step 5: Verify Upgrade Applied
 
@@ -244,11 +261,29 @@ docker exec -it cpe ash
 cat /etc/os-release | grep VERSION
 
 # Check upgrade artifacts
-ls -la /boot/.do_upgrade /new_rootfs_pending /old_root 2>/dev/null || echo "Upgrade completed"
+ls -la /boot/.do_upgrade 2>/dev/null && echo "Upgrade flag still present!" || echo "Upgrade flag removed (upgrade applied)"
+
+# Check firmware images
+ls -lh /firmware/pending/ 2>/dev/null || echo "No firmware images in pending"
+
+# Check old rootfs backups
+ls -lh /firmware/backups/ 2>/dev/null || echo "No rootfs backups"
+
+# Check config backup
+ls -lh /boot/sysupgrade.tgz 2>/dev/null && echo "Config backup preserved" || echo "Config backup restored (normal after upgrade)"
+
+# Verify configuration was restored (check network settings, etc.)
+uci show network | head -5
+uci show system | head -5
 
 # Verify system is operational
 ps aux | head -5
 ```
+
+**Success**: 
+- Version should have changed (e.g., from `3.0.2` to `3.0.3`)
+- Configuration should be restored (network settings, user accounts preserved)
+- System should be operational
 
 ## Troubleshooting
 
@@ -268,6 +303,12 @@ ls -la /lib/upgrade/z-container-hooks.sh
 
 # Check hook logs
 cat /boot/container_upgrade_debug.log
+
+# Check if firmware image was stored
+ls -lh /firmware/pending/
+
+# Check if config backup was preserved
+ls -lh /boot/sysupgrade.tgz
 ```
 
 ### Container Doesn't Reboot
@@ -275,7 +316,11 @@ cat /boot/container_upgrade_debug.log
 **Check**:
 ```bash
 # Check upgrade state
-ls -la /boot/.do_upgrade /new_rootfs_pending
+ls -la /boot/.do_upgrade
+cat /boot/.do_upgrade 2>/dev/null && echo "Firmware image path:" && cat /boot/.do_upgrade
+
+# Check if firmware image exists
+ls -lh /firmware/pending/
 
 # If upgrade is pending, manually reboot (from host)
 # docker restart cpe
@@ -288,8 +333,14 @@ ls -la /boot/.do_upgrade /new_rootfs_pending
 # Check entrypoint logs
 cat /boot/entrypoint_debug.log
 
-# Verify new rootfs was extracted
-ls -la /new_rootfs_pending
+# Check if firmware image exists
+ls -lh /firmware/pending/
+
+# Check if rootfs extraction succeeded (entrypoint logs will show this)
+grep -i "extract\|rootfs" /boot/entrypoint_debug.log
+
+# Verify config backup was restored
+ls -lh /sysupgrade.tgz /tmp/sysupgrade.tgz 2>/dev/null || echo "Config backup not found (may have been consumed by PrplOS)"
 ```
 
 ## Quick Reference
@@ -326,9 +377,13 @@ cat /etc/os-release | grep VERSION
 
 ✅ Image passes validation (`"valid": true` or `"forceable": true`)  
 ✅ sysupgrade completes without errors  
+✅ Firmware image stored to `/firmware/pending/firmware_<timestamp>.img`  
+✅ Config backup preserved to `/boot/sysupgrade.tgz`  
 ✅ Container reboots successfully  
 ✅ `/boot/.do_upgrade` flag is removed after boot  
+✅ Config backup restored to `/sysupgrade.tgz` (consumed by PrplOS during boot)  
 ✅ New firmware version is reported  
+✅ Configuration restored (network settings, user accounts, etc.)  
 ✅ System is operational after upgrade  
 
 ## Expected Timeline

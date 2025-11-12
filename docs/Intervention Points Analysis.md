@@ -7,7 +7,8 @@ After analyzing the PrplOS upgrade process in the container, we have identified 
 1. **Platform Hook** (`/lib/upgrade/z-container-hooks.sh`): Intercepts FLASH write operations
 2. **Entrypoint Script** (`/docker-entrypoint.sh`): Applies new filesystem at boot time
 
-**Note**: A wrapper script for URL handling is **NOT needed** - native PrplOS sysupgrade handles HTTP/HTTPS URLs directly.
+**Note**: The environment deduplication script was previously included but has been removed as it's no longer needed with the simplified installation process (`rsync --delete` completely replaces `/etc/environment` from the new rootfs).
+
 
 ## PrplOS Upgrade Process Flow
 
@@ -47,7 +48,7 @@ cwmpd downloads firmware to /tmp/image_name
 /sbin/sysupgrade [NATIVE] -v /tmp/image_name
   ├─ If URL: downloads to /tmp/sysupgrade.img (native handling)
   ├─ Validates image (native PrplOS)
-  ├─ Creates config backup (native PrplOS)
+  ├─ Creates config backup /tmp/sysupgrade.tgz (native PrplOS)
   └─ Calls: ubus call system sysupgrade
       ↓
 /lib/upgrade/stage2 (native PrplOS)
@@ -55,24 +56,32 @@ cwmpd downloads firmware to /tmp/image_name
   └─ Calls: /lib/upgrade/do_stage2
       ↓
 platform_do_upgrade() [HOOK: /lib/upgrade/z-container-hooks.sh]
-  ├─ Extracts rootfs partition to /tmp/rootfs.img
-  ├─ Mounts SquashFS using mount -o loop
-  ├─ Extracts rootfs to /new_rootfs_pending
-  ├─ Creates /boot/.do_upgrade flag
+  ├─ Stores full firmware image to /firmware/pending/firmware_<timestamp>.img
+  ├─ Preserves config backup: /tmp/sysupgrade.tgz → /boot/sysupgrade.tgz
+  ├─ Creates /boot/.do_upgrade flag with image path
   └─ Reboots
       ↓
 /docker-entrypoint.sh [ENTRYPOINT]
   ├─ Detects /boot/.do_upgrade flag
-  ├─ Backs up current rootfs to /old_root (best effort)
-  ├─ Applies new rootfs from /new_rootfs_pending (rsync or cp)
+  ├─ Reads firmware image path from flag
+  ├─ Extracts rootfs using unsquashfs directly (no loop devices)
+  ├─ Creates old rootfs backup as SquashFS image in /firmware/backups/
+  ├─ Restores config backup: /boot/sysupgrade.tgz → /sysupgrade.tgz and /tmp/sysupgrade.tgz
+  ├─ Applies new rootfs from extracted directory (rsync or cp)
   └─ Continues normal boot
+      ↓
+PrplOS /lib/preinit/80_mount_root [NATIVE]
+  ├─ Detects /sysupgrade.tgz
+  └─ Restores configuration automatically
 ```
 
 **Key Differences from Native Flow**:
 1. **ramfs Switch**: Skipped via `rootfs_type()` override (not needed for containerized upgrades)
 2. **Boot Device Detection**: Skipped via `platform_check_image()` override (no physical device in containers)
-3. **FLASH Write Operations**: Replaced with filesystem extraction to `/new_rootfs_pending`
-4. **Boot-Time Application**: New rootfs applied by entrypoint script instead of kernel mounting FLASH partition
+3. **FLASH Write Operations**: Replaced with storing full firmware image to persistent location
+4. **Boot-Time Application**: Entrypoint extracts rootfs using `unsquashfs` directly and applies files
+5. **Config Backup Preservation**: Config backup preserved across container restart (from `/tmp` to `/boot`)
+6. **No Loop Devices**: Uses `unsquashfs` directly on firmware image, avoiding loop device contamination
 
 ## Intervention Point 1: Wrapper Script (`/sbin/sysupgrade`)
 
@@ -180,43 +189,42 @@ platform_check_image() {
 
 **Why**: Native `platform_check_image()` calls `export_bootdevice` which fails in containers. We still validate the image structure using native PrplOS functions, but skip the boot device check.
 
-### Override 3: `platform_do_upgrade()` - Extract Rootfs Instead of Writing to FLASH
+### Override 3: `platform_do_upgrade()` - Store Firmware Image Instead of Writing to FLASH
 
-**Purpose**: Extract new rootfs to container filesystem instead of writing to FLASH
+**Purpose**: Store full firmware image in persistent location instead of writing to FLASH
 
 **Implementation**:
 ```bash
 platform_do_upgrade() {
     local image="$1"
     
-    # Extract rootfs partition (partition 2) from image
-    get_partitions "$image" image
+    # Store full firmware image in persistent location (survives container restart)
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local firmware_dir="/firmware/pending"
+    local persistent_image="$firmware_dir/firmware_${timestamp}.img"
     
-    # Find partition 2 offset and size
-    # Extract partition to /tmp/rootfs.img using get_image_dd()
+    mkdir -p "$firmware_dir"
+    cp "$image" "$persistent_image"
     
-    # Mount SquashFS using mount -o loop (no losetup needed)
-    mount -o loop -t squashfs /tmp/rootfs.img /mnt
+    # Preserve PrplOS config backup (survives container restart)
+    # PrplOS creates /tmp/sysupgrade.tgz, but /tmp is cleared on restart
+    if [ -f "/tmp/sysupgrade.tgz" ]; then
+        cp "/tmp/sysupgrade.tgz" "/boot/sysupgrade.tgz"
+    fi
     
-    # Extract rootfs files to /new_rootfs_pending
-    mkdir -p /new_rootfs_pending
-    cp -a /mnt/* /new_rootfs_pending/
-    
-    umount /mnt
-    rm -f /tmp/rootfs.img /tmp/partmap.image
-    
-    # Create flag for entrypoint
+    # Store image path in upgrade flag file for entrypoint to read
     mkdir -p /boot
-    touch /boot/.do_upgrade
+    echo "$persistent_image" > /boot/.do_upgrade
 }
 ```
 
 **Key Points**:
-- Uses native PrplOS functions (`get_partitions`, `get_image_dd`) - no reimplementation
-- Extracts same data that would be written to FLASH
-- Uses `mount -o loop` instead of `losetup` (losetup not available in container environment)
-- Creates `/boot/.do_upgrade` flag for entrypoint
+- Stores full firmware image (not extracted rootfs) to `/firmware/pending/`
+- Preserves PrplOS config backup from `/tmp/sysupgrade.tgz` to `/boot/sysupgrade.tgz`
+- Creates `/boot/.do_upgrade` flag containing firmware image path
+- No rootfs extraction at this stage - happens at boot time in entrypoint
 - Preserves all validation logic (happens before this hook is called)
+- Avoids loop devices entirely - extraction happens later using `unsquashfs` directly
 
 ### Override 4: `default_do_upgrade()` - Fallback Interception
 
@@ -251,31 +259,45 @@ Apply new filesystem at boot time, bridging the containerization gap where FLASH
 #!/bin/sh
 UPGRADE_FLAG="/boot/.do_upgrade"
 NEW_ROOTFS="/new_rootfs_pending"
-OLD_ROOTFS="/old_root"
+OLD_ROOTFS_BACKUP_DIR="/firmware/backups"
 
 # Check if upgrade is pending
 if [ -f "$UPGRADE_FLAG" ]; then
-    if [ -d "$NEW_ROOTFS" ]; then
-        # Backup current rootfs (best effort, excludes virtual filesystems)
-        mkdir -p "$OLD_ROOTFS"
-        for dir in bin etc lib lib64 opt root sbin usr var www; do
-            [ -d "/$dir" ] && cp -a "/$dir" "$OLD_ROOTFS"/ || true
-        done
-        
-        # Remove flag before applying
-        rm -f "$UPGRADE_FLAG"
-        
-        # Apply new rootfs
-        # Use rsync if available, otherwise use cp with find
-        if command -v rsync >/dev/null 2>&1; then
-            rsync -a --delete "$NEW_ROOTFS"/ /
-        else
-            # Fallback: copy files individually with find
-            (cd "$NEW_ROOTFS" && find . -type f -exec cp -f {} /{} \;)
-            (cd "$NEW_ROOTFS" && find . -type d -exec mkdir -p /{} \;)
-            (cd "$NEW_ROOTFS" && find . -type l -exec cp -a {} /{} \;)
-        fi
+    # Read firmware image path from flag
+    firmware_image=$(cat "$UPGRADE_FLAG" | head -1)
+    
+    # Extract rootfs from firmware image using unsquashfs directly
+    # Parse partition table to find rootfs partition (partition 2) offset
+    offset=$(sfdisk -d "$firmware_image" | grep "image.img2" | sed -E 's/.*start=\s+([0-9]+).*/\1/g')
+    
+    # Extract SquashFS directly from firmware image using offset
+    unsquashfs -offset $(( 512 * offset )) -dest "$NEW_ROOTFS" "$firmware_image"
+    
+    # Backup current rootfs as SquashFS image (optional, if mksquashfs available)
+    # Stores to /firmware/backups/rootfs_backup_<timestamp>.img
+    
+    # Restore PrplOS config backup before applying new rootfs
+    if [ -f "/boot/sysupgrade.tgz" ]; then
+        cp "/boot/sysupgrade.tgz" "/sysupgrade.tgz"
+        cp "/boot/sysupgrade.tgz" "/tmp/sysupgrade.tgz"
     fi
+    
+    # Remove flag before applying
+    rm -f "$UPGRADE_FLAG"
+    
+    # Apply new rootfs
+    # Use rsync if available, otherwise use cp with find
+    if command -v rsync >/dev/null 2>&1; then
+        rsync -a --delete "$NEW_ROOTFS"/ /
+    else
+        # Fallback: copy files individually with find
+        (cd "$NEW_ROOTFS" && find . -type f -exec cp -f {} /{} \;)
+        (cd "$NEW_ROOTFS" && find . -type d -exec mkdir -p /{} \;)
+        (cd "$NEW_ROOTFS" && find . -type l -exec cp -a {} /{} \;)
+    fi
+    
+    # Clean up extracted rootfs
+    rm -rf "$NEW_ROOTFS"
 fi
 
 # Continue with normal boot
@@ -285,84 +307,48 @@ exec /sbin/init "$@"
 **Key Points**:
 - Runs before normal init process
 - Only intervenes if `/boot/.do_upgrade` flag exists
-- Creates backup for potential rollback validation (best effort, excludes `/proc`, `/sys`, `/dev`)
+- Reads firmware image path from flag file
+- Extracts rootfs using `unsquashfs` directly on firmware image (no loop devices)
+- Creates old rootfs backup as SquashFS image in `/firmware/backups/` (optional)
+- Restores PrplOS config backup to `/sysupgrade.tgz` and `/tmp/sysupgrade.tgz` before applying rootfs
 - Applies new rootfs using `rsync` (preferred) or `cp` with `find` (fallback)
-- Uses `cp -f` to overwrite existing files
 - Minimal intervention - just bridges the FLASH gap
+- PrplOS handles config restoration automatically during boot
 
-## Intervention Point 4: Environment Deduplication Script (`/etc/init.d/deduplicate-environment`)
+## Intervention Point 4: Environment Deduplication Script (No Longer Needed)
 
-### Purpose
-Deduplicate `/etc/environment` after upgrade to prevent duplicate export statements that may occur in containerized setups.
+### Status: **REMOVED** - No longer needed with simplified installation
 
-### Current Behavior
-- `/etc/environment` may contain duplicate export statements after upgrade
-- Scripts that source `/etc/environment` may assume single entry per variable
-- Duplicates can occur due to container-specific file copy timing and script execution order
+### Why It Was Removed
 
-### Implementation Approach
+With the simplified installation process using `rsync --delete` or `cp -f`, the deduplication script is no longer necessary:
 
-**Location**: `/etc/init.d/deduplicate-environment` (runs as `S99z-deduplicate-environment`)
+1. **Complete File Replacement**: The entrypoint script completely overwrites `/etc/environment` with the version from the new rootfs (using `rsync --delete` or `cp -f`), eliminating any possibility of duplicates from the old filesystem.
 
-**Why Late Execution?**:
-- Runs AFTER all environment generation scripts (`S99z` prefix, after `S99set-mac-address`)
-- PrplOS environment scripts run at S12 (`deviceinfo-environment`) and S15 (`environment`)
-- Our `set-mac-address` script runs at S99 and updates/append to `/etc/environment`
-- Deduplication must run after all scripts that modify `/etc/environment` have completed
+2. **set-mac-address Only Modifies `/var/etc/environment`**: The `set-mac-address.sh` script only modifies `/var/etc/environment` (where PrplOS generates values), not `/etc/environment`. This means no scripts modify `/etc/environment` after the upgrade.
 
-**Logic**:
-```bash
-#!/bin/sh
-# Deduplicate /etc/environment by keeping only the last occurrence
-# of each export statement (preserves most recent value)
+3. **PrplOS Doesn't Copy `/var/etc/environment`**: PrplOS generates `/var/etc/environment` but does NOT copy it to `/etc/environment`. In production, `/etc/environment` from the firmware image is used as-is.
 
-# Uses awk to:
-# 1. Track last occurrence line number for each variable
-# 2. Output lines, skipping earlier duplicates of export statements
-# 3. Preserve non-export lines as-is
-```
+4. **No Config Restoration Impact**: `/etc/environment` is NOT included in PrplOS config backups (`/tmp/sysupgrade.tgz`), so config restoration doesn't affect it.
 
-**Key Points**:
-- Container-specific safeguard (not needed in production)
-- `/etc/environment` is NOT included in PrplOS config backups (`/tmp/sysupgrade.tgz`)
-- In production, duplication from PrplOS config restoration does not occur
-- Duplication in containers is due to file copy timing and script execution order differences
-- Keeps last occurrence of each variable (preserves most recent value)
-- Only writes if file actually changed (avoids unnecessary I/O)
+### Previous Rationale (Historical Context)
 
-### Why This Is Container-Specific
+The deduplication script was originally added as a safeguard for a scenario where:
+- File copy timing differences might cause `/var/etc/environment` to be appended to `/etc/environment`
+- This was a theoretical concern based on unclear PrplOS behavior
 
-**Investigation Results**:
-- `/etc/environment` is NOT listed in `/lib/upgrade/keep.d/base-files-essential`
-- `/etc/environment` is NOT mentioned in any keep.d files
-- `/etc/sysupgrade.conf` does not include `/etc/environment`
-- PrplOS config restoration (`/lib/preinit/80_mount_root`) only restores files in backup
+However, with the simplified installation:
+- `/etc/environment` is completely replaced from the new rootfs
+- No scripts append to `/etc/environment` after upgrade
+- The scenario that would cause duplicates no longer occurs
 
-**Production Behavior**:
-- New rootfs mounts fresh from FLASH → `/etc/environment` matches new firmware exactly
-- PrplOS config restoration doesn't touch `/etc/environment` (not in backup)
-- Scripts modify `/etc/environment` normally, but without containerized copy-then-restore sequence
+### Current Solution
 
-**Container Behavior**:
-- Entrypoint copies new rootfs over existing filesystem (different timing than FLASH mount)
-- New rootfs includes `/etc/environment` from firmware image
-- PrplOS scripts generate `/var/etc/environment` correctly (29 lines, no duplicates)
-- However, `/var/etc/environment` may be appended to existing `/etc/environment` instead of replacing it
-- This causes the entire file to be duplicated (58 lines = 29 × 2)
-
-**Root Cause Analysis**:
-- In production, when new rootfs mounts from FLASH, `/etc/environment` from new firmware exists
-- PrplOS should handle this by overwriting `/etc/environment` with `/var/etc/environment`
-- However, the mechanism for copying `/var/etc/environment` to `/etc/environment` is not clearly documented
-- In containerized setup, file copy timing may expose this PrplOS behavior/limitation
-
-**Solution**:
-1. **Entrypoint Script**: Preserves `/etc/environment` from firmware image (matches production behavior)
+1. **Entrypoint Script**: Completely replaces `/etc/environment` from new rootfs (matches production behavior)
 2. **set-mac-address Script**: Updates `HWMACADDRESS` and `MANUFACTUREROUI` in `/var/etc/environment` (where PrplOS generates values) to match eth1 MAC address
 3. **Boardfarm Device Class**: Reads from `/var/etc/environment` instead of `/etc/environment` to reflect actual PrplOS behavior
-4. **Deduplication Script**: Runs at S99z as a safeguard to clean up any remaining duplicates
 
-**Conclusion**: PrplOS generates `/var/etc/environment` but does NOT copy it to `/etc/environment`. In production, `/etc/environment` from firmware image is used as-is. Instead of modifying PrplOS behavior, we've adapted Boardfarm to read from `/var/etc/environment` where PrplOS actually generates values. This reflects real-world behavior and ensures we're validating PrplOS as it actually works, not as we think it should work.
+**Note**: The `deduplicate-environment.sh` script file is kept in the repository for reference but is not installed or used.
 
 ## File Structure Summary
 
@@ -376,15 +362,18 @@ Container Filesystem:
 │   └── z-container-hooks.sh [HOOK] - Overrides platform_do_upgrade()
 ├── /docker-entrypoint.sh    [ENTRYPOINT] - Applies upgrade at boot
 ├── /etc/init.d/
-│   ├── deduplicate-environment [SAFEGUARD] - Deduplicates /etc/environment
-│   └── set-mac-address        [CONTAINER] - Sets MAC address, OUI, and SOFTWAREVERSION from eth1 and /etc/os-release
+│   └── set-mac-address        [CONTAINER] - Sets MAC address and OUI from eth1 (network config handled by PrplOS)
 ├── /etc/rc.d/
-│   ├── S99set-mac-address        [CONTAINER] - Runs late in boot
-│   └── S99z-deduplicate-environment [SAFEGUARD] - Runs after all environment scripts
-├── /boot/                   [CREATED] - Upgrade flags directory
-│   └── .do_upgrade          [FLAG] - Created by hook, read by entrypoint
-├── /new_rootfs_pending/     [CREATED] - New rootfs extracted by hook
-└── /old_root/               [CREATED] - Backup rootfs (for rollback validation)
+│   └── S99set-mac-address        [CONTAINER] - Runs late in boot
+├── /boot/                   [CREATED] - Upgrade flags and config backup
+│   ├── .do_upgrade          [FLAG] - Contains firmware image path
+│   └── sysupgrade.tgz       [BACKUP] - PrplOS config backup (preserved from /tmp)
+├── /firmware/               [CREATED] - Persistent firmware storage
+│   ├── pending/             [DIR] - Firmware images awaiting upgrade
+│   │   └── firmware_<timestamp>.img [IMAGE] - Full firmware image
+│   └── backups/             [DIR] - Old rootfs backups
+│       └── rootfs_backup_<timestamp>.img [IMAGE] - SquashFS backup of old rootfs
+└── /new_rootfs_pending/     [TEMPORARY] - New rootfs extracted by entrypoint (cleaned up after upgrade)
 ```
 
 ## Validation Points
@@ -393,6 +382,8 @@ Container Filesystem:
 - ✅ **TR-069 protocol handling**: `cwmpd`, `tr069_1_fw_upgrade` - Works natively
 - ✅ **Firmware image validation**: `/usr/libexec/validate_firmware_image` - Works natively
 - ✅ **Configuration backup creation**: `/tmp/sysupgrade.tgz` - Works natively
+- ✅ **Configuration backup preservation**: `/tmp/sysupgrade.tgz` → `/boot/sysupgrade.tgz` - Preserved across restart
+- ✅ **Configuration backup restoration**: `/boot/sysupgrade.tgz` → `/sysupgrade.tgz` - Restored before rootfs application
 - ✅ **Configuration restoration**: PrplOS `/lib/preinit/80_mount_root` - Works natively
 - ✅ **Image signature verification**: `fwtool_check_signature` - Works natively
 - ✅ **Device compatibility checks**: `fwtool_check_image` - Works natively
@@ -406,14 +397,11 @@ Container Filesystem:
 - 🔧 **Boot-time filesystem application**: Entrypoint applies new rootfs - **NOT TESTED** (native uses kernel FLASH mount)
 
 ### Container-Specific Safeguards (Not Production Issues) 🛡️
-- 🛡️ **Environment population**: `/etc/init.d/set-mac-address` - **TESTBED-SPECIFIC** (updates `/var/etc/environment`)
+- 🛡️ **MAC address population**: `/etc/init.d/set-mac-address` - **TESTBED-SPECIFIC** (updates `/var/etc/environment`)
   - **Why**: PrplOS generates `/var/etc/environment` but does NOT copy it to `/etc/environment`. In production, `/etc/environment` from firmware image is used as-is.
   - **Testbed Requirement**: We update `HWMACADDRESS` and `MANUFACTUREROUI` in `/var/etc/environment` (where PrplOS generates values) to match eth1 MAC address. Boardfarm reads from `/var/etc/environment` to reflect actual PrplOS behavior.
   - **Impact**: Ensures testbed has correct MAC address values while reflecting real-world PrplOS behavior (values generated in `/var/etc/environment`)
-- 🛡️ **Environment deduplication**: `/etc/init.d/deduplicate-environment` - **CONTAINER-SPECIFIC** (not needed in production)
-  - **Why**: `/etc/environment` is NOT in PrplOS config backups, so duplication from config restoration doesn't occur in production
-  - **Container Issue**: File copy timing and script execution order differences may cause duplicates
-  - **Impact**: Prevents potential issues with scripts that assume single entry per variable
+  - **Note**: Network configuration (WAN DHCP, LAN bridge) is handled automatically by PrplOS during initialization - no manual UCI configuration needed
 
 ### What Is NOT Tested in Containerized Setup ⚠️
 
@@ -503,9 +491,10 @@ The containerized testbed **validates** PrplOS upgrade behavior but **does not t
 - Purpose: Write new rootfs to FLASH memory
 
 **Containerized Behavior**:
-- `platform_do_upgrade()` override extracts rootfs to `/new_rootfs_pending`
-- Uses same `get_image_dd()` to extract partition data
+- `platform_do_upgrade()` override stores full firmware image to `/firmware/pending/`
+- Preserves config backup from `/tmp` to `/boot` (survives container restart)
 - No block device write operations
+- Rootfs extraction happens at boot time using `unsquashfs` directly
 
 **Impact**: Cannot validate:
 - FLASH write operations
@@ -514,7 +503,7 @@ The containerized testbed **validates** PrplOS upgrade behavior but **does not t
 - Bad block handling
 - FLASH-specific error recovery
 
-**Rationale**: No FLASH memory in containers; extraction to filesystem achieves same end result.
+**Rationale**: No FLASH memory in containers; storing firmware image and extracting at boot achieves same end result without loop device contamination.
 
 ### 4. Kernel FLASH Mount at Boot ❌ NOT TESTED
 
@@ -525,9 +514,11 @@ The containerized testbed **validates** PrplOS upgrade behavior but **does not t
 - Purpose: Mount new rootfs from FLASH
 
 **Containerized Behavior**:
-- Entrypoint script copies files from `/new_rootfs_pending` to root filesystem
+- Entrypoint script extracts rootfs from firmware image using `unsquashfs` directly
+- Copies files from extracted directory to root filesystem
 - No kernel FLASH mount operation
 - Uses regular filesystem copy operations
+- No loop devices used (avoids host system contamination)
 
 **Impact**: Cannot validate:
 - Kernel FLASH mounting
@@ -535,7 +526,7 @@ The containerized testbed **validates** PrplOS upgrade behavior but **does not t
 - FLASH-specific filesystem features
 - Kernel filesystem driver behavior
 
-**Rationale**: No FLASH device to mount; file copy achieves same end result for validation purposes.
+**Rationale**: No FLASH device to mount; direct `unsquashfs` extraction and file copy achieves same end result for validation purposes without loop device contamination.
 
 ### 5. Physical FLASH Constraints ❌ NOT TESTED
 
@@ -563,7 +554,11 @@ The containerized setup **successfully validates** the following PrplOS upgrade 
 
 1. ✅ **TR-069 Download Protocol**: Full TR-069 Download RPC handling
 2. ✅ **Firmware Image Validation**: Signature verification, device compatibility checks
-3. ✅ **Configuration Backup**: Creation and restoration of `/tmp/sysupgrade.tgz`
+3. ✅ **Configuration Backup**: Creation, preservation, and restoration of `/tmp/sysupgrade.tgz`
+   - PrplOS creates `/tmp/sysupgrade.tgz` during sysupgrade
+   - Hook preserves it to `/boot/sysupgrade.tgz` (survives container restart)
+   - Entrypoint restores it to `/sysupgrade.tgz` and `/tmp/sysupgrade.tgz` before applying rootfs
+   - PrplOS restores configuration automatically during boot
 4. ✅ **Image Processing**: Partition table parsing, rootfs extraction
 5. ✅ **Upgrade Flow**: Complete upgrade process from TR-069 command to reboot
 6. ✅ **Error Handling**: Validation failures, error reporting to ACS
@@ -604,8 +599,7 @@ The containerized setup **successfully validates** the following PrplOS upgrade 
 - 🛡️ `/var/etc/environment` update script runs at S99 (`set-mac-address`) to update `HWMACADDRESS` and `MANUFACTUREROUI` to match eth1 MAC address
 - 🛡️ Boardfarm device class reads from `/var/etc/environment` (where PrplOS generates values) instead of `/etc/environment` (firmware image)
 - 🛡️ This reflects actual PrplOS behavior - we're validating PrplOS as it works, not modifying it
-- 🛡️ `/etc/environment` deduplication script runs late in boot (`S99z-deduplicate-environment`)
-- 🛡️ Runs after all environment generation scripts (S12, S15, S99) to clean up duplicates
-- 🛡️ Prevents duplicate export statements that may occur due to containerized upgrade process
+- 🛡️ Network configuration (WAN DHCP, LAN bridge) is handled automatically by PrplOS - no manual UCI configuration needed
 - 🛡️ **Note**: PrplOS generates `/var/etc/environment` but does NOT copy it to `/etc/environment`. In production, `/etc/environment` from firmware image is used as-is. We've adapted Boardfarm to read from `/var/etc/environment` to reflect real-world behavior.
+- 🛡️ **Environment deduplication script removed**: With simplified installation (`rsync --delete`), `/etc/environment` is completely replaced from new rootfs, eliminating any possibility of duplicates. The script is kept in repository for reference but not installed.
 

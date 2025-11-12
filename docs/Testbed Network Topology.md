@@ -4,7 +4,7 @@
 
 The Raikou + Boardfarm testbed simulates a complete home gateway environment using containerized components. The testbed operates on two distinct network layers:
 
-- **Docker Management Network** (`192.168.56.0/24`): Provides SSH access to all containers for configuration and management
+- **Docker Management Network** (`192.168.56.0/24`): Provides SSH access to most containers for configuration and management (CPE container excluded - uses `network_mode: none`)
 - **Simulated Network** (`172.25.1.0/24`, `10.1.1.0/24`): The testbed topology created by Raikou using OVS bridges
 
 ## Network Architecture
@@ -46,7 +46,7 @@ flowchart TB
     LAN_MGMT[LAN Container eth0<br/>192.168.56.x<br/>SSH:4002 HTTP:8002]
     DHCP_MGMT[DHCP Container eth0<br/>192.168.56.x<br/>SSH:4003]
     ACS_MGMT[ACS Container eth0<br/>192.168.56.x<br/>SSH:4503 TR-069:7547 UI:3000]
-    CPE_MGMT[CPE Container eth0<br/>192.168.56.x<br/>SSH:4004]
+    CPE_MGMT[CPE Container<br/>No Management Network<br/>docker exec only]
     SIP_MGMT[SIP Center eth0<br/>192.168.56.x<br/>SSH:4005]
     LAN_PHONE_MGMT[LAN Phone eth0<br/>192.168.56.x<br/>SSH:4006]
     WAN_PHONE_MGMT[WAN Phone eth0<br/>192.168.56.x<br/>SSH:4007]
@@ -174,12 +174,16 @@ graph TB
 | lan | 4002 | 8002 (HTTP) | `ssh -p 4002 root@localhost` |
 | dhcp | 4003 | - | `ssh -p 4003 root@localhost` |
 | acs | 4503 | 7547 (TR-069), 7557, 7567, 3000 (UI) | `ssh -p 4503 root@localhost` |
-| cpe | 4004 | - | `docker exec -it cpe ash` |
+| cpe | - | - | `docker exec -it cpe ash` (no management network) |
 | sipcenter | 4005 | - | `ssh -p 4005 root@localhost` |
 | lan-phone | 4006 | - | `ssh -p 4006 root@localhost` |
 | wan-phone | 4007 | - | `ssh -p 4007 root@localhost` |
 
 **Default Credentials**: `root` / `bigfoot1`
+
+**Note**: The CPE container uses `network_mode: none` in docker-compose.yaml and has no Docker management network interface. It is accessed directly via `docker exec` and only has interfaces on the simulated network:
+- `eth0`: Connected to `lan-cpe` bridge (LAN side, part of `br-lan` bridge inside container)
+- `eth1`: Connected to `cpe-rtr` bridge (WAN side, gets IP via DHCP)
 
 ## Router Configuration
 
@@ -190,7 +194,7 @@ graph TB
 | cpe | cpe-rtr | `10.1.1.1/24` | CPE-facing (LAN side) |
 | eth1 | rtr-wan | `172.25.1.1/24` | WAN-facing (internet-facing) |
 | aux0 | rtr-uplink | `172.25.2.1/24` | Auxiliary uplink |
-| eth0 | Docker network | `192.168.56.x/24` | Management (isolated) |
+| eth0 | Docker network | `192.168.56.x/24` | Management (isolated) - Router only |
 
 ### NAT Configuration
 
@@ -227,8 +231,8 @@ environment:
 ### Boot Process
 
 1. **Raikou**: Creates network topology and starts containers
-2. **Boardfarm**: Connects to containers via Docker management network and provisions devices
-3. **CPE**: Obtains IP via DHCP and registers with ACS
+2. **Boardfarm**: Connects to containers via Docker management network (SSH) or `docker exec` (CPE) and provisions devices
+3. **CPE**: Obtains IP via DHCP on eth1 and registers with ACS
 4. **Testing**: Network validation and service access
 
 ## Troubleshooting Reference
@@ -238,11 +242,13 @@ environment:
 #### CPE Cannot Reach WAN
 
 **Checks:**
+
 - CPE has IP on eth1 (`10.1.1.x/24`)
 - Router NAT enabled on `eth1` interface
 - Router has routes between `10.1.1.0/24` and `172.25.1.0/24`
 
 **Verification:**
+
 ```bash
 docker exec -it cpe ash -c "ping -c 3 10.1.1.1"    # Router gateway
 docker exec -it cpe ash -c "ping -c 3 172.25.1.2"  # WAN container
@@ -257,6 +263,7 @@ docker exec -it router bash -c "ip route show"
 #### NAT Not Working
 
 **Check Configuration:**
+
 - Verify `ENABLE_NAT_ON=eth1` in docker-compose.yaml
 - Check iptables rules: `docker exec -it router bash -c "iptables -t nat -L"`
 
@@ -286,7 +293,7 @@ docker compose ps
 
 | Network | Subnet | Purpose |
 |--------|--------|---------|
-| Docker Management | `192.168.56.0/24` | Container SSH access |
+| Docker Management | `192.168.56.0/24` | Container SSH access (CPE excluded - uses `network_mode: none`) |
 | CPE-Router | `10.1.1.0/24` | CPE WAN connectivity |
 | WAN Services | `172.25.1.0/24` | Infrastructure services |
 | Uplink | `172.25.2.0/24` | External connectivity |
