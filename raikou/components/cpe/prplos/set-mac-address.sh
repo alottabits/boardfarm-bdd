@@ -22,16 +22,13 @@ while [ $ELAPSED -lt $TIMEOUT ]; do
             # MAC format: c2:68:68:c9:bc:ae -> OUI: C26868
             OUI=$(echo "$ETH1_MAC" | tr -d ':' | cut -c1-6 | tr '[:lower:]' '[:upper:]')
             
-            # Update HWMACADDRESS in /var/etc/environment (where PrplOS generates it)
-            # PrplOS may have generated an initial value, but we need to match eth1 MAC
+            # Update HWMACADDRESS and MANUFACTUREROUI in /var/etc/environment
             if grep -q "^export HWMACADDRESS=" /var/etc/environment 2>/dev/null; then
                 sed -i "s|^export HWMACADDRESS=.*|export HWMACADDRESS=\"$ETH1_MAC\"|" /var/etc/environment
             else
                 echo "export HWMACADDRESS=\"$ETH1_MAC\"" >> /var/etc/environment
             fi
             
-            # Update MANUFACTUREROUI in /var/etc/environment (derived from MAC)
-            # PrplOS may have generated an initial value, but we need to match eth1 MAC
             if grep -q "^export MANUFACTUREROUI=" /var/etc/environment 2>/dev/null; then
                 sed -i "s|^export MANUFACTUREROUI=.*|export MANUFACTUREROUI=\"$OUI\"|" /var/etc/environment
             else
@@ -40,49 +37,44 @@ while [ $ELAPSED -lt $TIMEOUT ]; do
             
             echo "Set HWMACADDRESS=$ETH1_MAC and MANUFACTUREROUI=$OUI in /var/etc/environment"
             
-            # Configure eth1 as WAN interface with DHCP in UCI
-            # This ensures PrplOS's netifd starts DHCP client on eth1
-            # This mimics real-world PrplOS network configuration
+            # Configure eth1 as WAN interface with DHCP in UCI network config
+            # PrplOS netifd needs UCI configuration to know eth1 should use DHCP
+            # This is needed because eth1 is added dynamically by Raikou after netifd starts
             if command -v uci >/dev/null 2>&1; then
-                echo "Configuring eth1 as WAN interface with DHCP via UCI..."
-                
-                # Check if wan interface already exists, create if not
+                echo "Configuring eth1 as WAN interface with DHCP..."
+                # Check if wan interface already exists
                 if ! uci get network.wan >/dev/null 2>&1; then
+                    # Add wan interface configuration
                     uci set network.wan=interface
-                    echo "Created network.wan interface"
+                    uci set network.wan.device='eth1'
+                    uci set network.wan.proto='dhcp'
+                    uci commit network
+                    echo "Added WAN interface configuration for eth1"
+                else
+                    # Update existing wan interface to use eth1 if needed
+                    current_device=$(uci get network.wan.device 2>/dev/null || echo "")
+                    if [ "$current_device" != "eth1" ]; then
+                        uci set network.wan.device='eth1'
+                        uci commit network
+                        echo "Updated WAN interface to use eth1"
+                    fi
                 fi
                 
-                # Configure eth1 as the device for WAN interface
-                uci set network.wan.device='eth1'
-                
-                # Set protocol to DHCP
-                uci set network.wan.proto='dhcp'
-                
-                # Commit the changes
-                uci commit network
-                
-                echo "UCI network configuration committed for eth1 (WAN with DHCP)"
-                
-                # Reload network configuration to start DHCP client
-                # This triggers netifd to read the new config and start DHCP on eth1
+                # Trigger network reload to apply configuration
                 if [ -f /etc/init.d/network ]; then
-                    /etc/init.d/network reload 2>/dev/null || {
-                        echo "Warning: network reload failed, trying restart..."
-                        /etc/init.d/network restart 2>/dev/null || true
-                    }
-                    echo "Network configuration reloaded, DHCP client should start on eth1"
-                else
-                    echo "Warning: /etc/init.d/network not found, DHCP may not start automatically"
+                    echo "Triggering network service to apply WAN configuration..."
+                    /etc/init.d/network reload 2>/dev/null || /etc/init.d/network restart 2>/dev/null || true
                 fi
             else
-                echo "Warning: uci command not found, cannot configure network via UCI"
+                echo "Warning: uci command not found, cannot configure network interface"
             fi
+            
+            exit 0
         fi
-        exit 0
     fi
     sleep 2
     ELAPSED=$((ELAPSED + 2))
 done
 
 echo "Warning: eth1 interface not available after ${TIMEOUT}s, HWMACADDRESS not set"
-
+exit 1

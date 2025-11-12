@@ -36,6 +36,12 @@ services:
                 - cpe:v1.2.0
         ports:
             - 4004:22
+        # NOTE: Privileged mode is required for TR-181 writes to work properly
+        # Attempts to use specific capabilities (NET_ADMIN, SYS_ADMIN, SYS_BOOT, IPC_OWNER, DAC_OVERRIDE)
+        # with security_opt (seccomp=unconfined, apparmor=unconfined) and userns_mode: host
+        # still result in TR-181 write failures (error code 2).
+        # The simpler raikou-net setup also uses privileged: true for the CPE container.
+        # Loop device contamination should be handled via cleanup scripts in the upgrade process.
         privileged: true
         network_mode: none
         command: [/bin/ash, -c, sleep 30 && /sbin/init]

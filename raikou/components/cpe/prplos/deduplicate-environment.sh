@@ -1,28 +1,22 @@
 #!/bin/sh
-# Script to deduplicate /etc/environment after all environment generation scripts
+# Script to deduplicate /var/etc/environment after all environment generation scripts
 # This runs late in the boot process (S99z) to clean up duplicate entries
 # that may have been introduced during containerized upgrade process
 #
 # Execution order:
 # - S12: deviceinfo-environment generates /var/etc/environment
 # - S15: environment generates /var/etc/environment (may regenerate or append)
-# - S99: set-mac-address updates/append HWMACADDRESS and MANUFACTUREROUI to /etc/environment
+# - S99: set-mac-address updates/append HWMACADDRESS and MANUFACTUREROUI to /var/etc/environment
 # - S99z: deduplicate-environment cleans up duplicates (runs after S99set-mac-address alphabetically)
 #
-# Note: PrplOS generates /var/etc/environment but does NOT copy it to /etc/environment.
-# In production, /etc/environment from firmware image is used as-is. Our set-mac-address
-# script updates HWMACADDRESS in /etc/environment to match eth1 MAC address.
-#
-# Note: This is a container-specific safeguard. In production PrplOS deployments,
-# /etc/environment is NOT included in config backups, so duplication from
-# PrplOS config restoration should not occur. However, in containerized setups,
-# the file copy process and script execution order may cause duplicates.
+# Note: PrplOS generates /var/etc/environment during boot. After upgrades, config restoration
+# may restore an old version, then PrplOS regenerates it, causing duplicates.
 #
 # The script keeps only the LAST occurrence of each export statement,
 # preserving the most recent value for each variable (which is what
 # scripts sourcing this file would see anyway)
 
-ENV_FILE="/etc/environment"
+ENV_FILE="/var/etc/environment"
 TEMP_FILE="/tmp/environment.dedup"
 
 # Only process if file exists and is readable
@@ -68,7 +62,7 @@ END {
         # Check if file actually changed (avoid unnecessary writes)
         if ! cmp -s "$ENV_FILE" "$TEMP_FILE" 2>/dev/null; then
             mv "$TEMP_FILE" "$ENV_FILE"
-            echo "Deduplicated /etc/environment" >&2
+            echo "Deduplicated /var/etc/environment" >&2
         else
             rm -f "$TEMP_FILE"
         fi

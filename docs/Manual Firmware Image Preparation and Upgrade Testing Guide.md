@@ -14,6 +14,57 @@ This guide provides step-by-step instructions for testing the PrplOS upgrade pro
 - Firmware image file available (e.g., `openwrt-x86-64-generic-squashfs-combined-efi.img`)
 - Access to the CPE container shell: `docker exec -it cpe ash`
 
+## Resetting to Original State
+
+After testing upgrades, the CPE container's filesystem will be modified (upgraded to a new PrplOS version). To reset back to the original PrplOS 3.0.2 state for fresh testing:
+
+### Why Rebuilding Alone Doesn't Work
+
+Simply running `docker compose build cpe` **will not** reset the container because:
+
+- The container's filesystem persists independently of the image
+- Rebuilding the image creates a new image, but the running container keeps its modified filesystem
+- The upgrade modifies the container's rootfs, which survives image rebuilds
+
+### Steps to Reset to Original State
+
+**From the `boardfarm-bdd/raikou` directory**:
+
+```bash
+# 1. Bring down entire system (stops and removes all containers)
+docker compose down
+
+# 2. Rebuild CPE image from scratch (ensures fresh PrplOS 3.0.2)
+docker compose build --no-cache cpe
+
+# 3. Start everything back up
+docker compose up -d
+```
+
+**One-liner for quick reset**:
+```bash
+cd boardfarm-bdd/raikou && docker compose down && docker compose build --no-cache cpe && docker compose up -d
+```
+
+### Verify Reset
+
+After restarting, verify the CPE is back to original version:
+
+```bash
+# Check CPE version
+docker exec cpe cat /etc/os-release | grep VERSION
+
+# Expected output:
+# VERSION="3.0.2"
+# VERSION_ID="3.0.2"
+
+# Verify no upgrade artifacts remain
+docker exec cpe ls -la /boot/.do_upgrade 2>/dev/null && echo "Upgrade flag present!" || echo "Clean state"
+docker exec cpe ls -lh /firmware/pending/ 2>/dev/null || echo "No pending firmware"
+```
+
+**Note**: The `--no-cache` flag ensures a completely fresh build, downloading PrplOS 3.0.2 from scratch. Without it, Docker may reuse cached layers from previous builds.
+
 ## Section 1: Test Upgrade Process with Local Image
 
 This section tests the upgrade process using an image file stored locally in the container's `/firmware` directory.

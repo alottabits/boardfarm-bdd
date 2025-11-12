@@ -106,118 +106,48 @@ platform_do_upgrade() {
     v "Container upgrade: Processing image: $image"
     echo "Processing image: $image" >> "$debug_log" 2>&1
     
-    # In containerized environment, we don't need to identify a physical boot device
-    # We work directly with the image file to extract partition data
-    # Use native PrplOS functions to extract partition data
-    # These functions are already available from common.sh (sourced earlier)
-    
     sync
     
-    # Extract rootfs partition (partition 2) from image
-    # Use native get_partitions and get_image_dd functions
-    echo "Calling get_partitions for image: $image" >> "$debug_log" 2>&1
-    get_partitions "$image" image || {
-        echo "ERROR: get_partitions failed" >> "$debug_log" 2>&1
-        v "Container upgrade: Failed to get partitions from image"
+    # Store full firmware image in persistent location (survives container restart)
+    # Use timestamp to avoid conflicts if multiple upgrades are attempted
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local firmware_dir="/firmware/pending"
+    local persistent_image="$firmware_dir/firmware_${timestamp}.img"
+    
+    mkdir -p "$firmware_dir"
+    echo "Storing full firmware image to persistent location: $persistent_image" >> "$debug_log" 2>&1
+    
+    # Copy the firmware image to persistent location
+    cp "$image" "$persistent_image" || {
+        echo "ERROR: Failed to copy firmware image to $persistent_image" >> "$debug_log" 2>&1
+        v "Container upgrade: Failed to copy firmware image"
         return 1
     }
-    echo "get_partitions completed, checking /tmp/partmap.image" >> "$debug_log" 2>&1
     
-    # Find partition 2 (rootfs) in the image
-    local rootfs_start rootfs_size
-    rootfs_start=""
-    rootfs_size=""
+    echo "Firmware image stored successfully: $persistent_image" >> "$debug_log" 2>&1
+    v "Container upgrade: Firmware image stored to $persistent_image"
     
-    while read part start size; do
-        if [ "$part" = "2" ]; then
-            rootfs_start=$start
-            rootfs_size=$size
-            break
-        fi
-    done < /tmp/partmap.image
-    
-    if [ -z "$rootfs_start" ] || [ -z "$rootfs_size" ]; then
-        v "Container upgrade: Failed to find rootfs partition (partition 2) in image"
-        rm -f /tmp/partmap.image
-        return 1
+    # Preserve PrplOS config backup (survives container restart)
+    # PrplOS creates /tmp/sysupgrade.tgz during sysupgrade, but /tmp is cleared on restart
+    # Copy it to persistent location so entrypoint can restore it before PrplOS boot
+    if [ -f "/tmp/sysupgrade.tgz" ]; then
+        local config_backup="/boot/sysupgrade.tgz"
+        echo "Preserving PrplOS config backup: /tmp/sysupgrade.tgz -> $config_backup" >> "$debug_log" 2>&1
+        cp "/tmp/sysupgrade.tgz" "$config_backup" || {
+            echo "WARNING: Failed to preserve config backup" >> "$debug_log" 2>&1
+            v "Container upgrade: WARNING - Config backup preservation failed"
+        }
+        echo "Config backup preserved successfully" >> "$debug_log" 2>&1
+    else
+        echo "No config backup found at /tmp/sysupgrade.tgz (may be normal if no custom config)" >> "$debug_log" 2>&1
     fi
     
-    v "Container upgrade: Found rootfs partition at offset $rootfs_start, size $rootfs_size"
-    
-    # Extract rootfs partition to temporary location
-    mkdir -p /new_rootfs_pending
-    echo "Created /new_rootfs_pending directory" >> "$debug_log" 2>&1
-    
-    # Log image extraction attempt
-    echo "Extracting rootfs partition from image: $image" >> "$debug_log" 2>&1
-    echo "Partition offset: $rootfs_start, size: $rootfs_size" >> "$debug_log" 2>&1
-    
-    get_image_dd "$image" of=/tmp/rootfs.img ibs=512 skip="$rootfs_start" count="$rootfs_size" || {
-        echo "ERROR: get_image_dd failed" >> "$debug_log" 2>&1
-        v "Container upgrade: Failed to extract rootfs partition"
-        rm -f /tmp/rootfs.img /tmp/partmap.image
-        return 1
-    }
-    
-    echo "Rootfs partition extracted successfully" >> "$debug_log" 2>&1
-    
-    # Extract SquashFS from the partition image
-    # Use mount -o loop which automatically handles loop devices (no losetup needed)
-    echo "Mounting SquashFS using mount -o loop..." >> "$debug_log" 2>&1
-    echo "Checking if /tmp/rootfs.img exists..." >> "$debug_log" 2>&1
-    ls -lh /tmp/rootfs.img >> "$debug_log" 2>&1 || {
-        echo "ERROR: /tmp/rootfs.img does not exist" >> "$debug_log" 2>&1
-        v "Container upgrade: Rootfs partition image not found"
-        rm -f /tmp/partmap.image
-        return 1
-    }
-    
-    # Ensure /mnt mount point exists
-    mkdir -p /mnt
-    echo "Created /mnt directory if needed" >> "$debug_log" 2>&1
-    
-    # Mount SquashFS directly using mount -o loop (automatically creates loop device)
-    mount -o loop -t squashfs /tmp/rootfs.img /mnt >> "$debug_log" 2>&1
-    local mount_result=$?
-    if [ $mount_result -ne 0 ]; then
-        echo "ERROR: Failed to mount SquashFS with mount -o loop (exit code: $mount_result)" >> "$debug_log" 2>&1
-        echo "Checking if /mnt exists..." >> "$debug_log" 2>&1
-        ls -ld /mnt >> "$debug_log" 2>&1 || echo "/mnt does not exist" >> "$debug_log" 2>&1
-        echo "Checking if /tmp/rootfs.img exists..." >> "$debug_log" 2>&1
-        ls -lh /tmp/rootfs.img >> "$debug_log" 2>&1 || echo "/tmp/rootfs.img does not exist" >> "$debug_log" 2>&1
-        echo "Checking if /mnt is already mounted..." >> "$debug_log" 2>&1
-        mount | grep /mnt >> "$debug_log" 2>&1 || echo "/mnt is not mounted" >> "$debug_log" 2>&1
-        echo "Checking available loop devices..." >> "$debug_log" 2>&1
-        ls -la /dev/loop* >> "$debug_log" 2>&1 || echo "No loop devices found" >> "$debug_log" 2>&1
-        v "Container upgrade: Failed to mount SquashFS"
-        rm -f /tmp/rootfs.img /tmp/partmap.image
-        return 1
-    fi
-    echo "SquashFS mounted successfully using mount -o loop" >> "$debug_log" 2>&1
-    
-    # Copy new rootfs
-    v "Container upgrade: Extracting rootfs to /new_rootfs_pending"
-    echo "Copying files from /mnt to /new_rootfs_pending..." >> "$debug_log" 2>&1
-    cp -a /mnt/* /new_rootfs_pending/ || {
-        echo "ERROR: Failed to copy rootfs files" >> "$debug_log" 2>&1
-        v "Container upgrade: Failed to copy rootfs files"
-        umount /mnt
-        rm -f /tmp/rootfs.img /tmp/partmap.image
-        return 1
-    }
-    echo "Files copied successfully" >> "$debug_log" 2>&1
-    
-    umount /mnt
-    echo "Unmounted SquashFS" >> "$debug_log" 2>&1
-    rm -f /tmp/rootfs.img /tmp/partmap.image
-    
-    # Create flag for entrypoint to detect upgrade
+    # Store image path in upgrade flag file for entrypoint to read
     mkdir -p /boot
-    touch /boot/.do_upgrade
-    echo "Created /boot/.do_upgrade flag" >> "$debug_log" 2>&1
+    echo "$persistent_image" > /boot/.do_upgrade
+    echo "Created /boot/.do_upgrade flag with image path: $persistent_image" >> "$debug_log" 2>&1
     
-    v "Container upgrade: New rootfs extracted to /new_rootfs_pending"
-    v "Container upgrade: Upgrade will be applied on next boot"
+    v "Container upgrade: Upgrade will be applied on next boot from $persistent_image"
     echo "=== platform_do_upgrade completed successfully ===" >> "$debug_log" 2>&1
     
     # Return success
