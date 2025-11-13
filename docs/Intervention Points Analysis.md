@@ -83,54 +83,7 @@ PrplOS /lib/preinit/80_mount_root [NATIVE]
 5. **Config Backup Preservation**: Config backup preserved across container restart (from `/tmp` to `/boot`)
 6. **No Loop Devices**: Uses `unsquashfs` directly on firmware image, avoiding loop device contamination
 
-## Intervention Point 1: Wrapper Script (`/sbin/sysupgrade`)
-
-### Purpose
-**NOT NEEDED** - Native PrplOS sysupgrade handles HTTP/HTTPS URLs directly.
-
-### Verified Behavior
-- ✅ Native PrplOS sysupgrade handles `http://` and `https://` URLs natively
-- ✅ Uses `wget` internally to download URLs to `/tmp/sysupgrade.img`
-- ✅ The WAN container in the testbed provides HTTP service via lighttpd (port 80)
-- ✅ Files are served from `/tftpboot` directory (symlinked to `/var/www/html`)
-
-**Test Results:**
-```
-# Verified on PrplOS CPE:
-$ grep -i "http\|wget\|curl" /sbin/sysupgrade
-	http://*|\
-	https://*)
-		wget -O/tmp/sysupgrade.img "$IMAGE" || exit 1
-
-$ sysupgrade -n http://172.25.1.2/test.img
-Downloading 'http://172.25.1.2/test.img'
-Connecting to 172.25.1.2:80
-```
-
-### Implementation Approach
-
-**Conclusion**: No wrapper script is needed for HTTP/HTTPS URL handling. Native sysupgrade handles URLs directly.
-
-**However**, if you need to intercept or modify sysupgrade behavior for other reasons (e.g., container-specific logic), you can still wrap it:
-
-**Location**: `/sbin/sysupgrade` (replaces original, which moves to `/sbin/sysupgrade.orig`)
-
-**Logic** (only if you need to intercept for other reasons):
-```bash
-#!/bin/sh
-# Wrapper that can add container-specific logic, then execs sysupgrade.orig
-
-# For now, just pass through - native sysupgrade handles URLs
-exec /sbin/sysupgrade.orig "$@"
-```
-
-**Key Points**:
-- Native sysupgrade already handles HTTP/HTTPS URLs
-- No need to download URLs manually before calling sysupgrade
-- Wrapper only needed if you need to intercept for other container-specific logic
-- TFTP handling is not needed since we standardize on HTTP(S) in the testbed
-
-## Intervention Point 2: Platform Hook (`/lib/upgrade/z-container-hooks.sh`)
+## Intervention Point 1: Platform Hook (`/lib/upgrade/z-container-hooks.sh`)
 
 ### Purpose
 Intercept PrplOS upgrade functions to bridge containerization gaps (no FLASH memory, no physical boot device, no ramfs switch needed).
@@ -241,7 +194,7 @@ default_do_upgrade() {
 
 **Why**: If `do_stage2` can't find `platform_do_upgrade()`, it falls back to `default_do_upgrade()`. This ensures our containerized logic runs in either case.
 
-## Intervention Point 3: Entrypoint Script (`/docker-entrypoint.sh`)
+## Intervention Point 2: Entrypoint Script (`/docker-entrypoint.sh`)
 
 ### Purpose
 Apply new filesystem at boot time, bridging the containerization gap where FLASH mounting would occur.
@@ -315,7 +268,7 @@ exec /sbin/init "$@"
 - Minimal intervention - just bridges the FLASH gap
 - PrplOS handles config restoration automatically during boot
 
-## Intervention Point 4: Environment Deduplication Script (No Longer Needed)
+## Environment Deduplication Script (No Longer Needed)
 
 ### Status: **REMOVED** - No longer needed with simplified installation
 
@@ -432,7 +385,7 @@ The following parts of the native PrplOS upgrade process are **skipped** in the 
    - **Containerized**: Uses regular filesystem (no FLASH constraints)
    - **Impact**: Cannot validate FLASH wear leveling, bad block handling, or FLASH-specific error recovery
 
-**Note**: URL download handling is handled natively by sysupgrade - no wrapper needed.
+**Note**: URL download handling is handled natively by PrplOS `/sbin/sysupgrade` - no wrapper script is used or needed.
 
 ## Containerized Setup Limitations - What Is NOT Tested
 
@@ -568,7 +521,7 @@ The containerized setup **successfully validates** the following PrplOS upgrade 
 
 ## Testing Strategy
 
-1. ✅ **Test URL Handling**: Verified - Native sysupgrade handles HTTP/HTTPS URLs directly
+1. ✅ **Test URL Handling**: Verified - Native PrplOS `/sbin/sysupgrade` handles HTTP/HTTPS URLs directly (no wrapper script needed)
 2. ✅ **Test Hook Interception**: Verified - `platform_do_upgrade()` is called and extracts rootfs successfully
 3. ✅ **Test Boot Application**: Verified - Entrypoint applies new rootfs correctly (version changes from 3.0.2 to 3.0.3)
 4. ✅ **Test Native Behavior**: Verified - All PrplOS validation (signature, device compatibility) still works
@@ -577,7 +530,7 @@ The containerized setup **successfully validates** the following PrplOS upgrade 
 ## Implementation Status
 
 1. ✅ Analyze PrplOS upgrade process (COMPLETE)
-2. ✅ Verify sysupgrade URL support (COMPLETE - URLs supported natively)
+2. ✅ Verify sysupgrade URL support (COMPLETE - Native PrplOS `/sbin/sysupgrade` handles URLs directly, no wrapper script needed)
 3. ✅ Implement platform hook (COMPLETE)
 4. ✅ Implement entrypoint script (COMPLETE)
 5. ✅ Test intervention points (COMPLETE - Upgrade successful, version changed from 3.0.2 to 3.0.3)

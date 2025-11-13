@@ -37,7 +37,7 @@ We intervene **only** where containerization prevents normal operation. Containe
 
 **Key Point**: We do **NOT** perform firmware installation in the PrplOS sense (writing to FLASH). Instead, we bridge the containerization gap by storing the firmware image and extracting/applying it at boot time. PrplOS still handles all validation, config backup creation, and config restoration natively.
 
-## The "Wrapper + Hook" Minimal Intervention Strategy
+## The "Hook + Entrypoint" Minimal Intervention Strategy
 
 To enable validation of UC-12345 while preserving native PrplOS behavior, we use minimal hooks that bridge only the containerization gap (no FLASH memory). We do **not** replace PrplOS functionality; we only redirect operations that cannot work in a container.
 
@@ -46,7 +46,7 @@ To enable validation of UC-12345 while preserving native PrplOS behavior, we use
 ### **Upgrade Flow:**
 
 **PrplOS Native Process:**
-1. **Native sysupgrade:** PrplOS `/sbin/sysupgrade` handles HTTP/HTTPS URLs natively - no wrapper needed.
+1. **Native sysupgrade:** PrplOS `/sbin/sysupgrade` handles HTTP/HTTPS URLs natively - **we use the native script directly, no wrapper**.
 2. **Firmware Validation:** PrplOS validates image signature, device compatibility, partition structure - **we do NOT modify this**.
 3. **Config Backup Creation:** PrplOS creates `/tmp/sysupgrade.tgz` with user settings and accounts - **we do NOT modify this**.
 4. **Platform Hook Call:** PrplOS calls `platform_do_upgrade()` function (normally writes to FLASH) - **we intercept this**.
@@ -250,7 +250,7 @@ The containerized testbed enables validation of UC-12345 requirements:
 
 | UC Step | PrplOS Native Behavior | Testbed Intervention |
 |---------|----------------------|---------------------|
-| 5. CPE downloads firmware | TR-069 client handles download | **None** - PrplOS handles HTTP/HTTPS URLs natively |
+| 5. CPE downloads firmware | TR-069 client handles download | **None** - PrplOS `/sbin/sysupgrade` handles HTTP/HTTPS URLs natively (no wrapper script) |
 | 6. CPE validates firmware | Native validation logic | **None** - PrplOS handles validation |
 | 7. CPE installs & reboots | Native installation logic (writes to FLASH) | **Bridge gap** - Store firmware image, extract/apply at boot |
 | 8. CPE reconnects to ACS | Native TR-069 reconnection | **None** - PrplOS handles reconnection |
