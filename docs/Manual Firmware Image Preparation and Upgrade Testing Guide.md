@@ -20,32 +20,30 @@ This guide provides step-by-step instructions for testing the PrplOS upgrade pro
 
 After testing upgrades, the CPE container's filesystem will be modified (upgraded to a new PrplOS version). To reset back to the original PrplOS 3.0.2 state for fresh testing:
 
-### Why Rebuilding Alone Doesn't Work
+### Why Recreating the Container is Necessary
 
-Simply running `docker compose build cpe` **will not** reset the container because:
+Simply rebuilding the image **will not** reset the container because:
 
 - The container's filesystem persists independently of the image
 - Rebuilding the image creates a new image, but the running container keeps its modified filesystem
 - The upgrade modifies the container's rootfs, which survives image rebuilds
+- The container must be recreated to get a fresh filesystem from the image
 
 ### Steps to Reset to Original State
 
 **From the `boardfarm-bdd/raikou` directory**:
 
 ```bash
-# 1. Bring down entire system (stops and removes all containers)
-docker compose down
-
-# 2. Rebuild CPE image from scratch (ensures fresh PrplOS 3.0.2)
-docker compose build --no-cache cpe
-
-# 3. Start everything back up
-docker compose up -d
+# Recreate the CPE container from the existing image
+# This stops the current CPE container, removes it, and creates a new one
+docker compose up -d --force-recreate cpe
 ```
+
+**Note**: This command recreates only the CPE container without affecting other testbed services. The container will be recreated from the existing image, giving you a fresh PrplOS 3.0.2 filesystem. If you need to rebuild the image itself (e.g., after changing the Dockerfile), run `docker compose build cpe` first, then recreate the container.
 
 ### Verify Reset
 
-After restarting, verify the CPE is back to original version:
+After recreating, verify the CPE is back to original version:
 
 ```bash
 # Check CPE version
@@ -59,8 +57,6 @@ docker exec cpe cat /etc/os-release | grep VERSION
 docker exec cpe ls -la /boot/.do_upgrade 2>/dev/null && echo "Upgrade flag present!" || echo "Clean state"
 docker exec cpe ls -lh /firmware/pending/ 2>/dev/null || echo "No pending firmware"
 ```
-
-**Note**: The `--no-cache` flag ensures a completely fresh build, downloading PrplOS 3.0.2 from scratch. Without it, Docker may reuse cached layers from previous builds.
 
 ## Section 1: Prepare Upgrade Image
 
