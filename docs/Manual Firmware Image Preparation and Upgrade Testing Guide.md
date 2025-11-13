@@ -2,16 +2,18 @@
 
 ## Overview
 
-This guide provides step-by-step instructions for testing the PrplOS upgrade process in the containerized testbed. It covers two scenarios:
+This guide provides step-by-step instructions for testing the PrplOS upgrade process in the containerized testbed. It covers three main areas:
 
-1. **Local File Upgrade**: Test the upgrade process with a validated image from a local directory in the container
-2. **Full Flow with HTTP Download**: Verify the entire upgrade flow including download from the HTTP file server
+1. **Image Preparation**: Prepare a firmware image with metadata and validation using the CPE container
+2. **Local File Upgrade**: Test the upgrade process with a validated image from a local directory in the container
+3. **Full Flow with HTTP Download**: Verify the entire upgrade flow including download from the HTTP file server
 
 ## Prerequisites
 
 - CPE container is running (`docker ps | grep cpe`)
-- WAN container is running (for HTTP server in Section 2)
-- Firmware image file available (e.g., `openwrt-x86-64-generic-squashfs-combined-efi.img`)
+- WAN container is running (for HTTP server in Section 3)
+- Source firmware image file available (e.g., `openwrt-x86-64-generic-squashfs-combined-efi.img` in `tests/test_artifacts`)
+- Metadata file available (`tests/test_artifacts/metadata.json`)
 - Access to the CPE container shell: `docker exec -it cpe ash`
 
 ## Resetting to Original State
@@ -41,11 +43,6 @@ docker compose build --no-cache cpe
 docker compose up -d
 ```
 
-**One-liner for quick reset**:
-```bash
-cd boardfarm-bdd/raikou && docker compose down && docker compose build --no-cache cpe && docker compose up -d
-```
-
 ### Verify Reset
 
 After restarting, verify the CPE is back to original version:
@@ -65,57 +62,72 @@ docker exec cpe ls -lh /firmware/pending/ 2>/dev/null || echo "No pending firmwa
 
 **Note**: The `--no-cache` flag ensures a completely fresh build, downloading PrplOS 3.0.2 from scratch. Without it, Docker may reuse cached layers from previous builds.
 
-## Section 1: Test Upgrade Process with Local Image
+## Section 1: Prepare Upgrade Image
 
-This section tests the upgrade process using an image file stored locally in the container's `/firmware` directory.
+This section describes how to prepare a firmware image for upgrade testing using the CPE container. The prepared image will be stored in the `tests/test_artifacts` directory and can be reused for both local file upgrade testing (Section 2) and HTTP download testing (Section 3).
 
 ### Step 1: Enter Container and Prepare Environment
 
+**On host**:
 ```bash
+# Ensure CPE container is running
+docker ps | grep cpe
+
 # Enter the CPE container
 docker exec -it cpe ash
+```
 
-# Inside container: Create firmware directory
+**Inside container**:
+```bash
+# Create firmware directory
 mkdir -p /firmware
 ```
 
-### Step 2: Copy Image to Container (from host)
+### Step 2: Copy Source Image to Container
 
 **In a separate terminal (on host)**:
 ```bash
-# Copy image to container
-docker cp openwrt-x86-64-generic-squashfs-combined-efi.img cpe:/firmware/test_firmware.img
+# Navigate to test_artifacts directory (or wherever your source image is)
+cd /home/rjvisser/projects/req-tst/boardfarm-bdd/tests/test_artifacts
+
+# Copy source image to container
+docker cp openwrt-x86-64-generic-squashfs-combined-efi.img cpe:/firmware/prepare_image.img
 ```
 
 **Back in container**:
 ```bash
 # Verify image was copied
-ls -lh /firmware/test_firmware.img
+ls -lh /firmware/prepare_image.img
 ```
 
 ### Step 3: Prepare Metadata
 
 **Inside container**:
 ```bash
-# Create metadata file
-cat > /tmp/metadata.json << 'EOF'
-{
-    "version": "3.0.3",
-    "compat_version": "1.0",
-    "supported_devices": {
-        "asus-all-series": "asus-all-series"
-    },
-    "new_supported_devices": {
-        "asus-all-series": "asus-all-series"
-    }
-}
-EOF
+# Copy metadata from test_artifacts (or create it)
+# First, let's copy it from the host if it exists
+# Exit container temporarily
+exit
+```
+
+**On host**:
+```bash
+# Copy metadata.json to container
+docker cp tests/test_artifacts/metadata.json cpe:/tmp/metadata.json
+```
+
+**Back in container**:
+```bash
+docker exec -it cpe ash
+
+# Verify metadata file
+cat /tmp/metadata.json
 
 # Add metadata to image
-fwtool -I /tmp/metadata.json /firmware/test_firmware.img
+fwtool -I /tmp/metadata.json /firmware/prepare_image.img
 
 # Verify metadata was added
-fwtool -i /tmp/metadata_verify.json /firmware/test_firmware.img
+fwtool -i /tmp/metadata_verify.json /firmware/prepare_image.img
 cat /tmp/metadata_verify.json
 ```
 
@@ -123,8 +135,8 @@ cat /tmp/metadata_verify.json
 
 **Inside container**:
 ```bash
-# Validate the image
-/usr/libexec/validate_firmware_image /firmware/test_firmware.img
+# Validate the prepared image
+/usr/libexec/validate_firmware_image /firmware/prepare_image.img
 ```
 
 **Expected Output**:
@@ -140,9 +152,67 @@ cat /tmp/metadata_verify.json
 }
 ```
 
-**Note**: `valid: false` with `forceable: true` is common for test images due to partition layout differences. Use `--force` flag when upgrading.
+**Note**: `valid: false` with `forceable: true` is common for test images due to partition layout differences. This is acceptable for testing purposes. Use `--force` flag when upgrading.
 
-### Step 5: Check Current Version
+### Step 5: Copy Prepared Image to test_artifacts
+
+**Exit container**:
+```bash
+exit
+```
+
+**On host**:
+```bash
+# Ensure we're in the project root
+cd /home/rjvisser/projects/req-tst/boardfarm-bdd
+
+# Copy prepared image to test_artifacts directory
+docker cp cpe:/firmware/prepare_image.img tests/test_artifacts/prepared-openwrt-x86-64-squashfs-combined-efi.img
+
+# Verify the prepared image exists
+ls -lh tests/test_artifacts/prepared-openwrt-x86-64-squashfs-combined-efi.img
+```
+
+**Success**: The prepared image is now available in `tests/test_artifacts/prepared-openwrt-x86-64-squashfs-combined-efi.img` and can be used for upgrade testing in Sections 2 and 3.
+
+**Note**: This preparation step only needs to be done once per firmware image version. The prepared image can be reused for multiple upgrade tests until you need to test a different firmware version.
+
+## Section 2: Test Upgrade Process with Local Image
+
+This section tests the upgrade process using a prepared image file stored locally in the container's `/firmware` directory.
+
+**Prerequisites**: Complete Section 1 first to prepare the upgrade image. The prepared image should be available at `tests/test_artifacts/prepared-openwrt-x86-64-squashfs-combined-efi.img`.
+
+### Step 1: Enter Container and Prepare Environment
+
+```bash
+# Enter the CPE container
+docker exec -it cpe ash
+
+# Inside container: Create firmware directory
+mkdir -p /firmware
+```
+
+### Step 2: Copy Prepared Image to Container (from host)
+
+**In a separate terminal (on host)**:
+```bash
+# Navigate to project root
+cd /home/rjvisser/projects/req-tst/boardfarm-bdd
+
+# Copy prepared image from test_artifacts to container
+docker cp tests/test_artifacts/prepared-openwrt-x86-64-squashfs-combined-efi.img cpe:/firmware/test_firmware.img
+```
+
+**Back in container**:
+```bash
+# Verify image was copied
+ls -lh /firmware/test_firmware.img
+```
+
+**Note**: The image is already prepared with metadata and validated (from Section 1), so we can proceed directly to the upgrade test.
+
+### Step 3: Check Current Version
 
 **Inside container**:
 ```bash
@@ -155,11 +225,11 @@ ls -lh /firmware/pending/ 2>/dev/null || echo "No firmware images in pending"
 ls -lh /firmware/backups/ 2>/dev/null || echo "No rootfs backups"
 ```
 
-### Step 6: Trigger Upgrade
+### Step 4: Trigger Upgrade
 
 **Inside container**:
 ```bash
-# Trigger upgrade (use --force if validation returned valid: false)
+# Trigger upgrade (use --force since prepared images typically return valid: false)
 sysupgrade --force -v /firmware/test_firmware.img
 ```
 
@@ -174,7 +244,7 @@ sysupgrade --force -v /firmware/test_firmware.img
 
 **Note**: The container will reboot. You'll need to reconnect after it restarts.
 
-### Step 7: Verify Upgrade Applied
+### Step 5: Verify Upgrade Applied
 
 **After container restarts, reconnect**:
 ```bash
@@ -209,16 +279,21 @@ ps aux | head -5
 - Configuration should be restored (network settings, user accounts preserved)
 - System should be operational
 
-## Section 2: Verify Full Flow with HTTP Download
+## Section 3: Verify Full Flow with HTTP Download
 
 This section tests the complete upgrade flow including downloading the firmware image from the HTTP file server.
 
-### Step 1: Prepare Image on Host
+**Prerequisites**: Complete Section 1 first to prepare the upgrade image. The prepared image should be available at `tests/test_artifacts/prepared-openwrt-x86-64-squashfs-combined-efi.img`.
+
+### Step 1: Copy Prepared Image to HTTP Server
 
 **On host**:
 ```bash
-# Copy image to WAN container (HTTP server)
-docker cp openwrt-x86-64-generic-squashfs-combined-efi.img wan:/tftpboot/openwrt-upgrade.img
+# Navigate to project root
+cd /home/rjvisser/projects/req-tst/boardfarm-bdd
+
+# Copy prepared image from test_artifacts to WAN container (HTTP server)
+docker cp tests/test_artifacts/prepared-openwrt-x86-64-squashfs-combined-efi.img wan:/tftpboot/openwrt-upgrade.img
 
 # Verify image is accessible
 docker exec wan ls -lh /tftpboot/openwrt-upgrade.img
@@ -227,49 +302,11 @@ docker exec wan ls -lh /tftpboot/openwrt-upgrade.img
 docker exec wan hostname -I | awk '{print $1}'
 ```
 
-### Step 2: Enter Container and Prepare Metadata
+**Note**: The image is already prepared with metadata and validated (from Section 1), so we can proceed directly to testing the HTTP download flow.
+
+### Step 2: Verify HTTP Access
 
 **Enter CPE container**:
-```bash
-docker exec -it cpe ash
-```
-
-**Inside container**:
-```bash
-# Download image from HTTP server to prepare it
-wget -O /firmware/test_firmware.img http://172.25.1.2/openwrt-upgrade.img
-
-# Create metadata
-cat > /tmp/metadata.json << 'EOF'
-{
-    "version": "3.0.3",
-    "compat_version": "1.0",
-    "supported_devices": {
-        "asus-all-series": "asus-all-series"
-    },
-    "new_supported_devices": {
-        "asus-all-series": "asus-all-series"
-    }
-}
-EOF
-
-# Add metadata to downloaded image
-fwtool -I /tmp/metadata.json /firmware/test_firmware.img
-
-# Copy prepared image back to HTTP server (from host)
-# Exit container first
-exit
-```
-
-**On host**:
-```bash
-# Copy prepared image back to HTTP server
-docker cp cpe:/firmware/test_firmware.img wan:/tftpboot/openwrt-upgrade.img
-```
-
-### Step 3: Verify HTTP Access
-
-**Enter container again**:
 ```bash
 docker exec -it cpe ash
 ```
@@ -283,7 +320,7 @@ wget -O /dev/null http://172.25.1.2/openwrt-upgrade.img && echo "HTTP access OK"
 cat /etc/os-release | grep VERSION
 ```
 
-### Step 4: Trigger Upgrade via HTTP URL
+### Step 3: Trigger Upgrade via HTTP URL
 
 **Inside container**:
 ```bash
@@ -301,9 +338,11 @@ sysupgrade --force -v http://172.25.1.2/openwrt-upgrade.img
 7. `/boot/.do_upgrade` flag is created with firmware image path
 8. Container reboots
 
-### Step 5: Verify Upgrade Applied
+**Note**: The container will reboot. You'll need to reconnect after it restarts.
 
-**After container restarts**:
+### Step 4: Verify Upgrade Applied
+
+**After container restarts, reconnect**:
 ```bash
 # Enter container
 docker exec -it cpe ash
@@ -396,29 +435,37 @@ ls -lh /sysupgrade.tgz /tmp/sysupgrade.tgz 2>/dev/null || echo "Config backup no
 
 ## Quick Reference
 
-### Section 1: Local File Upgrade
+### Section 1: Prepare Upgrade Image
 ```bash
+# On host
+docker cp tests/test_artifacts/openwrt-x86-64-generic-squashfs-combined-efi.img cpe:/firmware/prepare_image.img
+docker cp tests/test_artifacts/metadata.json cpe:/tmp/metadata.json
+
 # Inside container
-mkdir -p /firmware
-# (Copy image from host: docker cp image.img cpe:/firmware/test_firmware.img)
-cat > /tmp/metadata.json << 'EOF'
-{"version": "3.0.3", "compat_version": "1.0", "supported_devices": {"asus-all-series": "asus-all-series"}, "new_supported_devices": {"asus-all-series": "asus-all-series"}}
-EOF
-fwtool -I /tmp/metadata.json /firmware/test_firmware.img
-/usr/libexec/validate_firmware_image /firmware/test_firmware.img
+fwtool -I /tmp/metadata.json /firmware/prepare_image.img
+/usr/libexec/validate_firmware_image /firmware/prepare_image.img
+
+# On host (after exit)
+docker cp cpe:/firmware/prepare_image.img tests/test_artifacts/prepared-openwrt-x86-64-squashfs-combined-efi.img
+```
+
+### Section 2: Local File Upgrade
+```bash
+# On host
+docker cp tests/test_artifacts/prepared-openwrt-x86-64-squashfs-combined-efi.img cpe:/firmware/test_firmware.img
+
+# Inside container
 sysupgrade --force -v /firmware/test_firmware.img
 # (Wait for reboot, then verify)
 cat /etc/os-release | grep VERSION
 ```
 
-### Section 2: Full Flow with HTTP Download
+### Section 3: Full Flow with HTTP Download
 ```bash
 # On host
-docker cp image.img wan:/tftpboot/openwrt-upgrade.img
+docker cp tests/test_artifacts/prepared-openwrt-x86-64-squashfs-combined-efi.img wan:/tftpboot/openwrt-upgrade.img
 
 # Inside container
-wget -O /firmware/test_firmware.img http://172.25.1.2/openwrt-upgrade.img
-# (Add metadata, copy back to HTTP server)
 sysupgrade --force -v http://172.25.1.2/openwrt-upgrade.img
 # (Wait for reboot, then verify)
 cat /etc/os-release | grep VERSION
