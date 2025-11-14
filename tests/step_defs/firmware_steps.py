@@ -3,7 +3,7 @@
 from boardfarm3.templates.wan import WAN as WanTemplate
 from pytest_bdd import given, parsers
 
-from tests.step_defs.helpers import install_file_on_http_server
+from .helpers import install_file_on_http_server
 
 
 @given(

@@ -8,15 +8,14 @@ from boardfarm3.templates.cpe.cpe import CPE as CpeTemplate
 from boardfarm3.templates.wan import WAN as WanTemplate
 from pytest_bdd import given, then
 
+from .helpers import gpv_value
+
 
 @given(
     "the network is configured to prevent the CPE from provisioning after its reboot"
 )
 def break_provisioning() -> None:
     """Modify the network environment to cause a provisioning failure."""
-    # This is a complex step. It might involve shutting down a DHCP server,
-    # blocking a connection to the provisioning server, etc. The implementation
-    # is highly specific to your test environment.
     pass
 
 
@@ -34,7 +33,6 @@ def cpe_connected_to_acs(acs: AcsTemplate, cpe: CpeTemplate) -> None:
 def cpe_reprovisions(acs: AcsTemplate, cpe: CpeTemplate) -> None:
     """Observe provisioning completion via ACS-side BOOT + settlement window."""
     cpe_id = cpe.sw.cpe_id
-    # After BOOT inform, allow a short settlement and consider provisioning done.
     acs.console.expect(
         f"inform event: 1 BOOT.*{cpe_id}",
         timeout=120,
@@ -45,9 +43,6 @@ def cpe_reprovisions(acs: AcsTemplate, cpe: CpeTemplate) -> None:
 @then("internet connectivity for the subscriber is restored")
 def internet_connectivity_restored(wan: WanTemplate) -> None:
     """Verify that the CPE has internet connectivity."""
-    # This step should verify that the CPE can reach the internet, e.g.,
-    # by pinging a public address from a LAN client. As a proxy, we will
-    # ping from the WAN device itself.
     try:
         wan.console.execute_command("ping -c 3 8.8.8.8")
     except Exception as e:
@@ -58,8 +53,6 @@ def internet_connectivity_restored(wan: WanTemplate) -> None:
 def cpe_fails_to_provision(acs: AcsTemplate, cpe: CpeTemplate) -> None:
     """Black-box: infer provisioning failure from ACS logs/events."""
     cpe_id = cpe.sw.cpe_id
-    # Look for a generic provisioning failure indication on ACS side.
-    # Vendors differ; we match a conservative pattern indicating failure.
     print("Waiting for provisioning failure to be recorded by ACS...")
     acs.console.expect(
         f"{cpe_id}.*(provision|Provision|CONFIG).*fail|Provisioning failed",
@@ -74,15 +67,11 @@ def cpe_provisions_on_original(
 ) -> None:
     """Verify the CPE is online and running the original firmware via the ACS."""
     cpe_id = cpe.sw.cpe_id
-    # Wait for the ACS to log the final "BOOT" inform.
     acs.console.expect(
         f"inform event: 1 BOOT.*{cpe_id}",
         timeout=120,
     )
     print("ACS confirmed receipt of final BOOT inform from CPE after rollback.")
-
-    # Verify the firmware version on the ACS matches the original.
-    from tests.step_defs.helpers import gpv_value
 
     current_version = gpv_value(acs, cpe, "Device.DeviceInfo.SoftwareVersion")
     assert current_version == bf_context.original_firmware, (

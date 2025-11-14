@@ -22,18 +22,12 @@ def acs_configured_for_upgrade(
     http_server_ip = http_server.get_eth_interface_ipv4_address()
     http_url = f"http://{http_server_ip}/{filename}"
 
-    # Instruct the ACS to send a Download RPC to the CPE.
-    # The ACS will queue this command and send it when the CPE next checks in.
     acs.Download(
         url=http_url,
         filetype="1 Firmware Upgrade Image",
         cpe_id=cpe.sw.cpe_id,
     )
 
-    # Try to derive an expected version from the filename if possible.
-    # Example patterns:
-    #   - "firmware-v2.1.bin" -> "v2.1"
-    #   - "prplos-401-x86-64-...img" -> "401" (best-effort; may not match ACS format)
     version_match = re.search(r"-v(\d+(\.\d+)*)", filename) or re.search(
         r"prplos-(\d+)", filename
     )
@@ -54,7 +48,7 @@ def cpe_checks_in(acs: AcsTemplate, cpe: CpeTemplate) -> None:
     This is faster and more deterministic than waiting for the periodic interval.
     """
     cpe_id = cpe.sw.cpe_id
-    acs.ScheduleInform(cpe_id=cpe_id, DelaySeconds=0)
+    acs.ScheduleInform(CommandKey="Test", DelaySeconds=0, cpe_id=cpe_id)
     print("Requesting immediate CPE TR-069 check-in via acs.ScheduleInform...")
 
 

@@ -17,16 +17,11 @@ def user_sets_cpe_credentials(
     acs: AcsTemplate, cpe: CpeTemplate, bf_context: Any, username: str, password: str
 ) -> None:
     """Set the CPE's GUI login credentials via the ACS."""
-    cpe_id = cpe.sw.cpe_id
-    param_values = [
-        {"param": "Device.Users.User.1.Username", "value": username},
-        {"param": "Device.Users.User.1.Password", "value": password},
-    ]
-
-    # Use the ACS to set the username and password on the CPE via TR-069.
-    acs.SPV(param_values, cpe_id=cpe_id)
-
-    # Store the credentials for later verification.
+    param_values = {
+        "Device.Users.User.1.Username": username,
+        "Device.Users.User.1.Password": password,
+    }
+    acs.SPV(param_values, cpe_id=cpe.sw.cpe_id)
     bf_context.custom_username = username
     bf_context.custom_password = password
     print(f"Set CPE credentials to {username}/{password} via ACS")
@@ -37,14 +32,8 @@ def user_sets_ssid(
     acs: AcsTemplate, cpe: CpeTemplate, bf_context: Any, ssid: str
 ) -> None:
     """Set the CPE's Wi-Fi SSID via the ACS."""
-    cpe_id = cpe.sw.cpe_id
-    # We assume the primary SSID is at index 1 of the Device.WiFi.SSID table.
-    param_value = {"param": "Device.WiFi.SSID.1.SSID", "value": ssid}
-
-    # Use the ACS to set the SSID on the CPE via TR-069.
-    acs.SPV(param_value, cpe_id=cpe_id)
-
-    # Store the SSID for later verification.
+    param_value = {"Device.WiFi.SSID.1.SSID": ssid}
+    acs.SPV(param_value, cpe_id=cpe.sw.cpe_id)
     bf_context.custom_ssid = ssid
     print(f"Set SSID to {ssid} via ACS")
 

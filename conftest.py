@@ -1,64 +1,164 @@
-"""Root conftest.py - Fixtures, shared helpers, and step definition imports.
+"""Root conftest.py - Auto-discover and register step definitions for pytest-bdd."""
 
-This file contains:
-- Pytest fixtures for device access (CPE, ACS, WAN)
-- Shared helper functions used across step definitions
-- Imports all step definition modules so pytest-bdd can discover them
-"""
+import ast
+import importlib
+from pathlib import Path
 
-import pytest
-from boardfarm3.lib.device_manager import DeviceManager
-from boardfarm3.templates.acs import ACS as AcsTemplate
-from boardfarm3.templates.cpe.cpe import CPE as CpeTemplate
-from boardfarm3.templates.wan import WAN as WanTemplate
-
-# Import all step definition modules so pytest-bdd can discover them
-# The 'noqa: F401' comments tell linters these imports are intentional (side effects)
-from tests.step_defs import (  # noqa: F401
-    acs_steps,
-    background_steps,
-    cpe_config_steps,
-    firmware_steps,
-    provisioning_steps,
-    verification_steps,
-)
+from pytest_bdd import given, then, when
 
 
-# Import shared helpers from the helpers module
-# This allows step definitions to import from helpers reliably
-from tests.step_defs.helpers import (
-    get_console_uptime_seconds,
-    gpv_value,
-    install_file_on_http_server,
-)
+def _extract_step_decorators_from_source(module_path: Path):
+    """Extract step decorator information from Python source code using AST.
+    
+    Returns a list of dictionaries with step information:
+    - type: 'given', 'when', or 'then'
+    - name: the step name string
+    - function_name: the name of the function being decorated
+    """
+    steps = []
+    
+    try:
+        with open(module_path, "r", encoding="utf-8") as f:
+            tree = ast.parse(f.read(), filename=str(module_path))
+        
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                for decorator in node.decorator_list:
+                    # Look for @given, @when, @then decorators
+                    if isinstance(decorator, ast.Call):
+                        if isinstance(decorator.func, ast.Name):
+                            decorator_name = decorator.func.id
+                            if decorator_name in ("given", "when", "then"):
+                                # Extract step name (first argument)
+                                if decorator.args and isinstance(
+                                    decorator.args[0], ast.Constant
+                                ):
+                                    step_name = decorator.args[0].value
+                                    steps.append({
+                                        "type": decorator_name,
+                                        "name": step_name,
+                                        "function_name": node.name
+                                    })
+                                # Also handle parsers.parse() patterns
+                                elif decorator.args and isinstance(
+                                    decorator.args[0], ast.Call
+                                ):
+                                    # Handle cases like @given(parsers.parse("..."))
+                                    call_func = decorator.args[0].func
+                                    if (
+                                        isinstance(call_func, ast.Attribute)
+                                        and call_func.attr == "parse"
+                                    ):
+                                        if decorator.args[0].args and isinstance(
+                                            decorator.args[0].args[0], ast.Constant
+                                        ):
+                                            step_name = decorator.args[0].args[0].value
+                                            steps.append({
+                                                "type": decorator_name,
+                                                "name": step_name,
+                                                "function_name": node.name
+                                            })
+    except Exception as e:
+        print(f"  ✗ Error parsing {module_path}: {e}")
+    
+    return steps
 
-# Expose helpers with original names for backward compatibility
-# (if any code still uses the underscore-prefixed names)
-_gpv_value = gpv_value
-_get_console_uptime_seconds = get_console_uptime_seconds
-_install_file_on_http_server = install_file_on_http_server
+
+def _discover_and_register_step_definitions():
+    """Auto-discover all step definitions and re-register them.
+    
+    This function:
+    1. Finds all Python modules in tests/step_defs/
+    2. Parses them with AST to find step decorators
+    3. Imports the modules to get function objects
+    4. Re-registers all step definitions so pytest-bdd can discover them
+    """
+    step_defs_dir = Path(__file__).parent / "tests" / "step_defs"
+    
+    if not step_defs_dir.exists():
+        print(f"Warning: Step definitions directory not found: {step_defs_dir}")
+        return
+    
+    # Get all Python files (excluding __init__.py and helpers.py)
+    step_files = [
+        f for f in step_defs_dir.glob("*.py")
+        if f.stem not in ("__init__", "helpers")
+    ]
+    
+    if not step_files:
+        print("conftest.py: No step definition files found")
+        return
+    
+    print(f"conftest.py: Discovering step definitions from {len(step_files)} modules...")
+    
+    registered_count = 0
+    decorators = {"given": given, "when": when, "then": then}
+    # Store decorated functions to keep references alive
+    _registered_steps = []
+    
+    for step_file in sorted(step_files):
+        module_name = step_file.stem
+        try:
+            # Import the module to get function objects
+            module_path = f"tests.step_defs.{module_name}"
+            module = importlib.import_module(module_path)
+            
+            # Extract step decorator info from source using AST
+            step_info_list = _extract_step_decorators_from_source(step_file)
+            
+            if not step_info_list:
+                continue
+            
+            for step_info in step_info_list:
+                step_type = step_info["type"]
+                step_name = step_info["name"]
+                func_name = step_info["function_name"]
+                
+                # Get the original function from the module
+                original_func = getattr(module, func_name, None)
+                if original_func and callable(original_func):
+                    # Re-register using the exact pattern that works manually
+                    # Create code that mimics:
+                    # @when("step name") def wrapper(): return original_func()
+                    import sys
+                    conftest_module = sys.modules[__name__]
+
+                    # Create a unique function name
+                    wrapper_name = f"_{module_name}_{func_name}_wrapper"
+
+                    # Create step definition code using manual registration pattern
+                    # Escape quotes in step_name for the code string
+                    escaped_step_name = step_name.replace('"', '\\"')
+                    step_code = f'''
+@decorators["{step_type}"]("{escaped_step_name}")
+def {wrapper_name}(*args, **kwargs):
+    """Re-registered step definition wrapper."""
+    return module.{func_name}(*args, **kwargs)
+'''
+                    # Execute in module namespace with necessary variables
+                    exec_globals = {
+                        "decorators": decorators,
+                        "module": module,
+                        "__name__": __name__,
+                    }
+                    exec(step_code, exec_globals, conftest_module.__dict__)  # noqa: S102
+                    
+                    # Get the decorated function
+                    decorated_func = getattr(conftest_module, wrapper_name)
+                    _registered_steps.append(decorated_func)
+                    
+                    registered_count += 1
+                    print(f"  ✓ Re-registered {step_type.upper()}: '{step_name}' from {module_name}")
+                else:
+                    print(f"  ✗ Function '{func_name}' not found in {module_name}")
+            
+        except Exception as e:
+            print(f"  ✗ Error processing {module_name}: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    print(f"conftest.py: Successfully registered {registered_count} step definitions")
 
 
-# Fixtures for easy device access
-@pytest.fixture(scope="session")
-def CPE(device_manager: DeviceManager) -> CpeTemplate:
-    """Fixture providing access to the CPE device."""
-    return device_manager.get_device_by_type(CpeTemplate)  # type: ignore[type-abstract]
-
-
-@pytest.fixture(scope="session")
-def ACS(device_manager: DeviceManager) -> AcsTemplate:
-    """Fixture providing access to the ACS (Auto Configuration Server) device."""
-    return device_manager.get_device_by_type(AcsTemplate)  # type: ignore[type-abstract]
-
-
-@pytest.fixture(scope="session")
-def WAN(device_manager: DeviceManager) -> WanTemplate:
-    """Fixture providing access to the WAN device (acts as HTTP server for firmware files)."""
-    return device_manager.get_device_by_type(WanTemplate)  # type: ignore[type-abstract]
-
-
-@pytest.fixture(scope="session")
-def http_server(WAN: WanTemplate) -> WanTemplate:
-    """Alias fixture for WAN device, emphasizing its role as HTTP server for firmware files."""
-    return WAN
+# Run auto-discovery when conftest.py is loaded
+_discover_and_register_step_definitions()
