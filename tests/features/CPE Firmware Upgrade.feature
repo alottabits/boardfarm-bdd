@@ -6,8 +6,7 @@ Feature: CPE Firmware Upgrade
   Background:
     Given a CPE is online and fully provisioned
 
-  @UC-12345-Main
-  Scenario: Successful Firmware Upgrade
+  Scenario: UC-12345-Main: Successful Firmware Upgrade
     Given the operator installs a new signed firmware file "prepared_upgrade.img" on the image server
     And the user has set the CPE GUI username to "john" and password to "pass"
     And the user has set the SSID to "mynetwork"
@@ -22,8 +21,7 @@ Feature: CPE Firmware Upgrade
     And the CPE's subscriber credentials and LAN configuration are preserved
     And internet connectivity for the subscriber is restored
 
-  @UC-12345-6.a
-  Scenario: Firmware Verification Fails due to Invalid Signature
+  Scenario: UC-12345-6.a: Firmware Verification Fails due to Invalid Signature
     Given the operator installs a new firmware file "prplos_corrupt.img" with an invalid signature on the image server
     And the ACS is configured to upgrade the CPE with "prplos_corrupt.img"
     When the CPE performs its periodic TR-069 check-in
@@ -36,8 +34,7 @@ Feature: CPE Firmware Upgrade
     And the CPE continues to run its original firmware version
     And the CPE's subscriber credentials and LAN configuration are preserved
 
-  @UC-12345-8.a
-  Scenario: Upgrade Fails and Rolls Back Due to Post-Reboot Provisioning Failure
+  Scenario: UC-12345-8.a: Upgrade Fails and Rolls Back Due to Post-Reboot Provisioning Failure
     Given the operator installs a new signed firmware file "prplos_upgrade.img" on the image server
     And the ACS is configured to upgrade the CPE with "prplos_upgrade.img"
     When the CPE performs its periodic TR-069 check-in
@@ -51,8 +48,7 @@ Feature: CPE Firmware Upgrade
     And the CPE's subscriber credentials and LAN configuration are preserved
     And the failed upgrade attempt is recorded by the ACS
 
-  @UC-12345-10.a
-  Scenario: Upgrade Succeeds but Device Configuration is Reset
+  Scenario: UC-12345-10.a: Upgrade Succeeds but Device Configuration is Reset
     Given the operator installs a new signed firmware file "firmware-v2-resets-config.bin" on the image server
     And the ACS is configured to upgrade the CPE with "firmware-v2-resets-config.bin"
     When the CPE performs its periodic TR-069 check-in

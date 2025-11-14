@@ -22,8 +22,7 @@ tests/
 │   ├── verification_steps.py  # Verification and assertion steps
 │   └── hello_steps.py         # Example hello world steps
 ├── test_artifacts/            # Test data files (firmware images, configs, etc.)
-├── test-all-scenarios.py      # Main script to run all scenarios
-├── test-main-upgrade-scenario.py  # Run main upgrade scenario only
+├── test_all_scenarios.py      # Main script to run all scenarios
 └── test_hello.py              # Example test file
 ```
 
@@ -35,7 +34,7 @@ Feature files contain BDD scenarios written in Gherkin syntax. Each `.feature` f
 - **Feature**: High-level description of the feature being tested
 - **Background**: Steps that run before each scenario
 - **Scenarios**: Individual test cases with `Given`, `When`, `Then` steps
-- **Tags**: Links scenarios to use case sections (e.g., `@UC-12345-Main`)
+- **Scenario Names**: Include use case IDs in scenario names for organization (e.g., `UC-12345-Main: Successful Firmware Upgrade`)
 
 Example:
 ```gherkin
@@ -102,15 +101,12 @@ Located at the project root (`boardfarm-bdd/conftest.py`), this file uses **AST-
 
 ### 4. Test Execution Files
 
-**`test-all-scenarios.py`**:
+**`test_all_scenarios.py`**:
 - Discovers all `.feature` files in the `features/` directory
 - Loads scenarios using pytest-bdd's `scenarios()` function
 - Creates individual pytest test functions for each scenario
 - **No step definition imports needed** - handled by `conftest.py`
-
-**`test-main-upgrade-scenario.py`**:
-- Runs only the main firmware upgrade scenario
-- Useful for focused testing during development
+- Uses underscore naming (`test_*.py`) to match pytest's auto-discovery pattern
 
 **`test_hello.py`**:
 - Example test file showing how to run a single feature file
@@ -120,31 +116,49 @@ Located at the project root (`boardfarm-bdd/conftest.py`), this file uses **AST-
 
 ### Run All Scenarios
 ```bash
-pytest tests/test-all-scenarios.py
+# From project root - discovers all test files automatically
+pytest
+
+# Or specify the test file explicitly
+pytest tests/test_all_scenarios.py
 ```
 
 ### Run with Verbose Output
 ```bash
-pytest tests/test-all-scenarios.py -v
+pytest -v
+# or
+pytest tests/test_all_scenarios.py -v
 ```
 
-### Run Specific Scenarios by Tag
+### Run Specific Scenarios by Name
 ```bash
-# Run scenarios tagged with UC-12345
-pytest tests/test-all-scenarios.py -k "UC-12345"
+# Run scenarios matching UC-12345 (all scenarios with this prefix)
+# Note: pytest-bdd converts scenario names to lowercase and removes hyphens
+# You can run from project root without specifying test files:
+pytest -k "uc12345"
 
-# Run a specific scenario
-pytest tests/test-all-scenarios.py -k "@UC-12345-Main"
+# Run the main scenario specifically
+pytest -k "uc12345main"
+# or match by descriptive name
+pytest -k "successful_firmware"
+
+# Run a specific scenario by use case ID (hyphens removed in test names)
+pytest -k "uc123456a"  # UC-12345-6.a
+pytest -k "uc123458a"  # UC-12345-8.a
 ```
 
 ### Run a Single Feature File
 ```bash
 pytest tests/test_hello.py
+# or use keyword matching
+pytest -k "say_hello"
 ```
 
 ### Run with Shorter Traceback
 ```bash
-pytest tests/test-all-scenarios.py --tb=short
+pytest --tb=short
+# or
+pytest tests/test_all_scenarios.py --tb=short
 ```
 
 ## Adding New Step Definitions
@@ -200,9 +214,13 @@ If you need a new domain category:
 ### Feature File Guidelines
 
 1. **One Feature File per Use Case**: Each `.feature` file should correspond to one use case
-2. **Tag Scenarios**: Use tags to link scenarios to use case sections (e.g., `@UC-12345-Main`)
+2. **Name Scenarios Consistently**: Include use case IDs in scenario names for easy filtering (e.g., `UC-12345-Main: Successful Firmware Upgrade`)
+   - pytest-bdd converts scenario names to test function names by: removing hyphens/special chars, lowercasing, replacing spaces with underscores
+   - Example: `UC-12345-Main: Successful Firmware Upgrade` → `test_uc12345main_successful_firmware_upgrade`
+   - Filter using: `pytest -k "uc12345main"` or `pytest -k "successful_firmware"`
 3. **Verify Guarantees**: Each scenario should verify Success Guarantees (success paths) or Minimal Guarantees (failure paths)
 4. **Clear Step Names**: Use clear, business-readable step names
+5. **No Tags Needed**: Use consistent naming patterns instead of `@` tags to avoid marker registration and warnings
 
 ### Shared Helpers
 
@@ -216,7 +234,7 @@ If you need a new domain category:
 2. **Create Feature File**: Add `.feature` file in `features/` with scenarios
 3. **Implement Steps**: Add step definitions to appropriate modules in `step_defs/`
 4. **Add Test Artifacts**: Place required files in `test_artifacts/` if needed
-5. **Run Tests**: Execute tests using `pytest tests/test-all-scenarios.py`
+5. **Run Tests**: Execute tests using `pytest` or `pytest tests/test_all_scenarios.py`
 
 **Note**: No need to update `conftest.py` or test files - the auto-discovery system handles everything!
 
@@ -267,6 +285,19 @@ If you need a new domain category:
 2. **Single Source of Truth**: Step definitions live only in `step_defs/` modules
 3. **Scalable**: Works with any number of step definition files
 4. **Self-Documenting**: Discovery output shows what steps are registered
+
+### Using Naming Patterns Instead of Tags
+
+**Issue**: Using `@` tags in feature files requires registering markers in `pytest.ini` to avoid warnings. With many use cases, this becomes tedious to maintain.
+
+**Solution**: Use consistent naming patterns in scenario names (e.g., `UC-12345-Main: Successful Firmware Upgrade`) instead of tags. Filter scenarios using pytest's `-k` option with keyword matching.
+
+**Key Points**:
+- Scenario names are converted to test function names: hyphens/special chars removed, lowercased, spaces become underscores
+- Example: `UC-12345-Main: Successful Firmware Upgrade` → `test_uc12345main_successful_firmware_upgrade`
+- Filter using: `pytest -k "uc12345main"` or `pytest -k "successful_firmware"`
+- No marker registration needed - eliminates warnings and maintenance overhead
+- Still provides organization and filtering capabilities through consistent naming
 
 ## Related Documentation
 
