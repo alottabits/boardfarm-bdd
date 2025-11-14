@@ -8,17 +8,16 @@ Feature: CPE Firmware Upgrade
 
   @UC-12345-Main
   Scenario: Successful Firmware Upgrade
-    Given the operator installs a new signed firmware file "prplos_upgrade.img" on the image server
+    Given the operator installs a new signed firmware file "prepared_upgrade.img" on the image server
     And the user has set the CPE GUI username to "john" and password to "pass"
     And the user has set the SSID to "mynetwork"
-    And the ACS is configured to upgrade the CPE with "prplos_upgrade.img"
+    And the ACS is configured to upgrade the CPE with "prepared_upgrade.img"
     When the CPE performs its periodic TR-069 check-in
     Then the ACS issues the Download RPC
     And the CPE downloads the firmware from the image server
     And the CPE validates the firmware
     And after successful validation, the CPE installs the firmware and reboots
     And the CPE reconnects to the ACS
-    And the CPE re-provisions
     And the ACS reports the new firmware version for the CPE
     And the CPE's subscriber credentials and LAN configuration are preserved
     And internet connectivity for the subscriber is restored
@@ -62,7 +61,6 @@ Feature: CPE Firmware Upgrade
     And the CPE validates the firmware
     And after successful validation, the CPE installs the firmware and reboots
     And the CPE reconnects to the ACS
-    And the CPE re-provisions
     And the ACS reports the new firmware version for the CPE
     But the CPE's subscriber credentials and LAN configuration are reset to factory defaults
     And the subscriber re-configures user credentials and LAN settings

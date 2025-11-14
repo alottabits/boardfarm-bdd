@@ -54,7 +54,7 @@ The CPE's pre-configured periodic `Inform` interval elapses, causing it to initi
 5. The CPE downloads the firmware from the image server.
 6. The CPE validates the firmware.
 7. After successful validation, the CPE installs the firmware and automatically **reboots**.
-8. The CPE reconnects to the ACS.
+8. The CPE reconnects to the ACS (reconnection is verified by the CPE responding to RPC requests).
 9. The ACS reflects the updated software version for the CPE.
 10. Use case succeeds and all success guarantees are met.
 
