@@ -164,4 +164,4 @@ geckodriver.log
 # .vscode/
 
 # embedded images
-.img
+*.img
