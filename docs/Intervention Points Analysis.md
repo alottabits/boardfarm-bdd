@@ -5,9 +5,11 @@
 After analyzing the PrplOS upgrade process in the container, we have identified **two minimal intervention points** that bridge the containerization gap (no FLASH memory) while preserving all native PrplOS behavior:
 
 1. **Platform Hook** (`/lib/upgrade/z-container-hooks.sh`): Intercepts FLASH write operations
-2. **Entrypoint Script** (`/docker-entrypoint.sh`): Applies new filesystem at boot time
+2. **Init Wrapper Script** (`/usr/local/bin/container-init.sh`): Applies new filesystem at boot time
 
 **Note**: The environment deduplication script was previously included but has been removed as it's no longer needed with the simplified installation process (`rsync --delete` completely replaces `/etc/environment` from the new rootfs).
+
+**Note**: We use CMD with a wrapper script instead of ENTRYPOINT to avoid Docker lifecycle timing issues with Raikou's dynamic interface attachment. This keeps the container lifecycle closer to the working `bf_demo` setup.
 
 
 ## PrplOS Upgrade Process Flow
@@ -61,14 +63,14 @@ platform_do_upgrade() [HOOK: /lib/upgrade/z-container-hooks.sh]
   ├─ Creates /boot/.do_upgrade flag with image path
   └─ Reboots
       ↓
-/docker-entrypoint.sh [ENTRYPOINT]
+/usr/local/bin/container-init.sh [CMD]
   ├─ Detects /boot/.do_upgrade flag
   ├─ Reads firmware image path from flag
   ├─ Extracts rootfs using unsquashfs directly (no loop devices)
   ├─ Creates old rootfs backup as SquashFS image in /firmware/backups/
   ├─ Restores config backup: /boot/sysupgrade.tgz → /sysupgrade.tgz and /tmp/sysupgrade.tgz
   ├─ Applies new rootfs from extracted directory (rsync or cp)
-  └─ Continues normal boot
+  └─ Continues normal boot (exec /sbin/init)
       ↓
 PrplOS /lib/preinit/80_mount_root [NATIVE]
   ├─ Detects /sysupgrade.tgz
@@ -79,9 +81,10 @@ PrplOS /lib/preinit/80_mount_root [NATIVE]
 1. **ramfs Switch**: Skipped via `rootfs_type()` override (not needed for containerized upgrades)
 2. **Boot Device Detection**: Skipped via `platform_check_image()` override (no physical device in containers)
 3. **FLASH Write Operations**: Replaced with storing full firmware image to persistent location
-4. **Boot-Time Application**: Entrypoint extracts rootfs using `unsquashfs` directly and applies files
+4. **Boot-Time Application**: Init wrapper script extracts rootfs using `unsquashfs` directly and applies files
 5. **Config Backup Preservation**: Config backup preserved across container restart (from `/tmp` to `/boot`)
 6. **No Loop Devices**: Uses `unsquashfs` directly on firmware image, avoiding loop device contamination
+7. **CMD Instead of ENTRYPOINT**: Uses CMD with wrapper script to avoid Docker lifecycle timing issues with Raikou's dynamic interface attachment
 
 ## Intervention Point 1: Platform Hook (`/lib/upgrade/z-container-hooks.sh`)
 
@@ -194,7 +197,7 @@ default_do_upgrade() {
 
 **Why**: If `do_stage2` can't find `platform_do_upgrade()`, it falls back to `default_do_upgrade()`. This ensures our containerized logic runs in either case.
 
-## Intervention Point 2: Entrypoint Script (`/docker-entrypoint.sh`)
+## Intervention Point 2: Init Wrapper Script (`/usr/local/bin/container-init.sh`)
 
 ### Purpose
 Apply new filesystem at boot time, bridging the containerization gap where FLASH mounting would occur.
@@ -205,7 +208,13 @@ Apply new filesystem at boot time, bridging the containerization gap where FLASH
 
 ### Implementation Approach
 
-**Location**: `/docker-entrypoint.sh` (container ENTRYPOINT)
+**Location**: `/usr/local/bin/container-init.sh` (container CMD)
+
+**Why CMD instead of ENTRYPOINT?**
+- Using ENTRYPOINT caused Docker lifecycle timing issues with Raikou's dynamic interface attachment
+- Raikou attaches eth1 dynamically after container start, and ENTRYPOINT execs init too early
+- Using CMD with a wrapper script keeps the container lifecycle closer to the working `bf_demo` setup
+- The wrapper script still runs before init starts, so upgrade logic executes at the right time
 
 **Logic**:
 ```bash
@@ -258,7 +267,7 @@ exec /sbin/init "$@"
 ```
 
 **Key Points**:
-- Runs before normal init process
+- Runs before normal init process (via CMD wrapper)
 - Only intervenes if `/boot/.do_upgrade` flag exists
 - Reads firmware image path from flag file
 - Extracts rootfs using `unsquashfs` directly on firmware image (no loop devices)
@@ -267,6 +276,7 @@ exec /sbin/init "$@"
 - Applies new rootfs using `rsync` (preferred) or `cp` with `find` (fallback)
 - Minimal intervention - just bridges the FLASH gap
 - PrplOS handles config restoration automatically during boot
+- Uses CMD instead of ENTRYPOINT to avoid Docker lifecycle timing issues with Raikou
 
 ## Environment Deduplication Script (No Longer Needed)
 
@@ -297,11 +307,13 @@ However, with the simplified installation:
 
 ### Current Solution
 
-1. **Entrypoint Script**: Completely replaces `/etc/environment` from new rootfs (matches production behavior)
-2. **set-mac-address Script**: Updates `HWMACADDRESS` and `MANUFACTUREROUI` in `/var/etc/environment` (where PrplOS generates values) to match eth1 MAC address
+1. **Init Wrapper Script**: Completely replaces `/etc/environment` from new rootfs (matches production behavior)
+2. **PrplOS Native Behavior**: PrplOS generates `/var/etc/environment` automatically from eth1 during boot
 3. **Boardfarm Device Class**: Reads from `/var/etc/environment` instead of `/etc/environment` to reflect actual PrplOS behavior
 
 **Note**: The `deduplicate-environment.sh` script file is kept in the repository for reference but is not installed or used.
+
+**Note**: The `set-mac-address.sh` and `configure-wan-interface.sh` scripts are not needed. PrplOS handles MAC address generation and network interface configuration automatically during boot. The CMD approach with wrapper script avoids the Docker lifecycle timing issues that previously required manual interface configuration.
 
 ## File Structure Summary
 
@@ -313,11 +325,8 @@ Container Filesystem:
 │   ├── common.sh            [NATIVE] - get_partitions, get_image_dd functions
 │   ├── platform.sh          [NATIVE] - platform_do_upgrade (overridden)
 │   └── z-container-hooks.sh [HOOK] - Overrides platform_do_upgrade()
-├── /docker-entrypoint.sh    [ENTRYPOINT] - Applies upgrade at boot
-├── /etc/init.d/
-│   └── set-mac-address        [CONTAINER] - Sets MAC address and OUI from eth1 (network config handled by PrplOS)
-├── /etc/rc.d/
-│   └── S99set-mac-address        [CONTAINER] - Runs late in boot
+├── /usr/local/bin/
+│   └── container-init.sh    [CMD] - Applies upgrade at boot (wrapper script)
 ├── /boot/                   [CREATED] - Upgrade flags and config backup
 │   ├── .do_upgrade          [FLAG] - Contains firmware image path
 │   └── sysupgrade.tgz       [BACKUP] - PrplOS config backup (preserved from /tmp)
@@ -326,7 +335,7 @@ Container Filesystem:
 │   │   └── firmware_<timestamp>.img [IMAGE] - Full firmware image
 │   └── backups/             [DIR] - Old rootfs backups
 │       └── rootfs_backup_<timestamp>.img [IMAGE] - SquashFS backup of old rootfs
-└── /new_rootfs_pending/     [TEMPORARY] - New rootfs extracted by entrypoint (cleaned up after upgrade)
+└── /new_rootfs_pending/     [TEMPORARY] - New rootfs extracted by wrapper script (cleaned up after upgrade)
 ```
 
 ## Validation Points
@@ -347,14 +356,15 @@ Container Filesystem:
 - 🔧 **Boot device detection**: Overridden in `platform_check_image()` - **NOT TESTED** (no physical device)
 - 🔧 **ramfs switch**: Skipped via `rootfs_type()` override - **NOT TESTED** (not needed in containers)
 - 🔧 **FLASH write operations**: Replaced with filesystem extraction - **NOT TESTED** (no FLASH memory)
-- 🔧 **Boot-time filesystem application**: Entrypoint applies new rootfs - **NOT TESTED** (native uses kernel FLASH mount)
+- 🔧 **Boot-time filesystem application**: Init wrapper script applies new rootfs - **NOT TESTED** (native uses kernel FLASH mount)
 
 ### Container-Specific Safeguards (Not Production Issues) 🛡️
-- 🛡️ **MAC address population**: `/etc/init.d/set-mac-address` - **TESTBED-SPECIFIC** (updates `/var/etc/environment`)
+- 🛡️ **MAC address handling**: PrplOS generates `/var/etc/environment` automatically from eth1 during boot - **NATIVE BEHAVIOR**
   - **Why**: PrplOS generates `/var/etc/environment` but does NOT copy it to `/etc/environment`. In production, `/etc/environment` from firmware image is used as-is.
-  - **Testbed Requirement**: We update `HWMACADDRESS` and `MANUFACTUREROUI` in `/var/etc/environment` (where PrplOS generates values) to match eth1 MAC address. Boardfarm reads from `/var/etc/environment` to reflect actual PrplOS behavior.
-  - **Impact**: Ensures testbed has correct MAC address values while reflecting real-world PrplOS behavior (values generated in `/var/etc/environment`)
+  - **Testbed Behavior**: PrplOS automatically populates `HWMACADDRESS` and `MANUFACTUREROUI` in `/var/etc/environment` from eth1 during boot. Boardfarm reads from `/var/etc/environment` to reflect actual PrplOS behavior.
+  - **Impact**: Testbed reflects real-world PrplOS behavior (values generated in `/var/etc/environment`)
   - **Note**: Network configuration (WAN DHCP, LAN bridge) is handled automatically by PrplOS during initialization - no manual UCI configuration needed
+  - **Note**: Using CMD instead of ENTRYPOINT avoids Docker lifecycle timing issues with Raikou's dynamic interface attachment, ensuring eth1 is available when PrplOS initializes
 
 ### What Is NOT Tested in Containerized Setup ⚠️
 
@@ -467,7 +477,7 @@ The containerized testbed **validates** PrplOS upgrade behavior but **does not t
 - Purpose: Mount new rootfs from FLASH
 
 **Containerized Behavior**:
-- Entrypoint script extracts rootfs from firmware image using `unsquashfs` directly
+- Init wrapper script extracts rootfs from firmware image using `unsquashfs` directly
 - Copies files from extracted directory to root filesystem
 - No kernel FLASH mount operation
 - Uses regular filesystem copy operations
@@ -510,7 +520,7 @@ The containerized setup **successfully validates** the following PrplOS upgrade 
 3. ✅ **Configuration Backup**: Creation, preservation, and restoration of `/tmp/sysupgrade.tgz`
    - PrplOS creates `/tmp/sysupgrade.tgz` during sysupgrade
    - Hook preserves it to `/boot/sysupgrade.tgz` (survives container restart)
-   - Entrypoint restores it to `/sysupgrade.tgz` and `/tmp/sysupgrade.tgz` before applying rootfs
+   - Init wrapper script restores it to `/sysupgrade.tgz` and `/tmp/sysupgrade.tgz` before applying rootfs
    - PrplOS restores configuration automatically during boot
 4. ✅ **Image Processing**: Partition table parsing, rootfs extraction
 5. ✅ **Upgrade Flow**: Complete upgrade process from TR-069 command to reboot
@@ -523,18 +533,20 @@ The containerized setup **successfully validates** the following PrplOS upgrade 
 
 1. ✅ **Test URL Handling**: Verified - Native PrplOS `/sbin/sysupgrade` handles HTTP/HTTPS URLs directly (no wrapper script needed)
 2. ✅ **Test Hook Interception**: Verified - `platform_do_upgrade()` is called and extracts rootfs successfully
-3. ✅ **Test Boot Application**: Verified - Entrypoint applies new rootfs correctly (version changes from 3.0.2 to 3.0.3)
+3. ✅ **Test Boot Application**: Verified - Init wrapper script applies new rootfs correctly (version changes from 3.0.2 to 3.0.3)
 4. ✅ **Test Native Behavior**: Verified - All PrplOS validation (signature, device compatibility) still works
-5. ⏳ **Test TR-069 Integration**: Pending - End-to-end upgrade via TR-069 Download command with HTTP URL
+5. ✅ **Test CMD Approach**: Verified - Using CMD instead of ENTRYPOINT restores eth1 connectivity, avoiding Docker lifecycle timing issues with Raikou
+6. ⏳ **Test TR-069 Integration**: Pending - End-to-end upgrade via TR-069 Download command with HTTP URL
 
 ## Implementation Status
 
 1. ✅ Analyze PrplOS upgrade process (COMPLETE)
 2. ✅ Verify sysupgrade URL support (COMPLETE - Native PrplOS `/sbin/sysupgrade` handles URLs directly, no wrapper script needed)
 3. ✅ Implement platform hook (COMPLETE)
-4. ✅ Implement entrypoint script (COMPLETE)
+4. ✅ Implement init wrapper script (COMPLETE - Using CMD instead of ENTRYPOINT to avoid Docker lifecycle timing issues)
 5. ✅ Test intervention points (COMPLETE - Upgrade successful, version changed from 3.0.2 to 3.0.3)
-6. ⏳ Validate UC-12345 scenarios (PENDING - Requires TR-069 integration testing)
+6. ✅ Test CMD approach (COMPLETE - eth1 connectivity restored, avoiding Docker lifecycle timing issues with Raikou)
+7. ⏳ Validate UC-12345 scenarios (PENDING - Requires TR-069 integration testing)
 
 ## Test Results
 
@@ -549,10 +561,11 @@ The containerized setup **successfully validates** the following PrplOS upgrade 
 - ⚠️ Backup operation excludes virtual filesystems (`/proc`, `/sys`, `/dev`) - expected behavior
 
 **Container-Specific Safeguards**:
-- 🛡️ `/var/etc/environment` update script runs at S99 (`set-mac-address`) to update `HWMACADDRESS` and `MANUFACTUREROUI` to match eth1 MAC address
+- 🛡️ PrplOS automatically generates `/var/etc/environment` from eth1 during boot (native behavior)
 - 🛡️ Boardfarm device class reads from `/var/etc/environment` (where PrplOS generates values) instead of `/etc/environment` (firmware image)
 - 🛡️ This reflects actual PrplOS behavior - we're validating PrplOS as it works, not modifying it
 - 🛡️ Network configuration (WAN DHCP, LAN bridge) is handled automatically by PrplOS - no manual UCI configuration needed
 - 🛡️ **Note**: PrplOS generates `/var/etc/environment` but does NOT copy it to `/etc/environment`. In production, `/etc/environment` from firmware image is used as-is. We've adapted Boardfarm to read from `/var/etc/environment` to reflect real-world behavior.
 - 🛡️ **Environment deduplication script removed**: With simplified installation (`rsync --delete`), `/etc/environment` is completely replaced from new rootfs, eliminating any possibility of duplicates. The script is kept in repository for reference but not installed.
+- 🛡️ **CMD instead of ENTRYPOINT**: Using CMD with wrapper script avoids Docker lifecycle timing issues with Raikou's dynamic interface attachment, ensuring eth1 is available when PrplOS initializes. This keeps the container lifecycle closer to the working `bf_demo` setup.
 

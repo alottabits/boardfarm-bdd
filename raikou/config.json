@@ -19,8 +19,7 @@
         "cpe": [
             {
                 "bridge": "cpe-rtr",
-                "iface": "eth1",
-                "macaddress": "c2:68:68:c9:bc:ae"
+                "iface": "eth1"
             },
             {
                 "bridge": "lan-cpe",

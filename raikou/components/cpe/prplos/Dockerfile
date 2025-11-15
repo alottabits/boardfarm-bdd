@@ -50,37 +50,45 @@ RUN apk add --no-cache \
     # Verify XZ support is compiled in (check version output)
     /usr/bin/unsquashfs.static -version || true
 
+# --- Add containerized upgrade support ---
+# Use intermediate stage to set up permissions (FROM scratch can't run commands)
+FROM alpine:latest AS setup-stage
+# Copy wrapper script and upgrade hook from build context
+COPY container-init.sh /usr/local/bin/container-init.sh
+COPY z-container-hooks.sh /lib/upgrade/z-container-hooks.sh
+
+# Make scripts executable
+RUN chmod +x /usr/local/bin/container-init.sh && \
+    chmod +x /lib/upgrade/z-container-hooks.sh
+
+# Final stage: Copy from setup-stage and builder
 FROM scratch
 
 COPY --from=builder /root/prplos /
 
 # Copy static unsquashfs binary from Alpine builder (musl-based) for upgrade process
 # Static binary built with musl libc works on PrplOS (which also uses musl)
-# This binary will be removed after upgrade completes (see docker-entrypoint.sh)
+# This binary will be removed after upgrade completes (see container-init.sh)
 COPY --from=unsquashfs-builder /usr/bin/unsquashfs.static /usr/bin/unsquashfs
 
-# --- Add containerized upgrade support ---
-# Copy platform hook that overrides platform_do_upgrade() to extract rootfs instead of writing to FLASH
+# Copy wrapper script from setup-stage (with proper permissions)
+# Wrapper script that applies new rootfs at boot time (uses CMD instead of ENTRYPOINT)
+# This avoids Docker lifecycle timing issues with Raikou's dynamic interface attachment
+COPY --from=setup-stage /usr/local/bin/container-init.sh /usr/local/bin/container-init.sh
+
+# Copy platform hook that overrides platform_do_upgrade() for containerized upgrades
 # The 'z-' prefix ensures it's sourced after platform.sh (alphabetical order)
-COPY z-container-hooks.sh /lib/upgrade/z-container-hooks.sh
+# This hook intercepts PrplOS upgrade functions to handle containerized upgrade process
+COPY --from=setup-stage /lib/upgrade/z-container-hooks.sh /lib/upgrade/z-container-hooks.sh
 
-# Copy entrypoint script that applies new rootfs at boot time
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-
-# Copy script to populate MAC address after boot (runs via init system)
-COPY set-mac-address.sh /etc/init.d/set-mac-address
-
+# Note: set-mac-address.sh script exists but is not installed as an init script.
+# PrplOS generates HWMACADDRESS automatically from eth1 during boot, so this script is not needed.
 # Note: deduplicate-environment.sh script exists but is not used.
 # If /var/etc/environment duplication occurs in regular PrplOS upgrades,
 # we should not interfere with PrplOS's normal behavior.
-# The script is kept for reference but not installed.
-
-# Make scripts executable and enable via init system
-RUN chmod +x /docker-entrypoint.sh && \
-    chmod +x /lib/upgrade/z-container-hooks.sh && \
-    chmod +x /etc/init.d/set-mac-address && \
-    ln -s ../init.d/set-mac-address /etc/rc.d/S99set-mac-address
 # --- End containerized upgrade support ---
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["/sbin/init"]
+# Use CMD with wrapper script instead of ENTRYPOINT
+# This keeps container lifecycle closer to bf_demo and avoids timing issues
+# with Raikou's dynamic interface attachment
+CMD ["/usr/local/bin/container-init.sh"]
