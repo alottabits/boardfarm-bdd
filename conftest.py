@@ -2,9 +2,15 @@
 
 import ast
 import importlib
+import inspect
 from pathlib import Path
 
+import pytest
+from boardfarm3.templates.acs import ACS as AcsTemplate
+from boardfarm3.templates.cpe.cpe import CPE as CpeTemplate
+from boardfarm3.templates.wan import WAN as WanTemplate
 from pytest_bdd import given, then, when
+from pytest_boardfarm3.boardfarm_fixtures import devices
 
 
 def _extract_step_decorators_from_source(module_path: Path):
@@ -117,24 +123,44 @@ def _discover_and_register_step_definitions():
                 # Get the original function from the module
                 original_func = getattr(module, func_name, None)
                 if original_func and callable(original_func):
-                    # Re-register using the exact pattern that works manually
-                    # Create code that mimics:
-                    # @when("step name") def wrapper(): return original_func()
+                    # Extract function signature to preserve fixture injection
                     import sys
                     conftest_module = sys.modules[__name__]
 
+                    # Get the function signature to preserve parameter names
+                    sig = inspect.signature(original_func)
+                    param_names = list(sig.parameters.keys())
+                    
+                    # Create parameter string for the wrapper function
+                    # This preserves the original signature so pytest-bdd can inject fixtures
+                    if param_names:
+                        params_str = ", ".join(param_names)
+                    else:
+                        params_str = ""
+                    
                     # Create a unique function name
                     wrapper_name = f"_{module_name}_{func_name}_wrapper"
 
-                    # Create step definition code using manual registration pattern
+                    # Create step definition code preserving the original signature
                     # Escape quotes in step_name for the code string
                     escaped_step_name = step_name.replace('"', '\\"')
-                    step_code = f'''
+                    
+                    # Build the wrapper function code with preserved signature
+                    if params_str:
+                        step_code = f'''
 @decorators["{step_type}"]("{escaped_step_name}")
-def {wrapper_name}(*args, **kwargs):
+def {wrapper_name}({params_str}):
     """Re-registered step definition wrapper."""
-    return module.{func_name}(*args, **kwargs)
+    return module.{func_name}({params_str})
 '''
+                    else:
+                        step_code = f'''
+@decorators["{step_type}"]("{escaped_step_name}")
+def {wrapper_name}():
+    """Re-registered step definition wrapper."""
+    return module.{func_name}()
+'''
+                    
                     # Execute in module namespace with necessary variables
                     exec_globals = {
                         "decorators": decorators,
@@ -162,3 +188,32 @@ def {wrapper_name}(*args, **kwargs):
 
 # Run auto-discovery when conftest.py is loaded
 _discover_and_register_step_definitions()
+
+
+# Boardfarm device fixtures - extract devices from the devices fixture
+@pytest.fixture
+def acs(devices) -> AcsTemplate:
+    """ACS device fixture extracted from boardfarm devices."""
+    # devices is a Namespace object, access via attributes
+    return getattr(devices, "genieacs", None) or getattr(devices, "acs", None)
+
+
+@pytest.fixture
+def cpe(devices) -> CpeTemplate:
+    """CPE device fixture extracted from boardfarm devices."""
+    # devices is a Namespace object, access via attributes
+    return getattr(devices, "board", None) or getattr(devices, "cpe", None)
+
+
+@pytest.fixture
+def http_server(devices) -> WanTemplate:
+    """HTTP server (WAN) device fixture extracted from boardfarm devices."""
+    # devices is a Namespace object, access via attributes
+    return getattr(devices, "wan", None)
+
+
+@pytest.fixture
+def wan(devices) -> WanTemplate:
+    """WAN device fixture (alias for http_server)."""
+    # devices is a Namespace object, access via attributes
+    return getattr(devices, "wan", None)
