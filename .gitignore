@@ -149,6 +149,10 @@ style.css
 # Alternate config files
 #*.json
 
+#logs
+logs/
+reports/logs/
+
 # Patch foo
 *.rej
 *.orig
