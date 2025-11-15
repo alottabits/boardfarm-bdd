@@ -220,10 +220,25 @@ Apply new filesystem at boot time, bridging the containerization gap where FLASH
 ```bash
 #!/bin/sh
 UPGRADE_FLAG="/boot/.do_upgrade"
+CONFIG_BACKUP="/boot/sysupgrade.tgz"
 NEW_ROOTFS="/new_rootfs_pending"
 OLD_ROOTFS_BACKUP_DIR="/firmware/backups"
 
-# Check if upgrade is pending
+# Fast path: Check for upgrade flag immediately, before any setup
+# If no upgrade flag exists, clean up any leftover config backups and exec init
+# This ensures clean state for Boardfarm initialization (no stale config from previous tests)
+if [ ! -f "$UPGRADE_FLAG" ]; then
+    # Clean up any leftover config backup from previous test runs
+    # This prevents PrplOS from restoring stale config (e.g., changed GUI credentials)
+    # that could interfere with Boardfarm's initialization process
+    if [ -f "$CONFIG_BACKUP" ]; then
+        rm -f "$CONFIG_BACKUP"
+    fi
+    # No upgrade pending - exec init immediately for normal boot
+    exec /sbin/init "$@"
+fi
+
+# Upgrade path: Only execute below if upgrade flag exists
 if [ -f "$UPGRADE_FLAG" ]; then
     # Read firmware image path from flag
     firmware_image=$(cat "$UPGRADE_FLAG" | head -1)
@@ -269,6 +284,7 @@ exec /sbin/init "$@"
 **Key Points**:
 - Runs before normal init process (via CMD wrapper)
 - Only intervenes if `/boot/.do_upgrade` flag exists
+- **Config Backup Cleanup**: During normal boot (no upgrade flag), removes any leftover `/boot/sysupgrade.tgz` to ensure clean state for Boardfarm initialization
 - Reads firmware image path from flag file
 - Extracts rootfs using `unsquashfs` directly on firmware image (no loop devices)
 - Creates old rootfs backup as SquashFS image in `/firmware/backups/` (optional)
@@ -365,6 +381,13 @@ Container Filesystem:
   - **Impact**: Testbed reflects real-world PrplOS behavior (values generated in `/var/etc/environment`)
   - **Note**: Network configuration (WAN DHCP, LAN bridge) is handled automatically by PrplOS during initialization - no manual UCI configuration needed
   - **Note**: Using CMD instead of ENTRYPOINT avoids Docker lifecycle timing issues with Raikou's dynamic interface attachment, ensuring eth1 is available when PrplOS initializes
+
+- 🛡️ **Config backup cleanup**: Init wrapper script removes leftover `/boot/sysupgrade.tgz` during normal boot - **TESTBED-SPECIFIC**
+  - **Why**: When GUI credentials or other settings are changed via TR-069, PrplOS creates a config backup (`/tmp/sysupgrade.tgz`). If an upgrade was attempted, this backup is preserved to `/boot/sysupgrade.tgz`. On reinitialization without an upgrade, if this backup exists, PrplOS will restore it during boot, which can interfere with Boardfarm's initialization process (e.g., causing eth1 connectivity failures).
+  - **Testbed Behavior**: During normal boot (no upgrade flag), the init wrapper script removes any leftover `/boot/sysupgrade.tgz` to ensure a clean state for Boardfarm initialization. This prevents stale config from previous test runs from interfering with network initialization.
+  - **Impact**: Ensures Boardfarm always starts with a clean state, preventing config restoration from interfering with eth1 connectivity or other initialization steps
+  - **Note**: Config backups are still preserved and restored during actual upgrades (when `/boot/.do_upgrade` flag exists)
+  - **Note**: GUI credentials (`Device.Users.User.1.Username` and `Device.Users.User.1.Password`) are not used for Boardfarm initialization - the CPE connects via `docker exec` (local_cmd), not SSH
 
 ### What Is NOT Tested in Containerized Setup ⚠️
 
@@ -568,4 +591,5 @@ The containerized setup **successfully validates** the following PrplOS upgrade 
 - 🛡️ **Note**: PrplOS generates `/var/etc/environment` but does NOT copy it to `/etc/environment`. In production, `/etc/environment` from firmware image is used as-is. We've adapted Boardfarm to read from `/var/etc/environment` to reflect real-world behavior.
 - 🛡️ **Environment deduplication script removed**: With simplified installation (`rsync --delete`), `/etc/environment` is completely replaced from new rootfs, eliminating any possibility of duplicates. The script is kept in repository for reference but not installed.
 - 🛡️ **CMD instead of ENTRYPOINT**: Using CMD with wrapper script avoids Docker lifecycle timing issues with Raikou's dynamic interface attachment, ensuring eth1 is available when PrplOS initializes. This keeps the container lifecycle closer to the working `bf_demo` setup.
+- 🛡️ **Config backup cleanup**: Init wrapper script removes leftover `/boot/sysupgrade.tgz` during normal boot to prevent stale config (e.g., changed GUI credentials) from interfering with Boardfarm initialization. This ensures clean state for each test run and prevents eth1 connectivity failures caused by config restoration during boot.
 
