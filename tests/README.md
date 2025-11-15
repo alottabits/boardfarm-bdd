@@ -247,6 +247,25 @@ If you need a new domain category:
 - **Check File Naming**: Step definition files should be `.py` files (not `__init__.py` or `helpers.py`)
 - **Run Discovery**: Check the pytest output - `conftest.py` prints which steps it discovers and registers
 
+### CPE Initialization Issues
+
+#### eth1 Connectivity Failures After Reinitialization
+
+**Symptom**: After changing GUI credentials in a test, eth1 fails to connect when Boardfarm tries to reinitialize the environment.
+
+**Root Cause**: When GUI credentials are changed via TR-069 (`Device.Users.User.1.Username` and `Device.Users.User.1.Password`), PrplOS creates a config backup (`/tmp/sysupgrade.tgz`). If an upgrade was attempted, this backup is preserved to `/boot/sysupgrade.tgz`. On reinitialization without an upgrade, if this backup exists, PrplOS will restore it during boot, which can interfere with Boardfarm's initialization process.
+
+**Solution**: The init wrapper script (`container-init.sh`) automatically removes leftover `/boot/sysupgrade.tgz` during normal boot (when no upgrade flag exists). This ensures a clean state for Boardfarm initialization.
+
+**Note**: GUI credentials are **not** used for Boardfarm initialization - the CPE connects via `docker exec` (local_cmd), not SSH. The issue is caused by config restoration interfering with network initialization, not by credential authentication.
+
+**Verification**: Check if `/boot/sysupgrade.tgz` exists in the container:
+```bash
+docker exec cpe ls -la /boot/sysupgrade.tgz
+```
+
+If it exists during normal boot (no upgrade), it should be automatically removed by the init wrapper script. If eth1 connectivity issues persist, check container logs for config restoration messages.
+
 ### Import Errors
 
 - Use absolute imports: `from tests.step_defs.helpers import ...`
