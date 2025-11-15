@@ -4,10 +4,18 @@
 # Uses CMD instead of ENTRYPOINT to avoid Docker lifecycle timing issues with Raikou
 
 UPGRADE_FLAG="/boot/.do_upgrade"
+CONFIG_BACKUP="/boot/sysupgrade.tgz"
 
 # Fast path: Check for upgrade flag immediately, before any setup
-# If no upgrade flag exists, immediately exec init without any overhead
+# If no upgrade flag exists, clean up any leftover config backups and exec init
+# This ensures clean state for Boardfarm initialization (no stale config from previous tests)
 if [ ! -f "$UPGRADE_FLAG" ]; then
+    # Clean up any leftover config backup from previous test runs
+    # This prevents PrplOS from restoring stale config (e.g., changed GUI credentials)
+    # that could interfere with Boardfarm's initialization process
+    if [ -f "$CONFIG_BACKUP" ]; then
+        rm -f "$CONFIG_BACKUP"
+    fi
     # No upgrade pending - exec init immediately for normal boot
     exec /sbin/init "$@"
 fi
