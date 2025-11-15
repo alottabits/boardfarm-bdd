@@ -9,7 +9,7 @@ import pytest
 from boardfarm3.templates.acs import ACS as AcsTemplate
 from boardfarm3.templates.cpe.cpe import CPE as CpeTemplate
 from boardfarm3.templates.wan import WAN as WanTemplate
-from pytest_bdd import given, then, when
+from pytest_bdd import given, parsers, then, when
 from pytest_boardfarm3.boardfarm_fixtures import devices
 
 
@@ -20,6 +20,7 @@ def _extract_step_decorators_from_source(module_path: Path):
     - type: 'given', 'when', or 'then'
     - name: the step name string
     - function_name: the name of the function being decorated
+    - uses_parser: True if the step uses parsers.parse(), False otherwise
     """
     steps = []
     
@@ -43,7 +44,8 @@ def _extract_step_decorators_from_source(module_path: Path):
                                     steps.append({
                                         "type": decorator_name,
                                         "name": step_name,
-                                        "function_name": node.name
+                                        "function_name": node.name,
+                                        "uses_parser": False
                                     })
                                 # Also handle parsers.parse() patterns
                                 elif decorator.args and isinstance(
@@ -62,7 +64,8 @@ def _extract_step_decorators_from_source(module_path: Path):
                                             steps.append({
                                                 "type": decorator_name,
                                                 "name": step_name,
-                                                "function_name": node.name
+                                                "function_name": node.name,
+                                                "uses_parser": True  # Mark as using parsers.parse()
                                             })
     except Exception as e:
         print(f"  ✗ Error parsing {module_path}: {e}")
@@ -119,6 +122,7 @@ def _discover_and_register_step_definitions():
                 step_type = step_info["type"]
                 step_name = step_info["name"]
                 func_name = step_info["function_name"]
+                uses_parser = step_info.get("uses_parser", False)  # Default to False for backward compatibility
                 
                 # Get the original function from the module
                 original_func = getattr(module, func_name, None)
@@ -146,15 +150,33 @@ def _discover_and_register_step_definitions():
                     escaped_step_name = step_name.replace('"', '\\"')
                     
                     # Build the wrapper function code with preserved signature
-                    if params_str:
-                        step_code = f'''
+                    # Use parsers.parse() if the original step used it
+                    if uses_parser:
+                        if params_str:
+                            step_code = f'''
+@decorators["{step_type}"](parsers.parse("{escaped_step_name}"))
+def {wrapper_name}({params_str}):
+    """Re-registered step definition wrapper."""
+    return module.{func_name}({params_str})
+'''
+                        else:
+                            step_code = f'''
+@decorators["{step_type}"](parsers.parse("{escaped_step_name}"))
+def {wrapper_name}():
+    """Re-registered step definition wrapper."""
+    return module.{func_name}()
+'''
+                    else:
+                        # Plain string registration (original behavior)
+                        if params_str:
+                            step_code = f'''
 @decorators["{step_type}"]("{escaped_step_name}")
 def {wrapper_name}({params_str}):
     """Re-registered step definition wrapper."""
     return module.{func_name}({params_str})
 '''
-                    else:
-                        step_code = f'''
+                        else:
+                            step_code = f'''
 @decorators["{step_type}"]("{escaped_step_name}")
 def {wrapper_name}():
     """Re-registered step definition wrapper."""
@@ -165,6 +187,7 @@ def {wrapper_name}():
                     exec_globals = {
                         "decorators": decorators,
                         "module": module,
+                        "parsers": parsers,  # Add parsers to exec_globals
                         "__name__": __name__,
                     }
                     exec(step_code, exec_globals, conftest_module.__dict__)  # noqa: S102
@@ -174,7 +197,8 @@ def {wrapper_name}():
                     _registered_steps.append(decorated_func)
                     
                     registered_count += 1
-                    print(f"  ✓ Re-registered {step_type.upper()}: '{step_name}' from {module_name}")
+                    parser_note = " (with parsers.parse())" if uses_parser else ""
+                    print(f"  ✓ Re-registered {step_type.upper()}: '{step_name}' from {module_name}{parser_note}")
                 else:
                     print(f"  ✗ Function '{func_name}' not found in {module_name}")
             
