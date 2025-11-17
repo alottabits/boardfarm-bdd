@@ -22,9 +22,46 @@ def acs_configured_for_upgrade(
     http_server_ip = http_server.get_eth_interface_ipv4_address()
     http_url = f"http://{http_server_ip}/{filename}"
 
+    # Get actual file size from the HTTP server
+    # This is critical - if fileSize doesn't match actual file size, download will fail
+    tftpboot_path = f"/tftpboot/{filename}"
+    try:
+        # First verify file exists
+        check_output = http_server.console.execute_command(
+            f"test -f {tftpboot_path} && echo 'exists' || echo 'missing'"
+        )
+        if "missing" in check_output.strip():
+            raise FileNotFoundError(
+                f"Firmware file {filename} does not exist at {tftpboot_path}"
+            )
+        
+        # Get file size
+        size_output = http_server.console.execute_command(
+            f"stat -c %s {tftpboot_path} 2>/dev/null || echo '0'"
+        )
+        filesize = int(size_output.strip() or "0")
+        if filesize == 0:
+            raise ValueError(f"Could not determine file size for {filename}")
+        print(f"Determined file size for {filename}: {filesize} bytes")
+    except (FileNotFoundError, ValueError) as e:
+        # Don't use fallback - fail fast if file doesn't exist or size can't be determined
+        raise RuntimeError(
+            f"Cannot proceed with Download RPC: {e}. "
+            f"Ensure {filename} exists at {tftpboot_path} before running the test."
+        ) from e
+    except Exception as e:
+        # For other errors, still fail but provide more context
+        raise RuntimeError(
+            f"Error checking firmware file {filename}: {e}"
+        ) from e
+
     acs.Download(
         url=http_url,
         filetype="1 Firmware Upgrade Image",
+        targetfilename="",  # PrplOS does not support TargetFileName parameter at all
+        filesize=filesize,
+        commandkey=f"upgrade-{filename}",  # Some CPEs require non-empty CommandKey
+        delayseconds=0,  # Set to 0 for immediate download (faster testing)
         cpe_id=cpe.sw.cpe_id,
     )
 
