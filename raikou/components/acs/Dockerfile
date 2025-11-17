@@ -55,9 +55,6 @@ COPY --from=bind-build-stage /root/bind.so /usr/lib/
 
 COPY isolate_docker_iface /usr/bin/
 
-COPY patch-genieacs.js /root/
-RUN node /root/patch-genieacs.js && rm /root/patch-genieacs.js
-
 COPY ./init /root/init
 
 EXPOSE 22/tcp
