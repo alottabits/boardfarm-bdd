@@ -124,6 +124,30 @@ if [ -n "$ENABLE_NAT_ON" ]; then
     ip6tables -t nat -A POSTROUTING -o "$ENABLE_NAT_ON" -j MASQUERADE
 fi
 
+# Start TR-069 MITM Proxy
+echo "Starting TR-069 MITM Proxy..."
+/opt/tr069-proxy.py > /var/log/tr069-proxy.log 2>&1 &
+PROXY_PID=$!
+echo "TR-069 MITM Proxy started with PID: $PROXY_PID"
+
+# Wait a moment for proxy to start
+sleep 2
+
+# Configure iptables to redirect TR-069 traffic through proxy
+# Redirect traffic destined for ACS (172.25.1.40:7547) to proxy on router's WAN IP (172.25.1.1:8754)
+# Note: Using router's IP instead of localhost because DNAT to 127.0.0.1 doesn't work properly
+echo "Configuring iptables to redirect TR-069 traffic through proxy..."
+ROUTER_WAN_IP=$(ip addr show eth1 | grep "inet " | awk '{print $2}' | cut -d/ -f1)
+if [ -z "$ROUTER_WAN_IP" ]; then
+    echo "Warning: Could not determine router WAN IP, using 172.25.1.1"
+    ROUTER_WAN_IP="172.25.1.1"
+fi
+if iptables -t nat -A PREROUTING -p tcp --dport 7547 -d 172.25.1.40 -j DNAT --to-destination ${ROUTER_WAN_IP}:8754 2>/dev/null; then
+    echo "TR-069 traffic redirection configured (DNAT to ${ROUTER_WAN_IP}:8754)"
+else
+    echo "Error: Failed to configure iptables DNAT. Proxy may not work correctly."
+fi
+
 for IFACE_DATA in "${IFACE_REQUIRED[@]}"; do
     read -r IFACE BUNDLE <<< "$IFACE_DATA"
     if [ -n "$DHCP_RELAY" ]; then

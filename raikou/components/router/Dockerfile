@@ -47,6 +47,7 @@ WORKDIR /root
 COPY ./resources/frr.conf .
 COPY ./resources/staticd.conf .
 COPY ./resources/init .
+COPY ./resources/tr069-proxy.py .
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -127,6 +128,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     mv /root/staticd.conf /etc/frr/staticd.conf && \
     chown -R frr /etc/frr && \
     chmod +x init && \
+    chmod +x tr069-proxy.py && \
+    mv /root/tr069-proxy.py /opt/tr069-proxy.py && \
     echo "root:bigfoot1" | chpasswd
 
 ENTRYPOINT [ "/root/init" ]
