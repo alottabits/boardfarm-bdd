@@ -56,10 +56,12 @@ FROM alpine:latest AS setup-stage
 # Copy wrapper script and upgrade hook from build context
 COPY container-init.sh /usr/local/bin/container-init.sh
 COPY z-container-hooks.sh /lib/upgrade/z-container-hooks.sh
+COPY sysupgrade-wrapper.sh /sbin/sysupgrade
 
 # Make scripts executable
 RUN chmod +x /usr/local/bin/container-init.sh && \
-    chmod +x /lib/upgrade/z-container-hooks.sh
+    chmod +x /lib/upgrade/z-container-hooks.sh && \
+    chmod +x /sbin/sysupgrade
 
 # Final stage: Copy from setup-stage and builder
 FROM scratch
@@ -80,6 +82,16 @@ COPY --from=setup-stage /usr/local/bin/container-init.sh /usr/local/bin/containe
 # The 'z-' prefix ensures it's sourced after platform.sh (alphabetical order)
 # This hook intercepts PrplOS upgrade functions to handle containerized upgrade process
 COPY --from=setup-stage /lib/upgrade/z-container-hooks.sh /lib/upgrade/z-container-hooks.sh
+
+# Copy sysupgrade wrapper that automatically adds --force flag
+# First preserve original sysupgrade (before it gets overwritten)
+COPY --from=builder /root/prplos/sbin/sysupgrade /sbin/sysupgrade_orig
+# Then overwrite with wrapper (wrapper ensures test images can be upgraded)
+COPY --from=setup-stage /sbin/sysupgrade /sbin/sysupgrade
+
+# Note: tr069_1_fw_upgrade is not wrapped because the firmware controller
+# fails before downloads start, so tr069_1_fw_upgrade is never called.
+# The original script remains as-is in the PrplOS image.
 
 # Note: set-mac-address.sh script exists but is not installed as an init script.
 # PrplOS generates HWMACADDRESS automatically from eth1 during boot, so this script is not needed.
