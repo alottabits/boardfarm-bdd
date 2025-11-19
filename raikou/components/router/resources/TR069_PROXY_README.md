@@ -2,16 +2,17 @@
 
 ## Overview
 
-This directory contains a TR-069 MITM (Man-in-the-Middle) proxy implementation that intercepts TR-069 traffic between the CPE and ACS (GenieACS).
+This directory contains a TR-069 MITM (Man-in-the-Middle) proxy implementation that intercepts TR-069 traffic between the CPE and ACS (GenieACS) for debugging purposes.
 
-## Current Implementation: Pass-Through Mode
+## Current Implementation: Logging-Only Pass-Through
 
-The initial implementation (`tr069-proxy.py`) is a **pass-through proxy** that:
+The proxy (`tr069-proxy.py`) is a **logging-only pass-through proxy** that:
 - Intercepts all TR-069 traffic (port 7547) destined for ACS
-- Forwards messages without modification
-- Logs all traffic for debugging
+- Forwards all messages without modification (pure pass-through)
+- Logs all TR-069 RPCs and traffic for debugging purposes
+- Identifies RPC types (Inform, Reboot, GetParameterValues, etc.) in logs
 
-This allows testing that the proxy infrastructure works correctly before implementing message modification.
+This proxy is useful for debugging TR-069 communication issues and monitoring traffic flow between CPE and ACS.
 
 ## Files
 
@@ -67,25 +68,28 @@ docker exec router iptables -t nat -L PREROUTING -n -v | grep 7547
 ### Test TR-069 Communication
 
 1. **Trigger CPE Inform**: Restart CPE or wait for periodic inform
-2. **Check Proxy Logs**: Should see requests being forwarded
+2. **Check Proxy Logs**: Should see requests being forwarded with RPC type identification
 3. **Verify ACS Receives Messages**: Check GenieACS logs
-4. **Test Download Task**: Create a download task via GenieACS UI/API
+4. **Test Reboot RPC**: Issue a Reboot RPC from ACS and verify it's logged
 
-### Expected Behavior (Pass-Through Mode)
+### Expected Behavior (Logging-Only Mode)
 
 - All TR-069 messages should pass through unchanged
-- Proxy logs should show requests and responses
+- Proxy logs should show:
+  - Connection events
+  - RPC types (Inform, Reboot, GetParameterValues, etc.)
+  - Request/response sizes
+  - Message previews (first 500 chars) at DEBUG level
 - CPE should receive responses normally
+- No message modification occurs
 - No errors should occur
 
-## Next Steps: Message Modification
+### Log Format
 
-Once pass-through mode is verified, implement message modification:
-
-1. Modify `remove_empty_targetfilename()` function in `tr069-proxy.py`
-2. Parse SOAP XML in ACS responses
-3. Remove empty `<TargetFileName></TargetFileName>` tags
-4. Forward modified messages to CPE
+The proxy logs include:
+- `INFO`: Connection events, RPC types, message sizes
+- `DEBUG`: Message previews (first 500 chars of SOAP messages)
+- `ERROR`: Connection errors, HTTP errors, proxy failures
 
 ## Troubleshooting
 

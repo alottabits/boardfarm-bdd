@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-TR-069 MITM Proxy - Pass-through implementation
-Forwards all TR-069 messages without modification (for compatibility testing)
+TR-069 MITM Proxy - Logging-only pass-through proxy
+Forwards all TR-069 messages without modification and logs all traffic for debugging.
 """
 import http.server
 import socketserver
 import urllib.request
 import sys
 import logging
+import re
 
 # Configuration
 ACS_HOST = "172.25.1.40"
@@ -39,24 +40,26 @@ class TR069ProxyHandler(http.server.BaseHTTPRequestHandler):
     
     def do_POST(self):
         """Handle HTTP POST requests (TR-069 uses POST for all RPCs)"""
-        # Read request body (CPE → ACS: Inform, TransferComplete, etc.)
+        # Read request body (CPE → ACS: Inform, TransferComplete, RebootResponse, etc.)
         content_length = int(self.headers.get('Content-Length', 0))
         request_body = self.rfile.read(content_length)
         
         client_ip = self.client_address[0]
         logger.info(f"Received POST from {client_ip}, path: {self.path}, size: {len(request_body)} bytes")
         
-        # Log CPE responses (especially DownloadResponse with faults)
+        # Log CPE requests for debugging
         if request_body and len(request_body) > 0:
             try:
                 request_text = request_body.decode('utf-8', errors='ignore')
-                if 'DownloadResponse' in request_text or 'Fault' in request_text:
-                    logger.info("=" * 80)
-                    logger.info("CPE RESPONSE DETECTED:")
-                    logger.info(request_text[:1000])  # First 1000 chars
-                    logger.info("=" * 80)
-            except:
-                pass
+                # Extract RPC type from SOAP message
+                rpc_match = re.search(r'<cwmp:(\w+)>|<(\w+) xmlns="urn:dslforum-org:cwmp-1-\d+">', request_text)
+                if rpc_match:
+                    rpc_type = rpc_match.group(1) or rpc_match.group(2)
+                    logger.info(f"CPE → ACS: {rpc_type} RPC")
+                    # Log first 500 chars for debugging
+                    logger.debug(f"Request preview: {request_text[:500]}...")
+            except Exception as e:
+                logger.debug(f"Could not parse request text: {e}")
         
         # Forward request to ACS (pass-through, no modification)
         try:
@@ -76,114 +79,34 @@ class TR069ProxyHandler(http.server.BaseHTTPRequestHandler):
             logger.debug(f"Forwarding request to {target_url}")
             
             with urllib.request.urlopen(req, timeout=30) as response:
-                # Read ACS response (contains Download RPCs, GetParameterValues, etc.)
+                # Read ACS response (contains RPCs like Reboot, GetParameterValues, etc.)
                 response_body = response.read()
                 
                 logger.info(f"Received response from ACS, size: {len(response_body)} bytes, status: {response.getcode()}")
                 
-                # Modify response if it contains Download RPC (remove empty optional parameters)
-                modified_response = response_body
+                # Log ACS responses for debugging
                 try:
                     response_text = response_body.decode('utf-8', errors='ignore')
-                    if '<cwmp:Download>' in response_text or 'Download' in response_text:
-                        logger.info("=" * 80)
-                        logger.info("DOWNLOAD RPC DETECTED - Modifying for PrplOS compatibility")
-                        logger.info("=" * 80)
-                        
-                        # Remove empty optional parameters that PrplOS rejects
-                        # Based on investigation: PrplOS rejects empty TargetFileName, FileSize, SuccessURL, FailureURL
-                        import re
-                        
-                        # Log original for debugging
-                        logger.info(f"Original response size: {len(response_text)} bytes")
-                        original_download = re.search(r'<cwmp:Download>.*?</cwmp:Download>', response_text, re.DOTALL)
-                        if original_download:
-                            logger.info("ORIGINAL Download RPC:")
-                            logger.info(original_download.group(0))
-                        
-                        # Remove empty TargetFileName tag (handle both namespace-qualified and unqualified)
-                        # Pattern: <cwmp:TargetFileName></cwmp:TargetFileName> or <TargetFileName></TargetFileName>
-                        response_text = re.sub(r'<cwmp:TargetFileName>\s*</cwmp:TargetFileName>', '', response_text)
-                        response_text = re.sub(r'<cwmp:TargetFileName></cwmp:TargetFileName>', '', response_text)
-                        response_text = re.sub(r'<cwmp:TargetFileName\s*/>', '', response_text)
-                        response_text = re.sub(r'<TargetFileName>\s*</TargetFileName>', '', response_text)
-                        response_text = re.sub(r'<TargetFileName></TargetFileName>', '', response_text)
-                        response_text = re.sub(r'<TargetFileName\s*/>', '', response_text)
-                        
-                        # Remove FileSize tag completely (PrplOS doesn't support this parameter at all)
-                        # Handle both namespace-qualified and unqualified
-                        response_text = re.sub(r'<cwmp:FileSize>.*?</cwmp:FileSize>', '', response_text, flags=re.DOTALL)
-                        response_text = re.sub(r'<cwmp:FileSize\s*/>', '', response_text)
-                        response_text = re.sub(r'<FileSize>.*?</FileSize>', '', response_text, flags=re.DOTALL)
-                        response_text = re.sub(r'<FileSize\s*/>', '', response_text)
-                        
-                        # Remove empty SuccessURL tag
-                        response_text = re.sub(r'<cwmp:SuccessURL>\s*</cwmp:SuccessURL>', '', response_text)
-                        response_text = re.sub(r'<cwmp:SuccessURL></cwmp:SuccessURL>', '', response_text)
-                        response_text = re.sub(r'<cwmp:SuccessURL\s*/>', '', response_text)
-                        response_text = re.sub(r'<SuccessURL>\s*</SuccessURL>', '', response_text)
-                        response_text = re.sub(r'<SuccessURL></SuccessURL>', '', response_text)
-                        response_text = re.sub(r'<SuccessURL\s*/>', '', response_text)
-                        
-                        # Remove empty FailureURL tag
-                        response_text = re.sub(r'<cwmp:FailureURL>\s*</cwmp:FailureURL>', '', response_text)
-                        response_text = re.sub(r'<cwmp:FailureURL></cwmp:FailureURL>', '', response_text)
-                        response_text = re.sub(r'<cwmp:FailureURL\s*/>', '', response_text)
-                        response_text = re.sub(r'<FailureURL>\s*</FailureURL>', '', response_text)
-                        response_text = re.sub(r'<FailureURL></FailureURL>', '', response_text)
-                        response_text = re.sub(r'<FailureURL\s*/>', '', response_text)
-                        
-                        # Remove empty Username/Password if present (optional)
-                        response_text = re.sub(r'<cwmp:Username>\s*</cwmp:Username>', '', response_text)
-                        response_text = re.sub(r'<cwmp:Username></cwmp:Username>', '', response_text)
-                        response_text = re.sub(r'<Username>\s*</Username>', '', response_text)
-                        response_text = re.sub(r'<Username></Username>', '', response_text)
-                        response_text = re.sub(r'<cwmp:Password>\s*</cwmp:Password>', '', response_text)
-                        response_text = re.sub(r'<cwmp:Password></cwmp:Password>', '', response_text)
-                        response_text = re.sub(r'<Password>\s*</Password>', '', response_text)
-                        response_text = re.sub(r'<Password></Password>', '', response_text)
-                        
-                        logger.info(f"Modified response size: {len(response_text)} bytes")
-                        
-                        # Verify modification worked
-                        if '<TargetFileName>' in response_text or '<FileSize>' in response_text:
-                            logger.warning("WARNING: Modification may have failed - still contains problematic tags!")
-                            logger.warning(f"Contains TargetFileName: {'<TargetFileName>' in response_text}")
-                            logger.warning(f"Contains FileSize: {'<FileSize>' in response_text}")
-                        else:
-                            logger.info("✓ Modification verified: All problematic tags removed")
-                        
-                        modified_response = response_text.encode('utf-8')
-                        
-                        # Log the modified Download RPC
-                        download_match = re.search(r'<cwmp:Download>.*?</cwmp:Download>', response_text, re.DOTALL)
-                        if download_match:
-                            logger.info("MODIFIED Download RPC:")
-                            logger.info(download_match.group(0))
-                        
-                        # Log a snippet of the full SOAP envelope to verify structure
-                        soap_body_match = re.search(r'<soap:Body>.*?</soap:Body>', response_text, re.DOTALL)
-                        if soap_body_match:
-                            logger.info("SOAP Body structure (first 500 chars):")
-                            logger.info(soap_body_match.group(0)[:500])
-                        
-                        logger.info("=" * 80)
-                        
+                    # Extract RPC type from SOAP message
+                    rpc_match = re.search(r'<cwmp:(\w+)>|<(\w+) xmlns="urn:dslforum-org:cwmp-1-\d+">', response_text)
+                    if rpc_match:
+                        rpc_type = rpc_match.group(1) or rpc_match.group(2)
+                        logger.info(f"ACS → CPE: {rpc_type} RPC")
+                        # Log first 500 chars for debugging
+                        logger.debug(f"Response preview: {response_text[:500]}...")
                 except Exception as e:
-                    logger.error(f"Error modifying Download RPC: {e}", exc_info=True)
-                    # On error, use original response
-                    modified_response = response_body
+                    logger.debug(f"Could not parse response text: {e}")
                 
-                # Forward modified response to CPE
+                # Forward response to CPE (pass-through, no modification)
                 self.send_response(response.getcode())
                 for header, value in response.headers.items():
                     header_lower = header.lower()
                     if header_lower not in ['connection', 'transfer-encoding', 'content-encoding', 'content-length']:
                         self.send_header(header, value)
-                # Set Content-Length (use modified response length)
-                self.send_header('Content-Length', str(len(modified_response)))
+                # Set Content-Length
+                self.send_header('Content-Length', str(len(response_body)))
                 self.end_headers()
-                self.wfile.write(modified_response)
+                self.wfile.write(response_body)
                 
                 logger.debug(f"Forwarded response to {client_ip}")
                 
@@ -217,7 +140,7 @@ def main():
     """Start the TR-069 proxy server"""
     logger.info(f"TR-069 MITM Proxy starting on port {PROXY_PORT}")
     logger.info(f"Forwarding to ACS at {ACS_HOST}:{ACS_PORT}")
-    logger.info("Mode: ACTIVE - Removing empty/unsupported parameters from Download RPCs")
+    logger.info("Mode: LOGGING-ONLY - All messages pass through unchanged, traffic logged for debugging")
     
     try:
         with socketserver.TCPServer(("0.0.0.0", PROXY_PORT), TR069ProxyHandler) as httpd:
