@@ -6,42 +6,39 @@ Feature: Debug Step by Step
     # Background step
     Given a CPE is online and fully provisioned
     
-    # Step 1: Install firmware
-    Given the operator installs a new signed firmware file "prepared_upgrade.img" on the image server
+    # Step 1: Operator initiates reboot task
+    Given the operator initiates a reboot task on the ACS for the CPE
     
-    # Step 2: Set credentials
-    # And the user has set the CPE GUI username to "john" and password to "pass"
+    # Step 2: ACS sends connection request
+    When the ACS sends a connection request to the CPE
     
-    # Step 3: Set SSID
-    # And the user has set the SSID to "mynetwork"
+    # Step 3: CPE receives connection request and initiates session
+    And the CPE receives the connection request and initiates a session with the ACS
     
-    # Step 4: Configure ACS
-    # And the ACS is configured to upgrade the CPE with "prepared_upgrade.img"
+    # Step 4: CPE sends Inform message
+    And the CPE sends an Inform message to the ACS
     
-    # Step 5: Trigger check-in
-    # When the CPE performs its periodic TR-069 check-in
+    # Step 5: ACS responds to Inform and issues Reboot RPC
+    Then the ACS responds to the Inform message by issuing the Reboot RPC to the CPE
     
-    # Step 6: Verify Download RPC
-    # Then the ACS issues the Download RPC
+    # Step 6: CPE acknowledges Reboot RPC
+    And the CPE receives and acknowledges the Reboot RPC
     
-    # Step 7: Verify download
-    # And the CPE downloads the firmware from the image server
+    # Step 7: CPE completes boot and sends post-reboot Inform
+    And after completing the boot sequence, the CPE sends an Inform message to the ACS indicating that the boot sequence has been completed
     
-    # Step 8: Verify validation
-    # And the CPE validates the firmware
+    # Step 8: ACS responds to Inform
+    And the ACS responds to the Inform message
     
-    # Step 9: Verify install and reboot
-    # And after successful validation, the CPE installs the firmware and reboots
+    # Step 11: ACS may verify device state
+    # And the ACS may verify device state
     
-    # Step 10: Verify reconnection
-    # And the CPE reconnects to the ACS
+    # Step 12: CPE resumes normal operation
+    # And the CPE resumes normal operation, continuing periodic communication with the ACS
     
-    # Step 11: Verify firmware version
-    # And the ACS reports the new firmware version for the CPE
+    # Step 13: Verify config preservation
+    # And the CPE's configuration and operational state are preserved after reboot
     
-    # Step 12: Verify config preservation
-    # And the CPE's subscriber credentials and LAN configuration are preserved
-    
-    # Step 13: Verify connectivity
-    # And internet connectivity for the subscriber is restored
+    # Step 14: Verify success
+    # And use case succeeds and all success guarantees are met
 
