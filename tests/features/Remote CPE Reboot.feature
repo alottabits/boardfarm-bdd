@@ -14,23 +14,26 @@ Feature: Remote CPE Reboot
     And the CPE receives and acknowledges the Reboot RPC with a RebootResponse
     And the CPE initiates the reboot sequence
     And the CPE shuts down gracefully and restarts
-    And after completing the boot sequence, the CPE reconnects to the ACS by sending an Inform message with event code "1 BOOT" and "M Reboot"
+    And after completing the boot sequence, the CPE reconnects with the ACS
+    And the CPE informs the ACS that the boot sequence has been completed
     And the ACS acknowledges the Inform and may issue follow-up RPCs to verify device state
     And the CPE resumes normal operation and periodic Inform sessions
     And the CPE's configuration and operational state are preserved after reboot
+    And use case succeeds and all success guarantees are met
 
   Scenario: UC-12347-4.a: CPE Not Connected When Reboot Requested
     Given the operator configures the ACS to issue a Reboot RPC for the CPE
-    And the CPE is not currently connected to the ACS
-    When the ACS attempts to send the Reboot RPC
+    When the ACS attempts to send the Reboot RPC, but the CPE is switched off
     Then the ACS queues the Reboot RPC as a pending task
-    And when the CPE's next periodic Inform interval elapses, it connects to the ACS
+    And when the CPE is switched on, it connects to the ACS
     And the ACS issues the queued Reboot RPC
     And the CPE receives and acknowledges the Reboot RPC with a RebootResponse
     And the CPE initiates the reboot sequence
     And the CPE shuts down gracefully and restarts
-    And after completing the boot sequence, the CPE reconnects to the ACS
-    And the CPE resumes normal operation
+    And after completing the boot sequence, the CPE reconnects with the ACS
+    And the CPE informs the ACS that the boot sequence has been completed
+    And the ACS acknowledges the Inform and may issue follow-up RPCs to verify device state
+    And the CPE resumes normal operation and periodic Inform sessions
 
   Scenario: UC-12347-5.a: CPE Rejects Reboot RPC
     Given the operator configures the ACS to issue a Reboot RPC for the CPE
