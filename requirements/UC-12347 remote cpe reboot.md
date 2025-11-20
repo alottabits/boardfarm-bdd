@@ -24,6 +24,7 @@ user-goal
 
 1. The target CPE is online, registered with the ACS, and fully provisioned.
 2. The operator has administrative access to the ACS.
+3. The user has set the CPE GUI password.
 
 ## Minimal Guarantees
 

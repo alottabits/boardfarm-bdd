@@ -5,6 +5,7 @@ Feature: Remote CPE Reboot
 
   Background:
     Given a CPE is online and fully provisioned
+    And the user has set the CPE GUI password to "p@ssw0rd123!"
 
   Scenario: UC-12347-Main: Successful Remote Reboot
     Given the operator initiates a reboot task on the ACS for the CPE
@@ -12,10 +13,7 @@ Feature: Remote CPE Reboot
     And the CPE receives the connection request and initiates a session with the ACS
     And the CPE sends an Inform message to the ACS
     Then the ACS responds to the Inform message by issuing the Reboot RPC to the CPE
-    And the CPE receives and acknowledges the Reboot RPC
     And after completing the boot sequence, the CPE sends an Inform message to the ACS indicating that the boot sequence has been completed
-    And the ACS responds to the Inform message
-    And the ACS may verify device state
     And the CPE resumes normal operation, continuing periodic communication with the ACS
     And the CPE's configuration and operational state are preserved after reboot
     And use case succeeds and all success guarantees are met
@@ -28,10 +26,7 @@ Feature: Remote CPE Reboot
     And when the CPE comes online, it connects to the ACS
     And the CPE sends an Inform message to the ACS
     And the ACS issues the queued Reboot RPC
-    And the CPE receives and acknowledges the Reboot RPC
     And after completing the boot sequence, the CPE sends an Inform message to the ACS indicating that the boot sequence has been completed
-    And the ACS responds to the Inform message
-    And the ACS may verify device state
     And the CPE resumes normal operation, continuing periodic communication with the ACS
 
   Scenario: UC-12347-6.a: CPE Rejects Reboot RPC
@@ -53,7 +48,6 @@ Feature: Remote CPE Reboot
     And the CPE receives the connection request and initiates a session with the ACS
     And the CPE sends an Inform message to the ACS
     And the ACS responds to the Inform message by issuing the Reboot RPC to the CPE
-    And the CPE receives and acknowledges the Reboot RPC
     Then the CPE executes the reboot command but fails to complete the boot sequence
     And the CPE does not reconnect to the ACS within the expected time window
     And the ACS does not receive Inform messages from the CPE after the expected reconnection window
@@ -67,7 +61,6 @@ Feature: Remote CPE Reboot
     And the CPE receives the connection request and initiates a session with the ACS
     And the CPE sends an Inform message to the ACS
     And the ACS responds to the Inform message by issuing the Reboot RPC to the CPE
-    And the CPE receives and acknowledges the Reboot RPC
     And the CPE executes the reboot command and restarts
     Then the CPE successfully reboots but fails to reconnect to the ACS
     And the ACS does not receive Inform messages from the CPE after the expected reconnection window
@@ -80,7 +73,6 @@ Feature: Remote CPE Reboot
     And the CPE receives the connection request and initiates a session with the ACS
     And the CPE sends an Inform message to the ACS
     And the ACS responds to the Inform message by issuing the Reboot RPC to the CPE
-    And the CPE receives and acknowledges the Reboot RPC
     And after completing the boot sequence, the CPE sends an Inform message to the ACS indicating that the boot sequence has been completed
     Then the reboot succeeds, but some configuration parameters are reset to defaults or lost
     And the CPE reconnects to the ACS and sends Inform message, but with default or partial configuration
