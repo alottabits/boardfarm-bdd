@@ -27,6 +27,8 @@ To ensure consistency and portability, this project adheres to the following sta
 
 -   **Guarantee Verification Rule:** Each BDD scenario must explicitly check the use case's Success Guarantees on success paths and Minimal Guarantees on use case failure paths, ensuring consistent verification aligned with the requirement specification.
 
+-   **Configuration Cleanup Rule:** All step definitions that modify CPE configuration must capture original values before making changes and store them in `bf_context.original_config` using the standardized structure. This enables automatic cleanup after each scenario, ensuring test isolation. See [Configuration Cleanup Process](./docs/Configuration%20Cleanup%20Process.md) for detailed guidelines.
+
 
 ## Test-bed
 
