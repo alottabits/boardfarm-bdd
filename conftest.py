@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 from boardfarm3.templates.acs import ACS as AcsTemplate
+import pexpect
 from boardfarm3.templates.cpe.cpe import CPE as CpeTemplate
 from boardfarm3.templates.wan import WAN as WanTemplate
 from pytest_bdd import given, parsers, then, when
@@ -291,6 +292,26 @@ def cleanup_cpe_config_after_scenario(
     """
     # Run the scenario first
     yield
+
+    # Always refresh console connection to ensure it's valid for the next test
+    # The previous test might have rebooted the CPE, and even if the connection
+    # seems alive (false positive), it might be unstable or attached to a dead container.
+    print("↻ Refreshing CPE console connection...")
+    try:
+        # Safety measure: close existing connection to free resources
+        cpe.hw.disconnect_from_consoles()
+    except Exception:
+        pass
+    
+    try:
+        # Re-establish connection
+        # PrplDockerCPE inherits BoardfarmDevice which has device_name
+        device_name = getattr(cpe, "device_name", "cpe")
+        cpe.hw.connect_to_consoles(device_name)
+        print("✓ Console connection refreshed successfully")
+    except Exception as reconnect_error:
+        print(f"❌ Failed to refresh console connection: {reconnect_error}")
+        # We continue with cleanup anyway, as some cleanup (ACS) might still work
 
     # Cleanup code - ALWAYS runs, even if scenario fails
     if not hasattr(bf_context, "original_config"):
