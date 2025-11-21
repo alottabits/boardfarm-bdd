@@ -66,13 +66,14 @@ An operator initiates a reboot command via the ACS targeting a specific CPE devi
 
 - **3.a CPE Not Connected When Reboot Requested**:
   
-  1. The ACS creates a reboot task, but the CPE is offline or unreachable.
-  2. The ACS cannot send the connection request to the CPE.
-  3. The ACS queues the Reboot RPC as a pending task.
-  4. When the CPE comes online, it connects to the ACS.
-  5. The CPE sends an Inform message to the ACS.
-  6. The ACS issues the queued Reboot RPC.
-  7. Continue from step 7 of the main success scenario.
+  1. The CPE is unreachable for TR-069 sessions (e.g., TR-069 client stopped, network disconnected).
+  2. The operator initiates a reboot task on the ACS for the CPE.
+  3. The ACS creates a reboot task, but cannot send the connection request to the CPE.
+  4. The ACS queues the Reboot RPC as a pending task.
+  5. When the CPE comes online, it connects to the ACS.
+  6. The CPE sends an Inform message to the ACS.
+  7. The ACS issues the queued Reboot RPC.
+  8. Continue from step 7 of the main success scenario.
 
 - **6.a CPE Rejects Reboot RPC**:
   

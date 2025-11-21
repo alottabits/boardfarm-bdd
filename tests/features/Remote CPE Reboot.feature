@@ -19,8 +19,8 @@ Feature: Remote CPE Reboot
     And use case succeeds and all success guarantees are met
 
   Scenario: UC-12347-3.a: CPE Not Connected When Reboot Requested
-    Given the operator initiates a reboot task on the ACS for the CPE
-    When the ACS attempts to send the connection request, but the CPE is offline or unreachable
+    Given the CPE is unreachable for TR-069 sessions
+    When the operator initiates a reboot task on the ACS for the CPE
     Then the ACS cannot send the connection request to the CPE
     And the ACS queues the Reboot RPC as a pending task
     And when the CPE comes online, it connects to the ACS
@@ -28,6 +28,8 @@ Feature: Remote CPE Reboot
     And the ACS issues the queued Reboot RPC
     And after completing the boot sequence, the CPE sends an Inform message to the ACS indicating that the boot sequence has been completed
     And the CPE resumes normal operation, continuing periodic communication with the ACS
+    And the CPE's configuration and operational state are preserved after reboot
+    And use case succeeds and all success guarantees are met
 
   Scenario: UC-12347-6.a: CPE Rejects Reboot RPC
     Given the operator initiates a reboot task on the ACS for the CPE
