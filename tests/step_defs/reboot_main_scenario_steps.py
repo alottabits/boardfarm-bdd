@@ -974,6 +974,22 @@ def cpe_sends_inform_after_boot_completion(
 
                                 # Show the Inform log entry for debugging
                                 print(f"Post-reboot Inform log entry:\n{line}")
+
+                                # Refresh console connection now that reboot is confirmed complete
+                                # This ensures subsequent steps have a valid connection
+                                print("↻ Refreshing CPE console connection after reboot...")
+                                try:
+                                    cpe.hw.disconnect_from_consoles()
+                                except Exception:
+                                    pass
+                                
+                                try:
+                                    device_name = getattr(cpe, "device_name", "cpe")
+                                    cpe.hw.connect_to_consoles(device_name)
+                                    print("✓ Console connection refreshed successfully")
+                                except Exception as reconnect_error:
+                                    print(f"❌ Failed to refresh console connection: {reconnect_error}")
+
                                 return
 
             # If we haven't seen Reboot RPC yet, continue waiting
