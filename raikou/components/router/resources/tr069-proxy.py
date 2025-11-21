@@ -56,6 +56,17 @@ class TR069ProxyHandler(http.server.BaseHTTPRequestHandler):
                 if rpc_match:
                     rpc_type = rpc_match.group(1) or rpc_match.group(2)
                     logger.info(f"CPE → ACS: {rpc_type} RPC")
+                    
+                    # For SetParameterValuesResponse, log status code
+                    if rpc_type == "SetParameterValuesResponse":
+                        status_match = re.search(r'<Status[^>]*>(\d+)</Status>', request_text)
+                        if status_match:
+                            status_code = status_match.group(1)
+                            status_msg = "SUCCESS" if status_code == "0" else f"FAILED (code: {status_code})"
+                            logger.info(f"  SetParameterValuesResponse Status: {status_msg}")
+                        else:
+                            logger.info(f"  SetParameterValuesResponse (status not found)")
+                    
                     # Log first 500 chars for debugging
                     logger.debug(f"Request preview: {request_text[:500]}...")
             except Exception as e:
@@ -92,6 +103,20 @@ class TR069ProxyHandler(http.server.BaseHTTPRequestHandler):
                     if rpc_match:
                         rpc_type = rpc_match.group(1) or rpc_match.group(2)
                         logger.info(f"ACS → CPE: {rpc_type} RPC")
+                        
+                        # For SetParameterValues, log parameter names and values
+                        if rpc_type == "SetParameterValues":
+                            param_matches = re.findall(
+                                r'<ParameterValueStruct>.*?<Name>(.*?)</Name>.*?<Value[^>]*>(.*?)</Value>.*?</ParameterValueStruct>',
+                                response_text,
+                                re.DOTALL
+                            )
+                            if param_matches:
+                                for name, value in param_matches:
+                                    # Truncate long values (like passwords)
+                                    display_value = value[:50] + "..." if len(value) > 50 else value
+                                    logger.info(f"  SetParameter: {name} = {display_value}")
+                        
                         # Log first 500 chars for debugging
                         logger.debug(f"Response preview: {response_text[:500]}...")
                 except Exception as e:
