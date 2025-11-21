@@ -20,6 +20,7 @@ from tests.step_defs.helpers import gpv_value
 try:
     from tests.step_defs import background_steps  # noqa: F401
     from tests.step_defs import reboot_main_scenario_steps  # noqa: F401
+    from tests.step_defs import reboot_offline_scenario_steps  # noqa: F401
     from tests.step_defs import reboot_steps  # noqa: F401
     from tests.step_defs import hello_steps  # noqa: F401
 except ImportError:
