@@ -15,6 +15,8 @@ Operator
 - Subscriber
 - ACS Administrator
 - Network Operations
+- CPE
+- ACS
 
 ## Level
 
@@ -75,38 +77,7 @@ An operator initiates a reboot command via the ACS targeting a specific CPE devi
   7. The ACS issues the queued Reboot RPC.
   8. Continue from step 7 of the main success scenario.
 
-- **6.a CPE Rejects Reboot RPC**:
-  
-  1. The CPE receives the Reboot RPC but rejects it (e.g., due to access rights, invalid state, or security policy).
-  2. The CPE responds with a fault code indicating the rejection.
-  3. The ACS records the failure with the fault code and logs the rejection.
-  4. The CPE does not reboot and remains in its current operational state.
-  5. The CPE completes the session normally.
-  6. Use case fails; minimal guarantees are met.
 
-- **9.a CPE Fails to Complete Boot Sequence**:
-  
-  1. The CPE initiates reboot but fails to complete the boot sequence (e.g., kernel panic, boot loop, hardware failure).
-  2. The CPE does not reconnect to the ACS within the expected time window.
-  3. The ACS does not receive Inform messages from the CPE after the expected reconnection window.
-  4. The ACS detects the absence of periodic Inform messages.
-  5. The ACS logs the failure and may trigger alerts.
-  6. Use case fails; minimal guarantees are met (device record preserved, but CPE is non-operational).
-
-- **10.a CPE Fails to Reconnect After Reboot**:
-  
-  1. The CPE successfully reboots but fails to reconnect to the ACS (e.g., network configuration lost, ACS unreachable, DNS resolution failure).
-  2. The ACS does not receive Inform messages from the CPE after the expected reconnection window.
-  3. The ACS logs the disconnection and may trigger alerts.
-  4. Use case fails; minimal guarantees are met (device record preserved, but CPE is disconnected).
-
-- **11.a CPE Configuration Lost During Reboot**:
-  
-  1. The reboot succeeds, but some configuration parameters are reset to defaults or lost.
-  2. The CPE reconnects to the ACS and sends Inform message, but with default or partial configuration.
-  3. The ACS detects configuration discrepancies.
-  4. The ACS may trigger reprovisioning to restore the correct configuration.
-  5. Use case succeeds with comments, noting the configuration loss and reprovisioning.
 
 ## Technology & Data Variations List
 
