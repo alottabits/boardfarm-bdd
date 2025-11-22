@@ -3,15 +3,17 @@
 With this project, we aim to create a consistent set of system requirements as use cases and their corresponding automated test cases. The automated tests leverage `pytest-bdd` in combination with `boardfarm`.
 
 Capturing requirements in Markdown formatted use cases allows the organization to use Git as the version control system of the requirements, enabling us to treat documentation, test cases and reports with the same collaborative processes as code.
-With the standardization of the test interface by Boardfarm, LLMs have a clear reference to translate BDD scenario steps into python code for execution. Pytest-bdd provides a powerful execution and reporting engine in this setup.
+With the standardization of the test interface by Boardfarm, LLMs have a clear reference to translate BDD scenario steps into python code for execution. Pytest-bdd provides a powerful execution and reporting engine in this setup. 
+
+To proof the concept of the proposed workflow, all the bdd scenarios are generated with the help of LLM's based on the use cases The step definitions collected in the `./tests/step_defs/` folder are generated using LLM's based on the BDD scenarios and the Boardfarm API specification.
 
 ![Process Flow](./docs/Requirements_and_Test_framework.excalidraw.png)
 
 Many thanks to Mike Vogel who inspired me to pursue this requirements structure. 
 Please see details of his approach here: [Agile Requirements Framework](https://globallyunique.github.io/agile-requirements-framework/)
 
+I can also highly recommend the book "Writing Effective Use Cases" by Allistair Cockburn. 
 
-*Important note: this project is still very much under development, references mentioned here may not be correct yet....*
 
 ## Standards and Conventions
 
@@ -34,10 +36,10 @@ To ensure consistency and portability, this project adheres to the following sta
 
 The networked components for the testbed are arranged using Raikou.
 See [Raikou](https://github.com/lgirdk/raikou-factory) for details.
-Our testbed is based on [](./raikou/config.json) and [](./raikou/docker-compose.yaml) with details on the component docker files to be found in [](./raikou/components/)
+Our testbed is based on [./raikou/config.json](./raikou/config.json) and [./raikou/docker-compose.yaml](./raikou/docker-compose.yaml) with details on the component docker files to be found in [ ./raikou/components/](./raikou/components/)
 
 Boardfarm is used to further configure the details where necessary of the component configurations, load files, for instance, on a TFTP server, create settings on a CPE, etc.
-The boardfarm configuration files we are using are located at: [](./bf_configs)
+The boardfarm configuration files we are using are located at: [./bf_configs](./bf_configs)
 
 A description of the network topology used can be found in [Testbed Network Topology](./docs/Testbed%20Network%20Topology.md)
 
@@ -47,14 +49,14 @@ This section outlines the step-by-step process for adding new automated tests to
 
 ### 1. Write the Use Case
 
-The foundation of every test is a well-defined requirement.
+The foundation of every test is a well-defined requirement. LLMs can be used to generate the use case based on the goal.
 
 -   **Create the File:** Start by creating a new Markdown file in `./requirements/`.
--   **Follow the Template:** Use the structure defined in `./docs/Use Case Template (reflect the goal).md` to ensure all necessary components (Goal, Scope, Actors, Guarantees, etc.) are captured.
+-   **Follow the Template:** Use the structure defined in `./docs/Use Case Template (reflect the goal).md` to ensure all necessary components (Goal, Scope, Actors, Guarantees, etc.) are captured. 
 
 ### 2. Create BDD Scenarios
 
-Translate the use case into executable specifications.
+Translate the use case into executable specifications. LLM's are actually quite good at creating the BDD scenarios based on the use case.
 
 -   **Create a Feature File:** Add a new `.feature` file in `./tests/features/` that corresponds to the use case.
 -   **Write Scenarios:** Using Gherkin syntax (`Given`, `When`, `Then`), write scenarios that cover the Main Success Scenario and all Extensions from the use case document.
@@ -77,6 +79,8 @@ Write the code that brings the BDD scenarios to life.
 -   **Reuse Existing Steps:** Before writing a new function, check if an existing step definition can be reused.
 -   **Interact with Devices:** Use the `pytest-boardfarm` fixtures (e.g., `CPE`, `ACS`, `WAN`) to interact with the devices in the testbed.
 -   **Use Type Hinting:** Adhere to the project standard of using Python type hints for all fixtures and function arguments to ensure code quality.
+
+All the step definitions collected in the `./tests/step_defs/` folder are generated using LLM's based on the BDD scenarios and the Boardfarm API specification.
 
 ### 5. (optional) Install Boardfarm from Local Source
 
