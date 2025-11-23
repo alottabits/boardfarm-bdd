@@ -9,18 +9,16 @@ This directory contains the Behavior-Driven Development (BDD) test suite using `
 ```
 tests/
 ├── features/                   # Gherkin feature files (.feature)
-│   ├── CPE Firmware Upgrade.feature
+│   ├── Remote CPE Reboot.feature
 │   └── hello.feature
-├── step_defs/                  # Step definition modules (modular organization)
+├── step_defs/                  # Step definition modules (actor-based organization)
 │   ├── __init__.py
 │   ├── helpers.py             # Shared helper functions
-│   ├── background_steps.py    # Background/initialization steps
-│   ├── firmware_steps.py      # Firmware-related steps
-│   ├── acs_steps.py           # ACS interaction steps
-│   ├── cpe_config_steps.py    # CPE configuration steps
-│   ├── provisioning_steps.py  # Provisioning and connectivity steps
-│   ├── verification_steps.py  # Verification and assertion steps
-│   └── hello_steps.py         # Example hello world steps
+│   ├── background_steps.py    # Background/setup steps
+│   ├── acs_steps.py           # ACS (Auto Configuration Server) actor steps
+│   ├── cpe_steps.py           # CPE (Customer Premises Equipment) actor steps
+│   ├── operator_steps.py      # Operator actor steps
+│   └── hello_steps.py         # Simple example step (for illustration)
 ├── test_artifacts/            # Test data files (firmware images, configs, etc.)
 ├── test_all_scenarios.py      # Main script to run all scenarios
 └── test_hello.py              # Example test file
@@ -51,16 +49,18 @@ Feature: CPE Firmware Upgrade
 
 ### 2. Step Definitions (`step_defs/`)
 
-Step definitions are organized into modules by domain/functionality. Each module contains Python functions decorated with `@given`, `@when`, or `@then` that implement the steps from feature files.
+Step definitions are organized into modules by **actor** - the entity performing the action. Each module contains Python functions decorated with `@given`, `@when`, or `@then` that implement the steps from feature files.
 
-**Modular Organization:**
-- **`background_steps.py`**: Steps that run in the Background section
-- **`firmware_steps.py`**: Steps related to firmware installation and management
-- **`acs_steps.py`**: Steps for ACS (Auto Configuration Server) interactions
-- **`cpe_config_steps.py`**: Steps for configuring CPE settings (credentials, SSID, etc.)
-- **`provisioning_steps.py`**: Steps for provisioning and network connectivity
-- **`verification_steps.py`**: Steps that verify outcomes and assert results
-- **`hello_steps.py`**: Example hello world steps for testing
+**Actor-Based Organization:**
+- **`acs_steps.py`**: Steps where the ACS (Auto Configuration Server) is the actor performing actions
+  - Examples: ACS sends connection request, ACS issues Reboot RPC, ACS queues tasks
+- **`cpe_steps.py`**: Steps where the CPE (Customer Premises Equipment) is the actor performing actions
+  - Examples: CPE sends Inform message, CPE executes reboot, CPE resumes normal operation
+- **`operator_steps.py`**: Steps where the operator is the actor performing actions
+  - Examples: Operator initiates reboot task, use case success verification
+- **`background_steps.py`**: Background/setup steps that establish preconditions
+  - Examples: CPE is online and provisioned, user sets GUI password
+- **`hello_steps.py`**: Simple example step for illustration purposes
 
 **Shared Helpers (`helpers.py`):**
 - Contains utility functions used across multiple step definitions
@@ -83,15 +83,15 @@ def operator_installs_firmware(tftp_server: WanTemplate, filename: str) -> None:
 Located at the project root (`boardfarm-bdd/conftest.py`), this file uses **AST-based auto-discovery** to automatically find and register all step definitions.
 
 **Key Features:**
-- **Automatic Discovery**: Scans `tests/step_defs/` for all Python modules
+- **Automatic Module Import**: Auto-discovers and imports all `*_steps.py` files in `tests/step_defs/`
 - **AST Parsing**: Uses Abstract Syntax Tree parsing to find `@given`, `@when`, and `@then` decorators
 - **Dynamic Registration**: Automatically re-registers all step definitions so pytest-bdd can discover them
-- **Zero Maintenance**: No manual imports needed - just add new step definition files!
+- **Zero Maintenance**: No manual imports needed - just add new `*_steps.py` files and they're automatically discovered!
 
 **How It Works:**
-1. Scans `tests/step_defs/` directory for all `.py` files (excluding `__init__.py` and `helpers.py`)
-2. Parses each file using AST to extract step decorator information
-3. Imports the modules to get function objects
+1. Auto-imports all `.py` files in `tests/step_defs/` (excluding `__init__.py` and `helpers.py`)
+2. Scans imported modules using AST to extract step decorator information
+3. Gets function objects from the imported modules
 4. Dynamically re-registers all step definitions at module level using `exec()`
 
 **Important Notes:**
@@ -165,12 +165,11 @@ pytest tests/test_all_scenarios.py --tb=short
 
 ### 1. Identify the Appropriate Module
 
-Choose the module that best fits the step's domain:
-- Configuration → `cpe_config_steps.py`
-- Firmware operations → `firmware_steps.py`
-- ACS interactions → `acs_steps.py`
-- Verification → `verification_steps.py`
-- Provisioning → `provisioning_steps.py`
+Choose the module based on **which actor is performing the action**:
+- ACS performs action → `acs_steps.py`
+- CPE performs action → `cpe_steps.py`
+- Operator performs action → `operator_steps.py`
+- Background/setup step → `background_steps.py`
 
 ### 2. Add the Step Definition
 
@@ -194,22 +193,23 @@ Import helper functions from `helpers.py` when needed:
 from tests.step_defs.helpers import gpv_value, get_console_uptime_seconds
 ```
 
-### 4. Create a New Module (if needed)
+### 4. Create a New Actor Module (if needed)
 
-If you need a new domain category:
-1. Create a new file in `step_defs/` (e.g., `network_steps.py`)
-2. **That's it!** The auto-discovery system in `conftest.py` will automatically find and register it.
-3. No manual imports or configuration needed.
+If you need a new actor category:
+1. Create a new file in `step_defs/` following the naming pattern `<actor>_steps.py` (e.g., `wan_steps.py`, `http_server_steps.py`)
+2. **That's it!** The auto-discovery system in `conftest.py` will automatically import and register it.
+3. No manual imports or configuration needed in `conftest.py` - it's completely automatic!
 
 ## Best Practices
 
 ### Step Definition Organization
 
-1. **Group Related Steps**: Keep steps that work together in the same module
+1. **Organize by Actor**: Group steps by which actor performs the action (ACS, CPE, Operator, etc.)
 2. **Use Descriptive Names**: Function names should clearly describe what the step does
 3. **Add Docstrings**: Every step definition should have a docstring explaining its purpose
 4. **Reuse Steps**: Check existing step definitions before creating new ones
 5. **Type Hints**: Always use type hints for all function parameters
+6. **Actor Clarity**: Step text should make it clear which actor is performing the action
 
 ### Feature File Guidelines
 
