@@ -1,0 +1,131 @@
+conftest.py: Discovering step definitions from 5 modules...
+  ✓ Re-registered GIVEN: 'a CPE is online and fully provisioned' from background_steps
+  ✓ Re-registered GIVEN: 'the user has set the CPE GUI password to "{password}"' from background_steps (with parsers.parse())
+  ✓ Re-registered WHEN: 'I say hello' from hello_steps
+  ✓ Re-registered GIVEN: 'the operator initiates a reboot task on the ACS for the CPE' from reboot_main_scenario_steps
+  ✓ Re-registered WHEN: 'the ACS sends a connection request to the CPE' from reboot_main_scenario_steps
+  ✓ Re-registered WHEN: 'the ACS attempts to send the connection request, but the CPE is offline or unreachable' from reboot_main_scenario_steps
+  ✓ Re-registered WHEN: 'the CPE receives the connection request and initiates a session with the ACS' from reboot_main_scenario_steps
+  ✓ Re-registered WHEN: 'the CPE sends an Inform message to the ACS' from reboot_main_scenario_steps
+  ✓ Re-registered THEN: 'the ACS responds to the Inform message by issuing the Reboot RPC to the CPE' from reboot_main_scenario_steps
+  ✓ Re-registered THEN: 'the CPE executes the reboot command and restarts' from reboot_main_scenario_steps
+  ✓ Re-registered THEN: 'after completing the boot sequence, the CPE sends an Inform message to the ACS indicating that the boot sequence has been completed' from reboot_main_scenario_steps
+  ✓ Re-registered THEN: 'the CPE resumes normal operation, continuing periodic communication with the ACS' from reboot_main_scenario_steps
+  ✓ Re-registered THEN: 'the CPE's configuration and operational state are preserved after reboot' from reboot_main_scenario_steps
+  ✓ Re-registered THEN: 'use case succeeds and all success guarantees are met' from reboot_main_scenario_steps
+  ✓ Re-registered THEN: 'the ACS cannot send the connection request to the CPE' from reboot_offline_scenario_steps
+  ✓ Re-registered THEN: 'the ACS queues the Reboot RPC as a pending task' from reboot_offline_scenario_steps
+  ✓ Re-registered THEN: 'when the CPE comes online, it connects to the ACS' from reboot_offline_scenario_steps
+  ✓ Re-registered THEN: 'the ACS issues the queued Reboot RPC' from reboot_offline_scenario_steps
+  ✓ Re-registered THEN: 'the CPE does not reboot' from reboot_steps
+conftest.py: Successfully registered 19 step definitions
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.1, pluggy-1.6.0 -- /home/rjvisser/projects/req-tst/boardfarm-bdd/.venv-3.12/bin/python3
+cachedir: .pytest_cache
+metadata: {'Python': '3.12.3', 'Platform': 'Linux-6.14.0-35-generic-x86_64-with-glibc2.39', 'Packages': {'pytest': '9.0.1', 'pluggy': '1.6.0'}, 'Plugins': {'bdd': '8.1.0', 'pytest_boardfarm3': '2025.7.10a16', 'html': '4.1.1', 'anyio': '4.11.0', 'metadata': '3.1.1', 'randomly': '4.0.1', 'instafail': '0.5.0'}}
+Using --randomly-seed=1345230925
+rootdir: /home/rjvisser/projects/req-tst/boardfarm-bdd
+plugins: bdd-8.1.0, pytest_boardfarm3-2025.7.10a16, html-4.1.1, anyio-4.11.0, metadata-3.1.1, randomly-4.0.1, instafail-0.5.0
+collecting ... collected 1 item
+
+--------------------------- live log boardfarm setup ---------------------------
+DEBUG    asyncio:selector_events.py:64 Using selector: EpollSelector
+DEBUG    boardfarm3.plugins.setup_environment:setup_environment.py:68 validate_device_requirements ran for 2.4842000129865482e-05s.
+WARNING  boardfarm3.plugins.setup_environment:setup_environment.py:43 Consider adding the implementation of boardfarm_server_boot_async to genieacs. It would allow the full usage of asyncio at this stage.
+WARNING  boardfarm3.plugins.setup_environment:setup_environment.py:43 Consider adding the implementation of boardfarm_server_boot_async to wan. It would allow the full usage of asyncio at this stage.
+WARNING  boardfarm3.plugins.setup_environment:setup_environment.py:43 Consider adding the implementation of boardfarm_server_boot_async to provisioner. It would allow the full usage of asyncio at this stage.
+WARNING  boardfarm3.plugins.setup_environment:setup_environment.py:43 Consider adding the implementation of boardfarm_server_boot_async to sipcenter. It would allow the full usage of asyncio at this stage.
+INFO     boardfarm3.devices.genie_acs:genie_acs.py:106 Booting genieacs(bf_acs) device
+INFO     boardfarm3.devices.kea_provisioner:kea_provisioner.py:566 Booting provisioner(bf_dhcp) device
+INFO     boardfarm3.devices.kamailio:kamailio.py:68 Booting sipcenter(bf_kamailio) device
+INFO     boardfarm3.devices.linux_wan:linux_wan.py:136 Booting wan(bf_wan) device
+DEBUG    boardfarm3.plugins.setup_environment:setup_environment.py:84 boardfarm_server_boot ran for 7.294993258999966s.
+WARNING  boardfarm3.plugins.setup_environment:setup_environment.py:43 Consider adding the implementation of boardfarm_server_configure_async to provisioner. It would allow the full usage of asyncio at this stage.
+WARNING  boardfarm3.plugins.setup_environment:setup_environment.py:43 Consider adding the implementation of boardfarm_server_configure_async to sipcenter. It would allow the full usage of asyncio at this stage.
+DEBUG    boardfarm3.plugins.setup_environment:setup_environment.py:84 boardfarm_server_configure ran for 1.3393525860010413s.
+WARNING  boardfarm3.plugins.setup_environment:setup_environment.py:43 Consider adding the implementation of boardfarm_device_boot_async to board. It would allow the full usage of asyncio at this stage.
+INFO     boardfarm3.devices.prplos_cpe:prplos_cpe.py:766 Booting board(bf_cpe) device
+DEBUG    boardfarm3.devices.prplos_cpe:prplos_cpe.py:482 Network is online, waiting for TR-181 to be ready
+DEBUG    boardfarm3.devices.prplos_cpe:prplos_cpe.py:485 TR-181 is ready
+DEBUG    boardfarm3.devices.prplos_cpe:prplos_cpe.py:515 Checking TR-181 readiness before configuring ACS
+DEBUG    boardfarm3.devices.prplos_cpe:prplos_cpe.py:519 TR-181 is ready, proceeding with ACS configuration
+DEBUG    boardfarm3.devices.prplos_cpe:prplos_cpe.py:565 Ensuring WAN interface is up before restarting cwmp_plugin
+DEBUG    boardfarm3.devices.prplos_cpe:prplos_cpe.py:572 Restarting cwmp_plugin to apply EnableCWMP=1 and recognize eth1 as WAN
+INFO     boardfarm3.devices.prplos_cpe:prplos_cpe.py:796 TR069 CPE IP: 62D5A3-SN62D5A35C850C
+DEBUG    boardfarm3.plugins.setup_environment:setup_environment.py:84 boardfarm_device_boot ran for 60.83446883600118s.
+WARNING  boardfarm3.plugins.setup_environment:setup_environment.py:43 Consider adding the implementation of boardfarm_device_configure_async to board. It would allow the full usage of asyncio at this stage.
+DEBUG    boardfarm3.plugins.setup_environment:setup_environment.py:84 boardfarm_device_configure ran for 0.12070301600033417s.
+INFO     boardfarm3.devices.linux_lan:linux_lan.py:117 Booting lan(bf_lan) device
+INFO     boardfarm3.devices.pjsip_phone:pjsip_phone.py:198 Booting wan_phone(bf_phone) device
+INFO     boardfarm3.devices.pjsip_phone:pjsip_phone.py:198 Booting lan_phone(bf_phone) device
+DEBUG    boardfarm3.plugins.setup_environment:setup_environment.py:68 boardfarm_attached_device_boot ran for 1.2450552680002147s.
+DEBUG    boardfarm3.plugins.setup_environment:setup_environment.py:68 boardfarm_attached_device_configure ran for 13.949221291000867s.
+
+tests/test_debug_steps.py::test_test_individual_steps 
+-------------------------------- live log call ---------------------------------
+DEBUG    pytest_bdd.scenario:scenario.py:150 Adding providers for fixture 'pytestbdd_stepimpl_given_a CPE is online and fully provisioned': [<FixtureDef argname='pytestbdd_stepdef_given_a CPE is online and fully provisioned' scope='function' baseid=''>]
+Querying CPE 62D5A3-SN62D5A35C850C via ACS to confirm it's online and provisioned...
+CPE baseline state captured: firmware=3.0.2, uptime=9695s
+DEBUG    pytest_bdd.scenario:scenario.py:150 Adding providers for fixture 'pytestbdd_stepimpl_given_the user has set the CPE GUI password to "p@ssw0rd123!"': [<FixtureDef argname='pytestbdd_stepdef_given_the user has set the CPE GUI password to "{password}"' scope='function' baseid=''>]
+Searching through 11 users to find admin user...
+✓ Found admin user at index 10 (username='admin')
+Using User.10 as GUI admin user
+Captured original user 10 (GUI admin) password: '***'
+Setting CPE GUI password for 62D5A3-SN62D5A35C850C: password='***'
+✓ Password change attempted (could not verify)
+✓ Stored password marker in cleanup config (will restore to 'admin')
+✓ CPE GUI password set successfully for user 10 (GUI admin)
+✓ Recorded user 10 (GUI admin) password for verification: '***'
+DEBUG    pytest_bdd.scenario:scenario.py:150 Adding providers for fixture 'pytestbdd_stepimpl_given_the operator initiates a reboot task on the ACS for the CPE': [<FixtureDef argname='pytestbdd_stepdef_given_the operator initiates a reboot task on the ACS for the CPE' scope='function' baseid=''>]
+Operator initiating reboot task for CPE 62D5A3-SN62D5A35C850C via ACS...
+INFO     boardfarm3.devices.genie_acs:genie_acs.py:507 Reboot task created for CPE 62D5A3-SN62D5A35C850C (CommandKey: reboot)
+Reboot task created successfully for CPE 62D5A3-SN62D5A35C850C (test started at 2025-11-21 10:02:11.174125+00:00 UTC)
+DEBUG    pytest_bdd.scenario:scenario.py:150 Adding providers for fixture 'pytestbdd_stepimpl_when_the ACS attempts to send the connection request, but the CPE is offline or unreachable': [<FixtureDef argname='pytestbdd_stepdef_when_the ACS attempts to send the connection request, but the CPE is offline or unreachable' scope='function' baseid=''>]
+Connection request attempted (automatically triggered by reboot task creation), but CPE is offline
+DEBUG    pytest_bdd.scenario:scenario.py:150 Adding providers for fixture 'pytestbdd_stepimpl_then_the ACS cannot send the connection request to the CPE': [<FixtureDef argname='pytestbdd_stepdef_then_the ACS cannot send the connection request to the CPE' scope='function' baseid=''>]
+Taking CPE 62D5A3-SN62D5A35C850C offline by stopping TR-069 client...
+✓ CPE 62D5A3-SN62D5A35C850C is offline (TR-069 client stopped)
+DEBUG    pytest_bdd.scenario:scenario.py:150 Adding providers for fixture 'pytestbdd_stepimpl_then_the ACS queues the Reboot RPC as a pending task': [<FixtureDef argname='pytestbdd_stepdef_then_the ACS queues the Reboot RPC as a pending task' scope='function' baseid=''>]
+Verifying Reboot RPC is queued for CPE 62D5A3-SN62D5A35C850C...
+✓ Reboot task assumed queued (created in previous step)
+DEBUG    pytest_bdd.scenario:scenario.py:150 Adding providers for fixture 'pytestbdd_stepimpl_then_when the CPE comes online, it connects to the ACS': [<FixtureDef argname='pytestbdd_stepdef_then_when the CPE comes online, it connects to the ACS' scope='function' baseid=''>]
+Bringing CPE 62D5A3-SN62D5A35C850C back online...
+✓ CPE 62D5A3-SN62D5A35C850C TR-069 client restarted
+Waiting for CPE 62D5A3-SN62D5A35C850C to connect to ACS...
+✓ CPE 62D5A3-SN62D5A35C850C connected to ACS (Inform received)
+FAILEDCleaning up CPE configuration for 62D5A3-SN62D5A35C850C...
+DEBUG: original_config keys: ['users']
+DEBUG: Processing field 'Password' for Users 10
+  ✓ Found password field 'Password' - Restoring for Users 10 to default 'admin' password (cannot restore from encrypted hash)
+DEBUG: Calling SPV with params: {'Device.Users.User.10.Password': 'admin'}
+DEBUG: SPV result: 0
+✓ Restored Users 10 to original values
+  DEBUG: Password field still accessible (encrypted value retrieved)
+✓ CPE configuration cleanup completed successfully
+------------------------- live log boardfarm teardown --------------------------
+INFO     boardfarm3.devices.linux_lan:linux_lan.py:138 Shutdown lan(bf_lan) device
+INFO     boardfarm3.devices.genie_acs:genie_acs.py:115 Shutdown genieacs(bf_acs) device
+INFO     boardfarm3.devices.kea_provisioner:kea_provisioner.py:580 Shutdown provisioner(bf_dhcp) device
+INFO     boardfarm3.devices.kamailio:kamailio.py:113 Shutdown sipcenter(bf_kamailio) device
+INFO     boardfarm3.devices.linux_wan:linux_wan.py:160 Shutdown wan(bf_wan) device
+INFO     boardfarm3.devices.prplos_cpe:prplos_cpe.py:828 Shutdown board(bf_cpe) device
+
+
+=================================== FAILURES ===================================
+__________________________ test_test_individual_steps __________________________
+
+E   pytest_bdd.exceptions.StepDefinitionNotFoundError: Step definition is not found: Then "the CPE sends an Inform message to the ACS". Line 15 in scenario "Test Individual Steps" in the feature "/home/rjvisser/projects/req-tst/boardfarm-bdd/tests/features/debug-step-by-step.feature"
+All traceback entries are hidden. Pass `--full-trace` to see hidden and internal frames.
+------------------------------ Captured log call -------------------------------
+DEBUG    pytest_bdd.scenario:scenario.py:150 Adding providers for fixture 'pytestbdd_stepimpl_given_a CPE is online and fully provisioned': [<FixtureDef argname='pytestbdd_stepdef_given_a CPE is online and fully provisioned' scope='function' baseid=''>]
+DEBUG    pytest_bdd.scenario:scenario.py:150 Adding providers for fixture 'pytestbdd_stepimpl_given_the user has set the CPE GUI password to "p@ssw0rd123!"': [<FixtureDef argname='pytestbdd_stepdef_given_the user has set the CPE GUI password to "{password}"' scope='function' baseid=''>]
+DEBUG    pytest_bdd.scenario:scenario.py:150 Adding providers for fixture 'pytestbdd_stepimpl_given_the operator initiates a reboot task on the ACS for the CPE': [<FixtureDef argname='pytestbdd_stepdef_given_the operator initiates a reboot task on the ACS for the CPE' scope='function' baseid=''>]
+INFO     boardfarm3.devices.genie_acs:genie_acs.py:507 Reboot task created for CPE 62D5A3-SN62D5A35C850C (CommandKey: reboot)
+DEBUG    pytest_bdd.scenario:scenario.py:150 Adding providers for fixture 'pytestbdd_stepimpl_when_the ACS attempts to send the connection request, but the CPE is offline or unreachable': [<FixtureDef argname='pytestbdd_stepdef_when_the ACS attempts to send the connection request, but the CPE is offline or unreachable' scope='function' baseid=''>]
+DEBUG    pytest_bdd.scenario:scenario.py:150 Adding providers for fixture 'pytestbdd_stepimpl_then_the ACS cannot send the connection request to the CPE': [<FixtureDef argname='pytestbdd_stepdef_then_the ACS cannot send the connection request to the CPE' scope='function' baseid=''>]
+DEBUG    pytest_bdd.scenario:scenario.py:150 Adding providers for fixture 'pytestbdd_stepimpl_then_the ACS queues the Reboot RPC as a pending task': [<FixtureDef argname='pytestbdd_stepdef_then_the ACS queues the Reboot RPC as a pending task' scope='function' baseid=''>]
+DEBUG    pytest_bdd.scenario:scenario.py:150 Adding providers for fixture 'pytestbdd_stepimpl_then_when the CPE comes online, it connects to the ACS': [<FixtureDef argname='pytestbdd_stepdef_then_when the CPE comes online, it connects to the ACS' scope='function' baseid=''>]
+- Generated html report: file:///home/rjvisser/projects/req-tst/boardfarm-bdd/report.html -
+=========================== short test summary info ============================
+FAILED tests/test_debug_steps.py::test_test_individual_steps - pytest_bdd.exc...
+======================== 1 failed in 231.02s (0:03:51) =========================

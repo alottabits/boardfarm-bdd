@@ -1,0 +1,10 @@
+{
+    "version": "3.0.3",
+    "compat_version": "1.0",
+    "supported_devices": {
+        "asus-all-series": "asus-all-series"
+    },
+    "new_supported_devices": {
+        "asus-all-series": "asus-all-series"
+    }
+}

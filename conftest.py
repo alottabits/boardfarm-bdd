@@ -16,17 +16,21 @@ from pytest_boardfarm3.boardfarm_fixtures import devices
 
 from tests.step_defs.helpers import gpv_value
 
-# Import step definition modules so pytest-bdd can discover the original step definitions
+# Auto-discover and import all step definition modules
 # This ensures pytest-bdd can find them even if re-registration has issues
-try:
-    from tests.step_defs import background_steps  # noqa: F401
-    from tests.step_defs import reboot_main_scenario_steps  # noqa: F401
-    from tests.step_defs import reboot_offline_scenario_steps  # noqa: F401
-    from tests.step_defs import reboot_steps  # noqa: F401
-    from tests.step_defs import hello_steps  # noqa: F401
-except ImportError:
-    # If imports fail during development, that's okay - re-registration will handle it
-    pass
+step_defs_dir = Path(__file__).parent / "tests" / "step_defs"
+if step_defs_dir.exists():
+    for step_file in step_defs_dir.glob("*.py"):
+        # Skip __init__.py and helpers.py (not step definitions)
+        if step_file.stem not in ("__init__", "helpers"):
+            try:
+                module_name = f"tests.step_defs.{step_file.stem}"
+                importlib.import_module(module_name)
+            except ImportError as e:
+                # If imports fail during development, that's okay - re-registration will handle it
+                print(f"Warning: Could not import {module_name}: {e}")
+                pass
+
 
 
 def _extract_step_decorators_from_source(module_path: Path):
