@@ -1,0 +1,110 @@
+# GenieACS UI Selectors Configuration
+# 
+# This file contains UI element selectors for GenieACS.
+# Update this file when the UI changes - no code changes needed!
+#
+# Format:
+#   page_name:
+#     element_name:
+#       by: "locator_type"  # css_selector, name, id, xpath, etc.
+#       selector: "selector_string"  # Can use {variable} for formatting
+
+version: "default"
+last_updated: "2025-11-24"
+description: "Default GenieACS UI selectors - works with most versions"
+
+# Login Page
+login:
+  username_field:
+    by: "name"
+    selector: "username"
+  
+  password_field:
+    by: "css_selector"
+    selector: "input[type='password']"
+  
+  login_button:
+    by: "css_selector"
+    selector: "button[type='submit']"
+  
+  error_message:
+    by: "css_selector"
+    selector: ".alert-danger"
+
+# Device List Page
+device_list:
+  search_box:
+    by: "css_selector"
+    selector: "input[placeholder*='Search']"
+  
+  device_link:
+    by: "css_selector"
+    selector: "a[href='/devices/{cpe_id}']"
+  
+  device_row:
+    by: "css_selector"
+    selector: "tr[data-device-id='{cpe_id}']"
+  
+  refresh_button:
+    by: "css_selector"
+    selector: "button[title='Refresh']"
+  
+  filter_dropdown:
+    by: "css_selector"
+    selector: "select.filter"
+
+# Device Details Page
+device_details:
+  device_id_header:
+    by: "css_selector"
+    selector: "h3.device-id"
+  
+  reboot_button:
+    by: "css_selector"
+    selector: "button[title='Reboot']"
+  
+  refresh_button:
+    by: "css_selector"
+    selector: "button[title='Refresh']"
+  
+  factory_reset_button:
+    by: "css_selector"
+    selector: "button[title='Factory Reset']"
+  
+  confirm_button:
+    by: "css_selector"
+    selector: "button.confirm"
+  
+  cancel_button:
+    by: "css_selector"
+    selector: "button.cancel"
+  
+  task_status:
+    by: "css_selector"
+    selector: "span.task-status"
+  
+  parameter_row:
+    by: "css_selector"
+    selector: "tr[data-param='{param}']"
+  
+  parameter_value:
+    by: "css_selector"
+    selector: "td.param-value"
+  
+  parameters_table:
+    by: "css_selector"
+    selector: "table.parameters"
+
+# Tasks Page
+tasks:
+  task_list:
+    by: "css_selector"
+    selector: "table.tasks"
+  
+  task_row:
+    by: "css_selector"
+    selector: "tr[data-task-id='{task_id}']"
+  
+  clear_tasks_button:
+    by: "css_selector"
+    selector: "button[title='Clear Tasks']"
