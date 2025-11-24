@@ -280,6 +280,34 @@ def wan(devices) -> WanTemplate:
     return getattr(devices, "wan", None)
 
 
+@pytest.fixture
+def lan_phone(devices):
+    """LAN phone device fixture extracted from boardfarm devices."""
+    # devices is a Namespace object, access via attributes
+    return getattr(devices, "lan_phone", None)
+
+
+@pytest.fixture
+def wan_phone(devices):
+    """WAN phone device fixture extracted from boardfarm devices."""
+    # devices is a Namespace object, access via attributes
+    return getattr(devices, "wan_phone", None)
+
+
+@pytest.fixture
+def wan_phone2(devices):
+    """WAN phone 2 device fixture extracted from boardfarm devices."""
+    # devices is a Namespace object, access via attributes
+    return getattr(devices, "wan_phone2", None)
+
+
+@pytest.fixture
+def sipcenter(devices):
+    """SIP center (Kamailio) device fixture extracted from boardfarm devices."""
+    # devices is a Namespace object, access via attributes
+    return getattr(devices, "sipcenter", None)
+
+
 @pytest.fixture(scope="function", autouse=True)
 def cleanup_cpe_config_after_scenario(
     acs: AcsTemplate, cpe: CpeTemplate, bf_context: Any

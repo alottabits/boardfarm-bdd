@@ -30,8 +30,9 @@ The Raikou + Boardfarm testbed simulates a complete home gateway environment usi
 
 | Component | Description | Image |
 |-----------|-------------|-------|
-| **LAN Phone** | Phone device on LAN network | `phone:v1.2.0` |
-| **WAN Phone** | Phone device on WAN network | `phone:v1.2.0` |
+| **LAN Phone** | Phone device on LAN network (number 1000) | `phone:v1.2.0` |
+| **WAN Phone** | Phone device on WAN network (number 2000) | `phone:v1.2.0` |
+| **WAN Phone 2** | Second phone device on WAN network (number 3000) | `phone:v1.2.0` |
 
 ## Network Topology Diagrams
 
@@ -50,6 +51,7 @@ flowchart TB
     SIP_MGMT[SIP Center eth0<br/>192.168.56.x<br/>SSH:4005]
     LAN_PHONE_MGMT[LAN Phone eth0<br/>192.168.56.x<br/>SSH:4006]
     WAN_PHONE_MGMT[WAN Phone eth0<br/>192.168.56.x<br/>SSH:4007]
+    WAN_PHONE2_MGMT[WAN Phone 2 eth0<br/>192.168.56.x<br/>SSH:4008]
     
        
     %% Management Connections
@@ -62,13 +64,14 @@ flowchart TB
     MGMT -.->|SSH/Management| SIP_MGMT
     MGMT -.->|SSH/Management| LAN_PHONE_MGMT
     MGMT -.->|SSH/Management| WAN_PHONE_MGMT
+    MGMT -.->|SSH/Management| WAN_PHONE2_MGMT
     
     %% Styling
     classDef mgmt stroke-width:3px
     classDef management stroke-width:2px
     
     class MGMT mgmt
-    class WAN_MGMT,ROUTER_MGMT,LAN_MGMT,DHCP_MGMT,ACS_MGMT,CPE_MGMT,SIP_MGMT,LAN_PHONE_MGMT,WAN_PHONE_MGMT management
+    class WAN_MGMT,ROUTER_MGMT,LAN_MGMT,DHCP_MGMT,ACS_MGMT,CPE_MGMT,SIP_MGMT,LAN_PHONE_MGMT,WAN_PHONE_MGMT,WAN_PHONE2_MGMT management
 ```
 
 ### Simulated Network Topology
@@ -96,8 +99,9 @@ graph TB
     end
     
     subgraph "Client Devices"
-        LAN_PHONE[LAN Phone<br/>eth1: Connected to br-lan]
-        WAN_PHONE[WAN Phone<br/>eth1: 172.25.1.3/24]
+        LAN_PHONE[LAN Phone<br/>Number: 1000<br/>eth1: Connected to br-lan]
+        WAN_PHONE[WAN Phone<br/>Number: 2000<br/>eth1: 172.25.1.3/24]
+        WAN_PHONE2[WAN Phone 2<br/>Number: 3000<br/>eth1: 172.25.1.4/24]
     end
     
     %% Raikou Bridge Connections
@@ -113,7 +117,8 @@ graph TB
     ACS <-->|eth1| BRIDGE_RTR_WAN
     DHCP <-->|eth1| BRIDGE_RTR_WAN
     SIP <-->|eth1| BRIDGE_RTR_WAN
-    WAN_PHONE <-->|eth1| SIP
+    WAN_PHONE <-->|eth1| BRIDGE_RTR_WAN
+    WAN_PHONE2 <-->|eth1| BRIDGE_RTR_WAN
     
     ROUTER <-->|aux0| BRIDGE_RTR_UPLINK
     
@@ -125,7 +130,7 @@ graph TB
     
     class CPE,ROUTER,LAN gateway
     class WAN,ACS,DHCP,SIP infrastructure
-    class LAN_PHONE,WAN_PHONE client
+    class LAN_PHONE,WAN_PHONE,WAN_PHONE2 client
     class BRIDGE_CPE_RTR,BRIDGE_LAN_CPE,BRIDGE_RTR_WAN,BRIDGE_RTR_UPLINK bridge
 ```
 
@@ -152,10 +157,11 @@ graph TB
 |-----------|-----------|------------|---------|
 | Router | eth1 | `172.25.1.1/24` | Gateway |
 | WAN Container | eth1 | `172.25.1.2/24` | Network services (HTTP/TFTP/FTP/DNS/proxy/testing) |
-| ACS Container | eth1 | `172.25.1.40/24` | TR-069 management |
+| WAN Phone | eth1 | `172.25.1.3/24` | Client device (number 2000) |
+| WAN Phone 2 | eth1 | `172.25.1.4/24` | Client device (number 3000) |
+| SIP Center | eth1 | `172.25.1.5/24` | Voice services (registers 1000, 2000, 3000) |
 | DHCP Container | eth1 | `172.25.1.20/24` | Network provisioning |
-| SIP Center | eth1 | `172.25.1.5/24` | Voice services |
-| WAN Phone | eth1 | `172.25.1.3/24` | Client device |
+| ACS Container | eth1 | `172.25.1.40/24` | TR-069 management |
 
 ### Uplink Segment (`rtr-uplink` bridge)
 
@@ -175,9 +181,10 @@ graph TB
 | dhcp | 4003 | - | `ssh -p 4003 root@localhost` |
 | acs | 4503 | 7547 (TR-069), 7557, 7567, 3000 (UI) | `ssh -p 4503 root@localhost` |
 | cpe | - | - | `docker exec -it cpe ash` (no management network) |
-| sipcenter | 4005 | - | `ssh -p 4005 root@localhost` |
-| lan-phone | 4006 | - | `ssh -p 4006 root@localhost` |
-| wan-phone | 4007 | - | `ssh -p 4007 root@localhost` |
+| sipcenter | 4005 | 5060 (SIP) | `ssh -p 4005 root@localhost` |
+| lan-phone | 4006 | - | `ssh -p 4006 root@localhost` (number 1000) |
+| wan-phone | 4007 | - | `ssh -p 4007 root@localhost` (number 2000) |
+| wan-phone2 | 4008 | - | `ssh -p 4008 root@localhost` (number 3000) |
 
 **Default Credentials**: `root` / `bigfoot1`
 
@@ -226,7 +233,7 @@ environment:
 | `bf_lan` | lan | SSH port 4002 |
 | `bf_acs` | acs | SSH port 4503 |
 | `bf_dhcp` | dhcp | SSH port 4003 |
-| `bf_phone` | lan-phone, wan-phone | SSH ports 4006, 4007 |
+| `bf_phone` | lan-phone, wan-phone, wan-phone2 | SSH ports 4006, 4007, 4008 |
 
 ### Boot Process
 
@@ -302,11 +309,14 @@ docker compose ps
 
 | Service | IP Address | Ports |
 |---------|------------|-------|
-| WAN Server | `172.25.1.2` | 80 (HTTP), 69 (TFTP), 21 (FTP), 53 (DNS) |
-| ACS Server | `172.25.1.40` | 7547 (TR-069) |
-| DHCP Server | `172.25.1.20` | 67, 547 |
-| SIP Server | `172.25.1.5` | 5060 (SIP) |
 | Router Gateway | `172.25.1.1` | - |
+| WAN Server | `172.25.1.2` | 80 (HTTP), 69 (TFTP), 21 (FTP), 53 (DNS) |
+| WAN Phone | `172.25.1.3` | - (number 2000) |
+| WAN Phone 2 | `172.25.1.4` | - (number 3000) |
+| SIP Server | `172.25.1.5` | 5060 (SIP) |
+| DHCP Server | `172.25.1.20` | 67, 547 |
+| ACS Server | `172.25.1.40` | 7547 (TR-069) |
+
 
 ### OVS Bridges
 
@@ -314,5 +324,5 @@ docker compose ps
 |--------|---------------------|---------|
 | cpe-rtr | CPE eth1, Router cpe | CPE WAN connectivity |
 | lan-cpe | CPE eth0, LAN eth1, LAN Phone | Home network |
-| rtr-wan | Router eth1, WAN, ACS, DHCP, SIP, WAN Phone | WAN services |
+| rtr-wan | Router eth1, WAN, WAN Phone, WAN Phone 2, SIP, DHCP, ACS | WAN services |
 | rtr-uplink | Router aux0 | External connectivity |

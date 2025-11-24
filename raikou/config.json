@@ -91,6 +91,16 @@
                 "ip6address": "2001:dead:beef:2::3/64",
                 "ipaddress": "172.25.1.3/24"
             }
+        ],
+        "wan-phone2": [
+            {
+                "bridge": "rtr-wan",
+                "gateway": "172.25.1.1",
+                "gateway6": "2001:dead:beef:2::1",
+                "iface": "eth1",
+                "ip6address": "2001:dead:beef:2::4/64",
+                "ipaddress": "172.25.1.4/24"
+            }
         ]
     },
     "vlan_translations": []
