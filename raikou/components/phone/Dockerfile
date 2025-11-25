@@ -47,6 +47,9 @@ COPY ./resources/pjsua_2_14_dev /root/pjsua
 COPY ./resources/dhclient-script /sbin/dhclient-script
 COPY ./resources/dhclient.conf /etc/dhcp/dhclient.conf
 
+# Create symlink so pjsua is accessible in SSH sessions (PATH doesn't include /root via SSH)
+RUN ln -s /root/pjsua /usr/local/bin/pjsua
+
 ENV PATH="/root:${PATH}"
 
 CMD [ "/root/init.sh" ]
