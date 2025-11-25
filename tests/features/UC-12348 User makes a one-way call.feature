@@ -6,7 +6,11 @@ Feature: UC-12348 User Makes a One-Way Call
 
   Background:
     Given the SIP server is running and operational
-    And all SIP phones are registered with the SIP server
+    And the following phones are required for this use case:
+      | phone_name | network_location |
+      | lan_phone  | LAN              |
+      | wan_phone  | WAN              |
+      | wan_phone2 | WAN              |
 
   # Main Success Scenario - Network Topology Variations
   # The main scenario is tested across all 6 phone location combinations
