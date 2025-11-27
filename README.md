@@ -29,7 +29,11 @@ To ensure consistency and portability, this project adheres to the following sta
 
 -   **Guarantee Verification Rule:** Each BDD scenario must explicitly check the use case's Success Guarantees on success paths and Minimal Guarantees on use case failure paths, ensuring consistent verification aligned with the requirement specification.
 
--   **Configuration Cleanup Rule:** All step definitions that modify CPE configuration must capture original values before making changes and store them in `bf_context.original_config` using the standardized structure. This enables automatic cleanup after each scenario, ensuring test isolation. See [Configuration Cleanup Process](./docs/Configuration%20Cleanup%20Process.md) for detailed guidelines.
+-   **Configuration Cleanup Rule:** All step definitions that modify CPE configuration or use SIP phones must follow cleanup procedures to ensure test isolation:
+    - **CPE Configuration**: Capture original values before making changes and store them in `bf_context.original_config` using the standardized structure. This enables automatic cleanup after each scenario.
+    - **SIP Phones**: Track configured phones in `bf_context.configured_phones`. The cleanup fixture automatically terminates active calls, de-registers phones, and stops pjsua processes after each scenario.
+    - See [Configuration Cleanup Process](./docs/Configuration%20Cleanup%20Process.md) for detailed guidelines.
+
 
 
 ## Test-bed
