@@ -454,3 +454,91 @@ def cleanup_cpe_config_after_scenario(
     else:
         if original_config:
             print("✓ CPE configuration cleanup completed successfully")
+
+
+@pytest.fixture(scope="function", autouse=True)
+def cleanup_sip_phones_after_scenario(devices, bf_context: Any):
+    """Automatically clean up SIP phone configuration after each scenario.
+    
+    This fixture runs automatically for every test and ensures cleanup
+    happens even if the scenario fails. It:
+    1. Discovers ALL SIP phones in the testbed inventory
+    2. Terminates any active calls on each phone
+    3. Unregisters phones from the SIP server
+    4. Stops the pjsua process
+    """
+    # Run the scenario first
+    yield
+    
+    # Cleanup code - ALWAYS runs, even if scenario fails
+    print("Cleaning up SIP phones...")
+    
+    from boardfarm3.templates.sip_phone import SIPPhone
+    
+    cleanup_errors = []
+    phones_cleaned = 0
+    
+    # Iterate through ALL devices in the testbed inventory
+    for device_name in dir(devices):
+        # Skip private/magic attributes
+        if device_name.startswith('_'):
+            continue
+        
+        try:
+            device = getattr(devices, device_name)
+            
+            # Check if this device is a SIP phone
+            if not isinstance(device, SIPPhone):
+                continue
+            
+            phones_cleaned += 1
+            print(f"  Cleaning up {device_name}...")
+            
+            # 1. Terminate any active calls
+            try:
+                if hasattr(device, 'hangup'):
+                    device.hangup()
+                    print(f"    ✓ Terminated active calls on {device_name}")
+            except Exception as e:
+                # It's okay if there's no active call
+                print(f"    ℹ No active calls to terminate on {device_name}")
+            
+            # 2. Stop pjsua (which also de-registers from SIP server)
+            try:
+                if hasattr(device, 'phone_kill'):
+                    device.phone_kill()
+                    print(f"    ✓ Stopped pjsua and de-registered {device_name}")
+            except Exception as e:
+                print(f"    ⚠ Could not stop pjsua on {device_name}: {e}")
+            
+        except Exception as e:
+            error_msg = f"Error cleaning up {device_name}: {e}"
+            print(f"    ❌ {error_msg}")
+            cleanup_errors.append(error_msg)
+    
+    if phones_cleaned == 0:
+        print("  ℹ No SIP phones found in testbed")
+    
+    # Clean up the SIP server registrations if we have a sipcenter
+    try:
+        sipcenter = getattr(devices, "sipcenter", None)
+        if sipcenter:
+            print("  Cleaning up SIP server registrations...")
+            # Registrations will auto-expire, no forced cleanup needed
+            print("    ✓ SIP server will auto-expire registrations")
+    except Exception as e:
+        error_msg = f"Error cleaning up SIP server: {e}"
+        print(f"    ⚠ {error_msg}")
+        cleanup_errors.append(error_msg)
+    
+    # Clear the configured_phones tracking if it exists
+    if hasattr(bf_context, "configured_phones"):
+        bf_context.configured_phones = {}
+    
+    if cleanup_errors:
+        print("⚠ SIP phone cleanup warnings:")
+        for error in cleanup_errors:
+            print(f"  - {error}")
+    else:
+        print(f"✓ SIP phone cleanup completed successfully ({phones_cleaned} phone(s) cleaned)")
+
