@@ -84,17 +84,15 @@ Write the code that brings the BDD scenarios to life.
 -   **Interact with Devices:** Use the `pytest-boardfarm` fixtures (e.g., `CPE`, `ACS`, `WAN`) to interact with the devices in the testbed.
 -   **Use Type Hinting:** Adhere to the project standard of using Python type hints for all fixtures and function arguments to ensure code quality.
 
-All the step definitions collected in the `./tests/step_defs/` folder are generated using LLM's based on the BDD scenarios and the Boardfarm API specification.
+### 6. Unit Test the Step Definitions
 
-### 5. (optional) Install Boardfarm from Local Source
+Before running a full system test, it's crucial to validate the logic of the step definitions themselves. This is done through mock-based unit tests.
 
-To ensure that any local modifications to the `boardfarm` source code (like bug fixes or custom device drivers) are used during test execution, it must be installed in "editable" mode.
+-   **Purpose**: To verify that the validation logic within each step definition is correct, without needing a live testbed.
+-   **Location**: All unit tests for step definitions are located in [`./tests/unit/test_step_defs/`](./tests/unit/test_step_defs/).
+-   **Process**: This involves writing `pytest` tests that use mock objects to simulate the behavior of real devices, allowing for fast and isolated testing of the step definition's logic.
 
--   **Activate Virtual Environment:** Make sure you have activated the Python virtual environment for the BDD tests (e.g., `source .venv/bin/activate`).
--   **Uninstall Existing Version:** If `boardfarm3` is already installed, remove it first: `pip uninstall -y boardfarm3`
--   **Install in Editable Mode:** From the project root, run the following command: `pip install -e <boardfarm directory>`
-
-This will create a link to the local `boardfarm` directory, so any changes made to the source will be immediately available without needing to reinstall.
+For a detailed guide on how to write and run these unit tests, please see the [Unit Testing for Step Definitions README](./tests/unit/test_step_defs/README.md).
 
 ## pytest-bdd Test Execution
 
