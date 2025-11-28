@@ -51,11 +51,11 @@ def get_phone_by_role(bf_context: Any, role: str) -> SIPPhone:
         ValueError: If role is not set in context
     """
     if role == "caller":
-        if not hasattr(bf_context, "caller"):
+        if not hasattr(bf_context, "caller") or bf_context.caller is None:
             raise ValueError("Caller phone not set in context")
         return bf_context.caller
     elif role == "callee":
-        if not hasattr(bf_context, "callee"):
+        if not hasattr(bf_context, "callee") or bf_context.callee is None:
             raise ValueError("Callee phone not set in context")
         return bf_context.callee
     else:
@@ -390,8 +390,12 @@ def discover_available_sip_phones_from_devices(devices: Any) -> list:
             device = getattr(devices, device_name)
             if isinstance(device, SIPPhone):
                 # Determine network location from device metadata or name
-                location = get_phone_network_location(device_name, phone=device)
-                available_phones.append((device_name, device, location))
+                try:
+                    location = get_phone_network_location(device_name, phone=device)
+                    available_phones.append((device_name, device, location))
+                except ValueError:
+                    # This is not a phone we can use, so we skip it
+                    continue
         except Exception:
             # Skip devices that can't be accessed or aren't phones
             continue
