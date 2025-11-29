@@ -21,9 +21,11 @@ from tests.step_defs.sip_phone_steps import (
     phone_in_active_call,
     phone_is_idle,
     phone_plays_busy_tone,
+    phone_plays_dial_tone,
     phone_starts_ringing,
     sip_server_is_running,
     sip_server_sends_response,
+    validate_use_case_phone_requirements,
     verify_phone_state,
     wait_for_phone_state,
 )
@@ -657,8 +659,10 @@ def test_sip_server_sends_response_success_from_server_log(
     bf_context: MockContext, sipcenter: MockSIPServer
 ):
     """Test 'sip_server_sends_response' finds code in server logs."""
+    import datetime
     # Arrange
     bf_context.sipcenter = sipcenter
+    bf_context.scenario_start_time = datetime.datetime.now()  # Initialize with actual datetime
     # Mock the log verification to return True
     sipcenter.verify_sip_message = lambda *args, **kwargs: True
 
@@ -670,9 +674,11 @@ def test_sip_server_sends_response_success_from_phone_fallback(
     bf_context: MockContext, sipcenter: MockSIPServer, lan_phone: MockSIPPhone
 ):
     """Test 'sip_server_sends_response' finds code in phone logs as a fallback."""
+    import datetime
     # Arrange
     bf_context.sipcenter = sipcenter
     bf_context.caller = lan_phone
+    bf_context.scenario_start_time = datetime.datetime.now()  # Initialize with actual datetime
     # Mock server log check to fail, but phone console to contain the code
     sipcenter.verify_sip_message = lambda *args, **kwargs: False
     lan_phone._console.expect = lambda pattern, timeout: "DISCONNECTED [reason=486" in pattern
@@ -685,9 +691,11 @@ def test_sip_server_sends_response_failure(
     bf_context: MockContext, sipcenter: MockSIPServer, lan_phone: MockSIPPhone
 ):
     """Test 'sip_server_sends_response' when the code is not found anywhere."""
+    import datetime
     # Arrange
     bf_context.sipcenter = sipcenter
     bf_context.caller = lan_phone
+    bf_context.scenario_start_time = datetime.datetime.now()  # Initialize with actual datetime
     # Mock both checks to fail
     sipcenter.verify_sip_message = lambda *args, **kwargs: False
     lan_phone._console.expect = lambda pattern, timeout: (_ for _ in ()).throw(Exception("Timeout"))
@@ -718,9 +726,8 @@ def test_phone_plays_busy_tone_success_from_idle_fallback(
     """Test 'phone_plays_busy_tone' success via idle state fallback."""
     # Arrange
     bf_context.caller = lan_phone
-    # Remove the optional is_line_busy method to force fallback
-    if hasattr(lan_phone, "is_line_busy"):
-        delattr(lan_phone, "is_line_busy")
+    # Mock is_line_busy to return False to force fallback to idle state check
+    lan_phone.is_line_busy = lambda: False
     lan_phone._state = "idle"
     lan_phone._wait_for_state_result = True
 
@@ -732,8 +739,8 @@ def test_phone_plays_busy_tone_failure(bf_context: MockContext, lan_phone: MockS
     """Test 'phone_plays_busy_tone' for failure."""
     # Arrange
     bf_context.caller = lan_phone
-    if hasattr(lan_phone, "is_line_busy"):
-        delattr(lan_phone, "is_line_busy")
+    # Mock is_line_busy to return False to force fallback to idle state check
+    lan_phone.is_line_busy = lambda: False
     lan_phone._state = "connected"  # Not idle
     lan_phone._wait_for_state_result = False
 

@@ -26,8 +26,9 @@ class MockSIPPhone(SIPPhone):
         # Call parent constructor
         super().__init__()
         
-        self.name = name
-        self.number = number
+        # Store name and number as private attributes (accessed via properties)
+        self._name = name
+        self._number = number
         self.phone_started = True
         
         # Internal state (can be controlled in tests)
@@ -41,6 +42,16 @@ class MockSIPPhone(SIPPhone):
         
         # Mock console for logging checks
         self._console = MockConsole()
+    
+    @property
+    def name(self) -> str:
+        """Get phone name."""
+        return self._name
+    
+    @property
+    def number(self) -> str:
+        """Get phone number."""
+        return self._number
     
     def is_idle(self) -> bool:
         """Check if phone is idle."""
@@ -89,6 +100,132 @@ class MockSIPPhone(SIPPhone):
         if self._wait_for_state_result:
             return self._state == expected_state
         return False
+    
+    # --- Abstract method implementations required by SIPPhone base class ---
+    
+    def answer_waiting_call(self) -> bool:
+        """Answer a waiting call."""
+        return True
+    
+    def detect_dialtone(self) -> bool:
+        """Detect if dial tone is present."""
+        return self.is_playing_dialtone()
+    
+    def has_off_hook_warning(self) -> bool:
+        """Check if phone has off-hook warning."""
+        return False
+    
+    def hook_flash(self) -> None:
+        """Perform hook flash."""
+        pass
+    
+    @property
+    def ipv4_addr(self) -> str:
+        """Get IPv4 address."""
+        return "192.168.1.10"
+    
+    @property
+    def ipv6_addr(self) -> str:
+        """Get IPv6 address."""
+        return "::1"
+    
+    def is_call_ended(self) -> bool:
+        """Check if call has ended."""
+        return self._state == "idle"
+    
+    def is_call_not_answered(self) -> bool:
+        """Check if call was not answered."""
+        return False
+    
+    def is_call_waiting(self) -> bool:
+        """Check if there's a call waiting."""
+        return False
+    
+    def is_code_ended(self) -> bool:
+        """Check if code has ended."""
+        return False
+    
+    def is_in_conference(self) -> bool:
+        """Check if phone is in a conference."""
+        return False
+    
+    def is_incall_connected(self) -> bool:
+        """Check if in-call is connected."""
+        return self._state == "connected"
+    
+    def is_incall_dialing(self) -> bool:
+        """Check if in-call is dialing."""
+        return self._state == "dialing"
+    
+    def is_incall_playing_dialtone(self) -> bool:
+        """Check if in-call is playing dial tone."""
+        return self.is_playing_dialtone()
+    
+    def is_line_busy(self) -> bool:
+        """Check if line is busy."""
+        return self._state == "busy"
+    
+    def is_onhold(self) -> bool:
+        """Check if call is on hold."""
+        return False
+    
+    def merge_two_calls(self) -> None:
+        """Merge two calls into conference."""
+        pass
+    
+    def off_hook(self) -> None:
+        """Take phone off hook."""
+        if self._state == "idle":
+            self._state = "dialing"
+    
+    def on_hook(self) -> None:
+        """Put phone on hook."""
+        self._state = "idle"
+    
+    def phone_config(self, **kwargs) -> None:
+        """Configure phone with parameters.
+        
+        Args:
+            **kwargs: Configuration parameters (ipv6_flag, sipserver_fqdn, etc.)
+        """
+        # Mock implementation - just store the config
+        self._config = kwargs
+    
+    def phone_kill(self) -> None:
+        """Kill phone process."""
+        self.phone_started = False
+    
+    def phone_start(self) -> None:
+        """Start phone process."""
+        self.phone_started = True
+    
+    def place_call_offhold(self) -> None:
+        """Take call off hold."""
+        pass
+    
+    def place_call_onhold(self) -> None:
+        """Place call on hold."""
+        pass
+    
+    def press_R_button(self) -> None:
+        """Press R button."""
+        pass
+    
+    def press_buttons(self, buttons: str) -> None:
+        """Press buttons on phone."""
+        pass
+    
+    def reject_waiting_call(self) -> None:
+        """Reject a waiting call."""
+        pass
+    
+    def reply_with_code(self, code: str) -> None:
+        """Reply with SIP code."""
+        pass
+    
+    def toggle_call(self) -> None:
+        """Toggle between calls."""
+        pass
 
 
 class MockSIPServer:
