@@ -10,65 +10,103 @@ This document tracks the validation of **step definitions** (the test code itsel
 
 ## Coverage Summary
 
-| Module | Total Functions | Unit Tested | Coverage % | Status |
-|--------|----------------|-------------|------------|--------|
-| `sip_phone_steps.py` | 45 | 0 | 0% | ⏳ To Do |
-| `reboot_steps.py` | 12 | 0 | 0% | ⏳ To Do |
-| `background_steps.py` | 8 | 0 | 0% | ⏳ To Do |
+| Module | Total Statements | Unit Tests | Coverage % | Status |
+|--------|-----------------|------------|------------|--------|
+| `sip_phone_steps.py` | 548 | 57 | 68% | ✅ In Progress |
+| `acs_steps.py` | 125 | 0 | 16% | ⏳ To Do |
+| `cpe_steps.py` | 306 | 0 | 9% | ⏳ To Do |
+| `background_steps.py` | 99 | 0 | 11% | ⏳ To Do |
+| `operator_steps.py` | 27 | 0 | 37% | ⏳ To Do |
+| `helpers.py` | 127 | 0 | 14% | ⏳ To Do |
+| `hello_steps.py` | 5 | 0 | 60% | ⏳ To Do |
 
-**Overall Progress**: 0 / 65 functions tested (0%)
+**Overall Progress**: 57 unit tests / 1237 total statements (37% overall coverage)
 
-**Last Updated**: TBD
+**Last Updated**: 2025-12-01
 
 ---
 
 ## Module: sip_phone_steps.py
 
+**Status**: ✅ 68% Coverage (548 statements, 174 missed) | 57 Unit Tests
+
 ### Helper Functions
 
 | Function | Unit Tests | Test Cases | Status | Notes |
 |----------|-----------|------------|--------|-------|
-| `get_phone_by_name` | ⏳ | - | To Do | Get phone from context by name |
-| `get_phone_by_role` | ⏳ | - | To Do | Get phone by role (caller/callee) |
-| `ensure_phone_registered` | ⏳ | - | To Do | Verify phone registration |
-| `verify_phone_state` | ⏳ | - | To Do | Verify phone in expected state |
-| `wait_for_phone_state` | ⏳ | - | To Do | Wait for state transition |
+| `get_phone_by_name` | ✅ | 2 | **Done** | Success + failure cases |
+| `get_phone_by_role` | ✅ | 5 | **Done** | Caller, callee, not set, invalid |
+| `ensure_phone_registered` | ✅ | 2 | **Done** | Success + failure cases |
+| `verify_phone_state` | ✅ | 3 | **Done** | Success, failure, invalid state |
+| `wait_for_phone_state` | ✅ | 2 | **Done** | Success + timeout cases |
+| `verify_rtp_session` | ✅ | 4 | **Done** | UDP detection, port range, exceptions |
+| `discover_available_sip_phones_from_devices` | ✅ | 1 | **Done** | Phone discovery from devices |
+| `map_phones_to_requirements` | ✅ | 2 | **Done** | Success + insufficient phones |
 | `check_kamailio_active_calls` | ⏳ | - | To Do | Check active calls on server |
 | `verify_sip_message_in_logs` | ⏳ | - | To Do | Verify SIP message in logs |
-| `verify_rtp_session` | ⏳ | - | To Do | Verify RTP session active |
 | `check_rtpengine_engagement` | ⏳ | - | To Do | Check RTPEngine status |
 
 ### Step Definitions
 
 | Step Pattern | Function | Unit Tests | Test Cases | Priority | Status |
 |--------------|----------|-----------|------------|----------|--------|
-| "SIP server is running and operational" | `sip_server_is_running` | ⏳ | - | Low | To Do |
-| "following phones are required" | `validate_use_case_phone_requirements` | ⏳ | - | Medium | To Do |
-| "{phone_name} with number {number} on {location}" | `phone_registered_on_location` | ⏳ | - | Medium | To Do |
-| "{caller} is caller and {callee} is callee" | `assign_caller_callee_roles` | ⏳ | - | Medium | To Do |
-| "the {role} phone is idle" | `phone_is_idle` | ⏳ | - | **High** | To Do |
-| "the {role} phone is in active call" | `phone_in_active_call` | ⏳ | - | **High** | To Do |
-| "{role} takes phone off-hook" | `phone_off_hook` | ⏳ | - | Medium | To Do |
-| "{caller} dials {callee}'s number" | `phone_dials_number` | ⏳ | - | **High** | To Do |
-| "{role} answers the call" | `phone_answers_call` | ⏳ | - | **High** | To Do |
-| "caller plays busy tone" | `caller_plays_busy_tone` | ⏳ | - | **High** | To Do |
-| ... | ... | ... | ... | ... | ... |
+| "SIP server is running and operational" | `sip_server_is_running` | ✅ | 2 | Low | **Done** |
+| "following phones are required" | `validate_use_case_phone_requirements` | ✅ | 2 | Medium | **Done** |
+| "{caller} is caller and {callee} is callee" | `assign_caller_callee_roles` | ✅ | 2 | Medium | **Done** |
+| "the {role} phone is idle" | `phone_is_idle` | ✅ | 2 | **High** | **Done** |
+| "the {role} phone is in active call" | `phone_in_active_call` | ✅ | 3 | **High** | **Done** |
+| "{caller} dials {callee}'s number" | `phone_dials_number` | ✅ | 2 | **High** | **Done** |
+| "{role} dials invalid number" | `phone_dials_invalid_number` | ✅ | 1 | Medium | **Done** |
+| "{role} answers the call" | `phone_answers_call` | ✅ | 2 | **High** | **Done** |
+| "{role} hangs up" | `phone_hangs_up` | ✅ | 1 | Medium | **Done** |
+| "{role} phone starts ringing" | `phone_starts_ringing` | ✅ | 2 | High | **Done** |
+| "caller calls callee" | `caller_calls_callee` | ✅ | 1 | Medium | **Done** |
+| "{role} plays dial tone" | `phone_plays_dial_tone` | ✅ | 3 | Medium | **Done** |
+| "{role} plays busy tone" | `phone_plays_busy_tone` | ✅ | 3 | **High** | **Done** |
+| "caller plays busy tone" | `caller_plays_busy_tone` | ✅ | 2 | **High** | **Done** |
+| "both phones connected" | `both_phones_connected` | ✅ | 2 | **High** | **Done** |
+| "both phones return to idle" | `both_phones_return_to_idle` | ✅ | 2 | High | **Done** |
+| "SIP server sends {response}" | `sip_server_sends_response` | ✅ | 3 | High | **Done** |
 
 ---
 
-## Module: reboot_steps.py
+## Module: acs_steps.py
+
+**Status**: ⏳ 16% Coverage (125 statements, 105 missed) | 0 Unit Tests
 
 | Step Pattern | Function | Unit Tests | Test Cases | Priority | Status |
 |--------------|----------|-----------|------------|----------|--------|
-| TBD | TBD | ⏳ | - | - | To Do |
+| TBD | TBD | ⏳ | - | Medium | To Do |
+
+---
+
+## Module: cpe_steps.py
+
+**Status**: ⏳ 9% Coverage (306 statements, 279 missed) | 0 Unit Tests
+
+| Step Pattern | Function | Unit Tests | Test Cases | Priority | Status |
+|--------------|----------|-----------|------------|----------|--------|
+| TBD | TBD | ⏳ | - | Medium | To Do |
 
 ---
 
 ## Module: background_steps.py
 
+**Status**: ⏳ 11% Coverage (99 statements, 88 missed) | 0 Unit Tests
+
 | Step Pattern | Function | Unit Tests | Test Cases | Priority | Status |
 |--------------|----------|-----------|------------|----------|--------|
-| TBD | TBD | ⏳ | - | - | To Do |
+| TBD | TBD | ⏳ | - | Low | To Do |
+
+---
+
+## Module: operator_steps.py
+
+**Status**: ⏳ 37% Coverage (27 statements, 17 missed) | 0 Unit Tests
+
+| Step Pattern | Function | Unit Tests | Test Cases | Priority | Status |
+|--------------|----------|-----------|------------|----------|--------|
+| TBD | TBD | ⏳ | - | Low | To Do |
 
 ---
 
@@ -76,21 +114,26 @@ This document tracks the validation of **step definitions** (the test code itsel
 
 ### Completed Modules
 
-*None yet*
+*None yet - aiming for 80%+ coverage*
 
 ### In Progress
 
-*None yet*
+**sip_phone_steps.py** - 68% coverage (57 tests)
+- ✅ Core helper functions tested
+- ✅ Most critical step definitions tested
+- ⏳ Remaining: 3 helper functions, additional edge cases
+- 🎯 Target: 80% coverage
 
 ### To Do (Priority Order)
 
-1. **sip_phone_steps.py** - High priority (most complex validation logic)
-   - Start with: `phone_is_idle`, `phone_dials_number`, `phone_answers_call`
-   - Then: `phone_in_active_call`, `caller_plays_busy_tone`
-   - Finally: Helper functions and remaining steps
+1. **sip_phone_steps.py** - Continue to 80%+ coverage
+   - Add tests for: `check_kamailio_active_calls`, `verify_sip_message_in_logs`, `check_rtpengine_engagement`
+   - Add more edge cases for existing functions
 
-2. **reboot_steps.py** - Medium priority
-3. **background_steps.py** - Low priority
+2. **acs_steps.py** - Medium priority (125 statements, 16% coverage)
+3. **cpe_steps.py** - Medium priority (306 statements, 9% coverage)
+4. **background_steps.py** - Low priority (99 statements, 11% coverage)
+5. **operator_steps.py** - Low priority (27 statements, 37% coverage)
 
 ---
 
