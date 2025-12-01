@@ -42,6 +42,27 @@ class MockSIPPhone(SIPPhone):
         
         # Mock console for logging checks
         self._console = MockConsole()
+        
+        # Mock console interaction attributes for RTP verification
+        self.prompt = "# "  # Mock shell prompt
+        self.before = ""  # Output before prompt (set by expect)
+        self._sendline_commands = []  # Track commands sent
+    
+    def sendline(self, command: str) -> None:
+        """Send a command to the phone console."""
+        self._sendline_commands.append(command)
+    
+    def expect(self, pattern, timeout: int = 10) -> None:
+        """Mock expect method for console interaction.
+        
+        In real usage, expect() waits for a pattern and sets self.before to the output.
+        In this mock, tests should manually set self.before BEFORE calling the function
+        under test to simulate different command outputs.
+        
+        This is a no-op that allows the code under test to call expect() without errors.
+        """
+        # No-op: Tests set self.before manually to simulate command output
+        pass
     
     @property
     def name(self) -> str:

@@ -27,6 +27,7 @@ from tests.step_defs.sip_phone_steps import (
     sip_server_sends_response,
     validate_use_case_phone_requirements,
     verify_phone_state,
+    verify_rtp_session,
     wait_for_phone_state,
 )
 from tests.unit.mocks import MockContext, MockSIPPhone, MockSIPServer, MockDevices
@@ -771,3 +772,77 @@ def test_caller_plays_busy_tone_failure(bf_context: MockContext, lan_phone: Mock
     # Act & Assert
     with pytest.raises(AssertionError, match="Caller should be in busy state"):
         caller_plays_busy_tone(bf_context)
+
+
+# -- Tests for verify_rtp_session --
+
+
+def test_verify_rtp_session_success_with_udp_lowercase(lan_phone: MockSIPPhone):
+    """Test verify_rtp_session when UDP ports are detected (lowercase)."""
+    # Arrange: Simulate netstat output showing UDP ports in RTP range
+    lan_phone.before = "udp        0      0 0.0.0.0:4000            0.0.0.0:*"
+    
+    # Act
+    result = verify_rtp_session(lan_phone)
+    
+    # Assert
+    assert result is True
+    assert len(lan_phone._sendline_commands) == 1
+    assert "netstat -un" in lan_phone._sendline_commands[0]
+
+
+def test_verify_rtp_session_success_with_udp_uppercase(lan_phone: MockSIPPhone):
+    """Test verify_rtp_session when UDP ports are detected (uppercase)."""
+    # Arrange: Simulate netstat output with uppercase UDP
+    lan_phone.before = "UDP        0      0 0.0.0.0:4050            0.0.0.0:*"
+    
+    # Act
+    result = verify_rtp_session(lan_phone)
+    
+    # Assert
+    assert result is True
+
+
+def test_verify_rtp_session_success_null_audio_mode(lan_phone: MockSIPPhone):
+    """Test verify_rtp_session in null-audio mode (no RTP ports visible)."""
+    # Arrange: Simulate no RTP ports detected (null-audio mode)
+    lan_phone.before = ""
+    
+    # Act
+    result = verify_rtp_session(lan_phone)
+    
+    # Assert
+    # Should still return True (doesn't fail test in null-audio mode)
+    assert result is True
+
+
+def test_verify_rtp_session_handles_exception(lan_phone: MockSIPPhone):
+    """Test verify_rtp_session gracefully handles exceptions."""
+    # Arrange: Make expect raise an exception
+    def raise_exception(*args, **kwargs):
+        raise Exception("Timeout waiting for prompt")
+    
+    lan_phone.expect = raise_exception
+    
+    # Act
+    result = verify_rtp_session(lan_phone)
+    
+    # Assert
+    # Should return True (doesn't fail test on verification error)
+    assert result is True
+
+
+def test_verify_rtp_session_checks_correct_port_range(lan_phone: MockSIPPhone):
+    """Test that verify_rtp_session checks for ports in range 4000-4999."""
+    # Arrange
+    lan_phone.before = "udp        0      0 0.0.0.0:4999            0.0.0.0:*"
+    
+    # Act
+    result = verify_rtp_session(lan_phone)
+    
+    # Assert
+    assert result is True
+    # Verify the regex pattern includes the correct port range
+    command = lan_phone._sendline_commands[0]
+    assert "4000" in command or "400[0-9]" in command
+    assert "4999" in command or "4[1-9][0-9]{2}" in command
