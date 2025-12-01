@@ -2,7 +2,11 @@
 
 ## Overview
 
-To ensure test isolation and prevent configuration changes from one scenario affecting subsequent scenarios, this project implements an automatic cleanup system that restores CPE configuration to its original state after each test scenario completes.
+To ensure test isolation and prevent configuration changes from one scenario affecting subsequent scenarios, this project implements automatic cleanup systems for:
+
+1. **CPE Configuration**: Restores TR-069 configuration parameters to their original state
+2. **SIP Phones**: Terminates active calls, de-registers phones, and stops pjsua processes
+
 
 ## Why Cleanup is Necessary
 
@@ -204,7 +208,124 @@ To verify cleanup is working:
 
 3. **Verify isolation**: Run multiple scenarios and verify configuration doesn't persist between them
 
+## SIP Phone Cleanup
+
+### Overview
+
+SIP phone cleanup ensures that phones are properly cleaned up between test scenarios, preventing active calls and registrations from affecting subsequent tests.
+
+### How It Works
+
+#### 1. Track Configured Phones
+
+When phones are configured in the `validate_use_case_phone_requirements` step, they are tracked in `bf_context.configured_phones`:
+
+```python
+bf_context.configured_phones = {
+    'lan_phone': ('lan_phone', phone_instance),
+    'wan_phone': ('wan_phone', phone_instance),
+    'wan_phone2': ('wan_phone2', phone_instance)
+}
+```
+
+**Structure:**
+- **Key**: Use case role name (e.g., `lan_phone`, `wan_phone`)
+- **Value**: Tuple of `(fixture_name, phone_instance)`
+  - `fixture_name`: Name of the phone in the testbed (e.g., `lan_phone`)
+  - `phone_instance`: The actual PJSIPPhone device object
+
+#### 2. Automatic Cleanup Fixture
+
+A pytest fixture (`cleanup_sip_phones_after_scenario`) in `conftest.py` automatically:
+
+- Runs after every scenario (using `autouse=True`)
+- Executes cleanup even if the scenario fails (using `yield` pattern)
+- Iterates through all configured phones in `bf_context.configured_phones`
+- Performs cleanup actions for each phone
+
+**Implementation Location:** `conftest.py`
+
+#### 3. Cleanup Actions
+
+For each configured phone, the cleanup fixture performs:
+
+1. **Terminate Active Calls**: Calls `phone.hangup()` to end any ongoing calls
+2. **Stop pjsua and De-register**: Calls `phone.phone_kill()` which:
+   - Quits the pjsua process
+   - Automatically de-registers from the SIP server
+   - Resets the phone to a clean state
+
+**Error Handling:**
+- If no active call exists, the hangup attempt is silently ignored
+- Cleanup errors are logged but don't fail the test
+- All phones are cleaned up even if one fails
+
+### Implementation Guidelines
+
+#### For Step Definitions That Use SIP Phones
+
+The `validate_use_case_phone_requirements` step automatically handles tracking:
+
+```python
+@given(parsers.parse("the following SIP phones are required for this use case:\n{datatable}"))
+def validate_use_case_phone_requirements(
+    sipcenter: SIPServer,
+    bf_context: Any,
+    devices: Any,
+    datatable: Any,
+) -> None:
+    # ... phone discovery and mapping ...
+    
+    # Track configured phones for cleanup
+    bf_context.configured_phones = {}
+    for use_case_name, (fixture_name, phone) in phone_mapping.items():
+        setattr(bf_context, use_case_name, phone)
+        bf_context.configured_phones[use_case_name] = (fixture_name, phone)
+```
+
+**No additional cleanup code needed** - the fixture handles everything automatically!
+
+### Benefits
+
+1. **Automatic**: No manual cleanup steps required in feature files
+2. **Resilient**: Cleanup runs even if scenarios fail
+3. **Complete**: Handles calls, registrations, and process cleanup
+4. **Isolated**: Each scenario starts with clean phone state
+5. **Portable**: Works across different testbed configurations
+
+### Cleanup Output
+
+To verify cleanup is working, check test output for messages like:
+
+```
+Cleaning up 3 SIP phone(s)...
+  Cleaning up lan_phone (lan_phone)...
+    ℹ No active calls to terminate on lan_phone
+    ✓ Stopped pjsua and de-registered lan_phone
+  Cleaning up wan_phone (wan_phone)...
+    ✓ Terminated active calls on wan_phone
+    ✓ Stopped pjsua and de-registered wan_phone
+  Cleaning up wan_phone2 (wan_phone2)...
+    ℹ No active calls to terminate on wan_phone2
+    ✓ Stopped pjsua and de-registered wan_phone2
+  Cleaning up SIP server registrations...
+    ℹ Phone numbers configured: 1000, 2000, 3000
+    ✓ SIP server will auto-expire registrations
+✓ SIP phone cleanup completed successfully
+```
+
+### Why This Prevents Issues
+
+Without cleanup, phones would:
+- Have active calls from previous scenarios
+- Remain registered with the SIP server
+- Have pjsua processes consuming resources
+- Cause unpredictable behavior in subsequent tests
+
+The cleanup system ensures each scenario starts fresh, just like the CPE configuration cleanup.
+
 ## Related Documentation
+
 
 - **Configuration Verification**: See how `config_before_reboot` is used for verification in `reboot_main_scenario_steps.py`
 - **Container Initialization**: See `raikou/components/cpe/prplos/container-init.sh` for container-level cleanup

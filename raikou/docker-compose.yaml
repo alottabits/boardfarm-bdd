@@ -113,6 +113,18 @@ services:
         depends_on:
             - phone-image
 
+    wan-phone2:
+        container_name: wan-phone2
+        image: phone:v1.2.0
+        ports:
+            - 4008:22
+        environment:
+            - LEGACY=no
+        privileged: true
+        hostname: wan-phone2
+        depends_on:
+            - phone-image
+
     lan:
         container_name: lan
         build:
@@ -217,6 +229,7 @@ services:
             - sipcenter
             - lan-phone
             - wan-phone
+            - wan-phone2
 
 volumes:
     data_db:

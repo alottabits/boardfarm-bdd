@@ -1,10 +1,13 @@
 # Basic setup to demonstrate Baordfarm and Boardfarm-pytest
 
 ## Configuration
+
 The configurations used here can be found in [](./bf_config/) and [](./raikou/)
 
 ## Demo flow:
+
 Instantiate the networked components with raikou:
+
 ```shell
 cd raikou
 docker compose up -d --build
@@ -13,6 +16,7 @@ docker compose up -d --build
 Wait for all the components to be fully up and running
 
 Check for instance the state of the CPE:
+
 ```shell
 docker exec -it cpe ash
 
@@ -50,6 +54,6 @@ Check: "Proxy DNS when using SOCKS v5"
 
 ```shell
 # run pytest with boardfarm:
-pytest --log-level=DEBUG --log-cli-level=DEBUG  --html=report.html --self-contained-html --board-name prplos-docker-1 --env-config ./bf_config/boardfarm_env_example.json --inventory-config ./bf_config/boardfarm_config_example.json --legacy  --save-console-logs ./logs/ tests/test_debug_steps.py
-```
+pytest --log-level=DEBUG --log-cli-level=DEBUG  --html=report.html --self-contained-html --board-name prplos-docker-1 --env-config ./bf_config/boardfarm_env_example.json --inventory-config ./bf_config/boardfarm_config_example.json --legacy  --save-console-logs ./logs/ -k "UC12348Main"
+
 
