@@ -149,6 +149,16 @@ device_details:
 - Maximum portability
 - Loose coupling
 
+## Architectural Rationale: Why Keep the Framework Clean?
+
+While the UI can be viewed as a conceptual *protocol* for device interaction (similar to NBI or SSH), its underlying implementation—the HTML DOM—is too volatile to be abstracted within the core device class.
+
+-   **Formal Protocols vs. UI Implementation**: Formal protocols like NBI are stable, well-defined API contracts. The UI is a presentation layer that changes frequently for cosmetic or structural reasons that have no impact on device functionality.
+
+-   **Inherited Instability**: Placing UI logic inside the `boardfarm` device class would mean the stable framework inherits the instability of the volatile presentation layer. Every minor UI tweak would require a framework change.
+
+-   **Protecting the Framework**: The recommended approach protects the `boardfarm` framework from this volatility. It allows the test layer (`boardfarm-bdd`)—which is designed to be flexible—to handle UI changes, while the core framework remains stable and focused on reliable, formal protocols.
+
 ## Quick Start
 
 ### 1. Install Dependencies
