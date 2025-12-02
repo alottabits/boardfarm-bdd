@@ -1,10 +1,12 @@
-# UI Discovery Toolkit
+# UI Discovery Toolkit for Boardfarm
 
 ## Overview
 
-This document provides practical tools and scripts to help you discover, document, and test UI interactions for GenieACS (or any web application). Use these tools to systematically chart UI elements before implementing automation.
+The `boardfarm` framework provides tools to help you discover, document, and generate selector configurations for any device UI. This document provides practical examples of how to use these tools to create the `selector.yaml` test artifacts needed to configure a device's `gui` component.
 
-## Tool 1: Browser Console Element Inspector
+## Tool 1: Browser Console Inspector
+
+When you need to manually identify a specific selector or understand the UI's structure, the browser's built-in developer tools are invaluable.
 
 ### Quick Element Discovery
 
@@ -74,9 +76,13 @@ window.fetch = function(...args) {
 // 5. Right-click → Copy → Copy as cURL
 ```
 
-## Tool 2: Python UI Discovery Script
+## Tool 2: The Framework's Python UI Discovery Script
 
-### Automated Element Discovery
+For comprehensive analysis, the `boardfarm` framework includes a Python-based discovery script that can automatically crawl a UI and generate a selector file to be used by a specific `gui` component (e.g., `GenieAcsGui`).
+
+### Automated Selector File Generation
+
+This script is the primary tool for creating and maintaining your `selectors.yaml` files.
 
 ```python
 #!/usr/bin/env python3
@@ -282,6 +288,7 @@ def main():
     parser.add_argument("--password", default="admin", help="Password for login")
     parser.add_argument("--output", default="ui_elements.json", help="Output JSON file")
     parser.add_argument("--headless", action="store_true", help="Run in headless mode")
+    parser.add_argument("--output-yaml", help="Output selector YAML file")
     args = parser.parse_args()
     
     discovery = UIDiscovery(args.url, args.username, args.password, args.headless)
@@ -321,94 +328,63 @@ if __name__ == "__main__":
 
 ### Usage
 
-```bash
-# Install dependencies
-pip install selenium
+You run this script from your test suite's directory to generate the artifact directly where it's needed.
 
-# Run discovery
-python discover_ui.py \
-  --url http://localhost:3000 \
+```bash
+# From your boardfarm-bdd directory:
+
+# Run the framework's discovery tool
+python /path/to/boardfarm/tools/ui_discovery.py \
+  --url http://device-ip \
   --username admin \
   --password admin \
-  --output genieacs_ui_elements.json \
+  --output-yaml ./tests/ui_helpers/mydevice_selectors.yaml \
   --headless
 
-# View results
-cat genieacs_ui_elements.json | jq '.'
+# View the generated artifact
+cat ./tests/ui_helpers/mydevice_selectors.yaml
 ```
 
 ## Recommended Workflow
 
-1. **Manual Exploration**
-   - Open GenieACS in browser
-   - Navigate through pages
-   - Take screenshots
-   - Note down workflows
+1.  **Initial Discovery**: Run the framework's `ui_discovery.py` tool to generate your first `selectors.yaml` file for a specific UI version.
 
-2. **Automated Discovery**
-   ```bash
-   python discover_ui.py --url http://localhost:3000 --output elements.json
-   ```
+2.  **Manual Verification**: Use the **Browser Console Inspector** tools to spot-check a few key selectors from the generated YAML file to ensure they are robust. Good selectors use stable attributes like `id`, `name`, or `data-testid` where possible.
 
-3. **Test Selectors**
-   - Use browser DevTools to verify selectors
-   - Test with different page states
+3.  **Commit Artifact**: Add the generated and verified `selectors.yaml` file to your test suite's version control.
 
-4. **Implement Page Objects**
-   - Use discovered selectors
-   - Create POM classes
-   - Add helper methods
+4.  **Use in Tests**: Pass the path to this artifact to your device's `init_gui()` method to configure its `gui` component.
 
-5. **Integrate with Device Class**
-   - Add UI methods to GenieACS class
-   - Test with real scenarios
-   - Document usage
+5.  **Maintain**: When the UI is updated, re-run the discovery script to regenerate the `selectors.yaml` file. Review the diff in version control to understand what changed before committing.
 
 ## Tips and Best Practices
 
 ### Selector Priority
 
-1. **ID** (best) - `#element-id`
-2. **Data attributes** - `[data-testid="reboot"]`
-3. **Name** - `input[name="username"]`
-4. **Class** - `.btn-primary`
-5. **XPath** (last resort) - `//button[text()='Reboot']`
+When manually inspecting or editing selectors, prefer them in this order for maximum stability:
 
-### Robust Selectors
-
-```python
-# Bad - fragile
-driver.find_element(By.CSS_SELECTOR, "div > div > button:nth-child(3)")
-
-# Good - semantic
-driver.find_element(By.CSS_SELECTOR, "button[title='Reboot']")
-
-# Better - data attribute
-driver.find_element(By.CSS_SELECTOR, "[data-testid='reboot-button']")
-```
+1.  **ID** (best) - `#element-id`
+2.  **Data attributes** - `[data-testid="reboot"]` (if available)
+3.  **Name** - `input[name="username"]`
+4.  **Class** - `.btn-primary` (use with caution; can be non-unique)
+5.  **XPath** (last resort) - `//button[text()='Reboot']` (can be brittle)
 
 ### Wait Strategies
 
+The framework's `BaseGuiComponent` (which your specific `gui` component should extend) should handle wait conditions for you. When adding new methods, always use explicit waits to ensure the UI is ready.
+
 ```python
-from selenium.webdriver.support.ui import WebDriverWait
+# In your device-specific Gui component class (e.g., GenieAcsGui)
 from selenium.webdriver.support import expected_conditions as EC
 
-# Wait for element to be present
-element = WebDriverWait(driver, 10).until(
-    EC.presence_of_element_located((By.CSS_SELECTOR, "button.reboot"))
-)
-
-# Wait for element to be clickable
-element = WebDriverWait(driver, 10).until(
-    EC.element_to_be_clickable((By.CSS_SELECTOR, "button.reboot"))
-)
-
-# Wait for element to be visible
-element = WebDriverWait(driver, 10).until(
-    EC.visibility_of_element_located((By.CSS_SELECTOR, "button.reboot"))
-)
+def wait_for_and_click_a_button(self):
+    locator = self._get_locator("my_page.my_button")
+    
+    # Good: Wait for the element to be ready before interacting
+    element = self.wait.until(EC.element_to_be_clickable(locator))
+    element.click()
 ```
 
 ## Conclusion
 
-Use these tools to systematically discover and document UI elements before implementing automation. This will save time and reduce maintenance overhead.
+By combining the power of the framework's automated discovery tools with manual verification using browser tools, you can efficiently create and maintain the `selector.yaml` artifacts needed for a robust and scalable UI testing strategy.

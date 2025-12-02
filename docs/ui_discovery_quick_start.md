@@ -1,8 +1,12 @@
-# Quick Start Guide: Automated UI Discovery and Maintenance
+# Quick Start Guide: Using the Framework's UI Discovery Tools
 
 ## Overview
 
-This guide shows you how to use the automated UI discovery and maintenance tools to keep your GenieACS UI methods up-to-date with minimal manual effort.
+This guide shows you how to use the automated UI discovery tools included with the `boardfarm` framework to generate the `selector.yaml` file needed to configure a device's `gui` component.
+
+## The Goal
+
+The goal is to run a framework-provided discovery tool against a device's UI and generate a `selectors.yaml` file. You will then add this file to your test suite (e.g., `boardfarm-bdd`) and use it to test the device's UI via its `.gui` component, which is initialized by `device.init_gui()`.
 
 ## Prerequisites
 
@@ -19,341 +23,122 @@ chmod +x geckodriver
 sudo mv geckodriver /usr/local/bin/
 ```
 
-## Quick Start: One-Command Discovery
+## Quick Start: One-Command Discovery and Generation
 
-The easiest way to get started is with the all-in-one discovery tool:
+The `boardfarm` framework provides an all-in-one discovery tool that scans a UI and generates the selector file.
 
 ```bash
+# Navigate to your test suite directory
 cd /home/rjvisser/projects/req-tst/boardfarm-bdd
 
-# Run complete discovery (replace with your GenieACS URL)
-python tools/ui_discovery_complete.py \
-  --url http://localhost:3000 \
+# Run the framework's discovery tool
+# (Assuming boardfarm tools are in your PATH or accessed via relative path)
+python /path/to/boardfarm/tools/ui_discovery.py \
+  --url http://your-device-ip \
   --username admin \
   --password admin \
-  --output-json ui_discovery.json \
-  --output-pom generated_poms \
-  --max-depth 2 \
+  --output-yaml ./tests/ui_helpers/device_selectors.yaml \
   --headless
 ```
 
-This will:
-1. ✅ Login to GenieACS
-2. ✅ Discover all pages (up to depth 2)
-3. ✅ Map navigation paths
-4. ✅ Extract all UI elements (buttons, inputs, links, tables)
-5. ✅ Generate Page Object Model classes
-6. ✅ Save discovery data to JSON
+This single command will:
+1. ✅ Login to the device UI.
+2. ✅ Discover all pages and interactive elements.
+3. ✅ Convert the findings directly into the `selectors.yaml` format.
+4. ✅ Save the file in your test suite, ready to be used.
 
 ### Output
 
-After running, you'll have:
-- `ui_discovery.json` - Complete UI structure data
-- `generated_poms/` - Generated POM classes
-  - `genieacs_base_pom.py` - Base class
-  - `device_list.py` - Device list page
-  - `device_details.py` - Device details page
-  - `login.py` - Login page
-  - etc.
+The command generates the key test artifact:
+- `tests/ui_helpers/device_selectors.yaml`: The selector configuration file for your UI helper.
+
+You can now commit this file to your test suite's repository.
 
 ## Step-by-Step Workflow
 
-### Step 1: Initial Discovery (First Time)
+### Step 1: Generate the Initial Selector File
+
+When starting with a new device or UI, run the discovery tool to create your first selector file.
 
 ```bash
-# Discover current UI state
-python tools/ui_discovery_complete.py \
-  --url http://localhost:3000 \
-  --username admin \
-  --password admin \
-  --output-json baseline_ui.json \
-  --output-pom boardfarm/boardfarm3/lib/gui/genieacs/pages \
-  --headless
-
-# Save as baseline
-cp baseline_ui.json ui_baseline.json
+# The output path points directly into your test suite structure
+python /path/to/boardfarm/tools/ui_discovery.py \
+  --url http://your-device-ip \
+  --output-yaml ./tests/ui_helpers/acs_selectors_v1.2.8.yaml
 ```
 
-### Step 2: Review Generated POMs
+### Step 2: Add the Selector File to Version Control
+
+This YAML file is a critical test artifact.
 
 ```bash
-# Check what was generated
-ls -la boardfarm/boardfarm3/lib/gui/genieacs/pages/
-
-# Review a generated POM
-cat boardfarm/boardfarm3/lib/gui/genieacs/pages/device_details.py
+git add ./tests/ui_helpers/acs_selectors_v1.2.8.yaml
+git commit -m "feat: Add initial UI selectors for ACS v1.2.8"
 ```
 
-### Step 3: Integrate with Device Class
+### Step 3: Use the Selector File in Tests
 
-Now you can use the generated POMs in your `GenieACS` device class:
+Your BDD steps can now use this file by passing its path to the device's UI helper factory.
 
 ```python
-# In boardfarm/boardfarm3/devices/genie_acs.py
+# In a BDD step definition
 
-from boardfarm3.lib.gui.genieacs.pages.device_details import DeviceDetailsPage
-from boardfarm3.lib.gui.gui_helper import GuiHelperNoProxy
-
-class GenieACS(LinuxDevice, ACS):
+def some_ui_step(acs):
+    selector_path = "./tests/ui_helpers/acs_selectors_v1.2.8.yaml"
     
-    def _init_ui_helper(self) -> None:
-        """Initialize UI helper with generated POMs."""
-        if self._ui_helper is None:
-            self._gui_helper = GuiHelperNoProxy(default_delay=20, headless=True)
-            driver = self._gui_helper.get_web_driver()
-            self._ui_helper = {
-                "driver": driver,
-                "base_url": self._base_url,
-            }
+    # Initialize the gui component with the artifact
+    gui = acs.init_gui(selector_file=selector_path)
     
-    def Reboot_UI(self, CommandKey: str = "reboot", cpe_id: str | None = None) -> list[dict]:
-        """Execute Reboot via GenieACS UI using generated POM."""
-        cpe_id = cpe_id if cpe_id else self._cpeid
-        if not cpe_id:
-            raise ValueError("cpe_id is required")
-        
-        self._init_ui_helper()
-        
-        # Use generated POM
-        device_page = DeviceDetailsPage(
-            self._ui_helper["driver"],
-            self._ui_helper["base_url"]
-        )
-        
-        # Click reboot button (method name from generated POM)
-        device_page.click_REBOOT_BTN()
-        
-        return []
+    # Use the component
+    gui.login()
+    # ...
 ```
 
-### Step 4: Regular Maintenance (Weekly/Monthly)
+### Step 4: Regular Maintenance
+
+When the UI under test is updated, simply re-run the discovery tool to overwrite your existing selector file with the updated selectors.
 
 ```bash
-# Discover current UI state
-python tools/ui_discovery_complete.py \
-  --url http://localhost:3000 \
-  --username admin \
-  --password admin \
-  --output-json current_ui.json \
-  --output-pom /tmp/current_poms \
-  --headless
+# Re-run the discovery tool to update the selectors
+python /path/to/boardfarm/tools/ui_discovery.py \
+  --url http://your-device-ip \
+  --output-yaml ./tests/ui_helpers/acs_selectors_v1.2.8.yaml
 
-# Compare with baseline (manual for now)
-diff ui_baseline.json current_ui.json
+# Review the changes
+git diff ./tests/ui_helpers/acs_selectors_v1.2.8.yaml
+
+# Commit the updated artifact
+git commit -am "chore: Update UI selectors for ACS v1.2.8"
 ```
 
 ## Advanced: Change Detection
 
-### Detect UI Changes
-
-Create a simple change detection script:
+For a fully automated workflow, you can use the framework's change detection tools.
 
 ```bash
-#!/bin/bash
-# tools/check_ui_changes.sh
+# 1. The test suite stores a baseline UI map (e.g., baseline_map.json)
 
-# Discover current state
-python tools/ui_discovery_complete.py \
-  --url http://localhost:3000 \
-  --username admin \
-  --password admin \
-  --output-json current_ui.json \
-  --output-pom /tmp/poms \
-  --headless
+# 2. A CI job runs the discovery tool to get the current map
+python /path/to/boardfarm/tools/ui_discovery.py --output-json current_map.json
 
-# Compare with baseline
-if ! diff -q ui_baseline.json current_ui.json > /dev/null; then
-  echo "⚠️  UI changes detected!"
-  echo ""
-  echo "Differences:"
-  diff ui_baseline.json current_ui.json | head -20
-  echo ""
-  echo "Run the following to update POMs:"
-  echo "  cp current_ui.json ui_baseline.json"
-  echo "  python tools/ui_discovery_complete.py --url ... --output-pom boardfarm/boardfarm3/lib/gui/genieacs/pages"
-else
-  echo "✅ No UI changes detected"
-fi
+# 3. The CI job runs the change detector
+python /path/to/boardfarm/tools/ui_change_detector.py \
+  --baseline baseline_map.json \
+  --current current_map.json
+
+# 4. If changes are found, the generator tool creates the new YAML file
+#    and a pull request is automatically created.
 ```
 
-Make it executable:
-
-```bash
-chmod +x tools/check_ui_changes.sh
-```
-
-Run it:
-
-```bash
-./tools/check_ui_changes.sh
-```
-
-## Customizing Discovery
-
-### Limit Crawl Depth
-
-```bash
-# Only discover top-level pages (faster)
-python tools/ui_discovery_complete.py \
-  --url http://localhost:3000 \
-  --max-depth 1 \
-  --headless
-```
-
-### Non-Headless Mode (for debugging)
-
-```bash
-# See the browser in action
-python tools/ui_discovery_complete.py \
-  --url http://localhost:3000 \
-  --username admin \
-  --password admin
-  # Note: no --headless flag
-```
-
-### Specific Pages Only
-
-Modify the script to only crawl specific page types:
-
-```python
-# In ui_discovery_complete.py, modify _crawl_page method:
-
-# Only crawl device-related pages
-if page_info["page_type"] in ["device_list", "device_details"]:
-    for link in links:
-        self._crawl_page(link["href"], depth + 1, max_depth)
-```
-
-## Troubleshooting
-
-### Issue: "geckodriver not found"
-
-```bash
-# Install geckodriver
-wget https://github.com/mozilla/geckodriver/releases/download/v0.33.0/geckodriver-v0.33.0-linux64.tar.gz
-tar -xvzf geckodriver-v0.33.0-linux64.tar.gz
-sudo mv geckodriver /usr/local/bin/
-```
-
-### Issue: "Login failed"
-
-Check your credentials:
-
-```bash
-# Test login manually
-python -c "
-from selenium import webdriver
-driver = webdriver.Firefox()
-driver.get('http://localhost:3000/login')
-# Manually login and verify
-"
-```
-
-### Issue: "Too many pages discovered"
-
-Reduce max depth:
-
-```bash
-python tools/ui_discovery_complete.py \
-  --url http://localhost:3000 \
-  --max-depth 1  # Only immediate pages
-```
-
-### Issue: "Stale element references"
-
-This is normal for dynamic pages. The script handles this gracefully by skipping stale elements.
-
-## Best Practices
-
-### 1. Version Control
-
-```bash
-# Commit baseline
-git add ui_baseline.json
-git commit -m "Add UI baseline for GenieACS"
-
-# Commit generated POMs
-git add boardfarm/boardfarm3/lib/gui/genieacs/pages/
-git commit -m "Add generated GenieACS POMs"
-```
-
-### 2. Regular Scans
-
-Set up a cron job or CI/CD workflow:
-
-```bash
-# Add to crontab (run weekly on Monday at 2 AM)
-0 2 * * 1 cd /path/to/boardfarm-bdd && ./tools/check_ui_changes.sh
-```
-
-### 3. Review Generated Code
-
-Always review generated POMs before using in production:
-
-```bash
-# Review all generated files
-for file in generated_poms/*.py; do
-  echo "=== $file ==="
-  head -20 "$file"
-  echo ""
-done
-```
-
-### 4. Selective Updates
-
-Only update POMs for pages you actually use:
-
-```bash
-# Copy only specific POMs
-cp generated_poms/device_details.py boardfarm/boardfarm3/lib/gui/genieacs/pages/
-cp generated_poms/device_list.py boardfarm/boardfarm3/lib/gui/genieacs/pages/
-```
-
-## Integration with Existing Tests
-
-### Example: Using Generated POM in BDD Steps
-
-```python
-# boardfarm-bdd/tests/step_defs/reboot_ui_steps.py
-
-from boardfarm3.lib.gui.genieacs.pages.device_details import DeviceDetailsPage
-
-@when("the operator initiates a reboot task via the ACS UI for the CPE")
-def operator_initiates_reboot_ui(acs, cpe, bf_context):
-    """Use generated POM to reboot via UI."""
-    # Get CPE ID
-    cpe_id = f"{cpe.config['oui']}-{cpe.config['product_class']}-{cpe.config['serial']}"
-    
-    # Initialize UI
-    acs._init_ui_helper()
-    
-    # Use generated POM
-    device_page = DeviceDetailsPage(
-        acs._ui_helper["driver"],
-        acs._base_url
-    )
-    
-    # Click reboot (method from generated POM)
-    device_page.click_REBOOT_BTN()
-```
-
-## Next Steps
-
-1. ✅ Run initial discovery
-2. ✅ Review generated POMs
-3. ✅ Integrate one POM into device class
-4. ✅ Test with a simple scenario
-5. ✅ Set up regular scans
-6. ✅ Automate change detection
+Refer to the **Automated UI Maintenance Strategy** document for full details on setting up this CI workflow.
 
 ## Summary
 
-The automated UI discovery and maintenance workflow:
+The UI discovery and maintenance workflow is simple:
 
-1. **Discover** - Automatically crawl and map UI
-2. **Generate** - Create POM classes from discovered elements
-3. **Detect** - Compare with baseline to find changes
-4. **Update** - Regenerate POMs when UI changes
-5. **Integrate** - Use generated POMs in device class
+1.  **Run Tool**: Use the `boardfarm` framework's discovery tool to generate a `selectors.yaml` file.
+2.  **Add to Test Suite**: Add this file to your test project as a version-controlled artifact.
+3.  **Use in Tests**: Pass the path to your selector file to `device.init_gui()` to configure and initialize the `.gui` component.
+4.  **Update**: Re-run the tool to update the YAML file whenever the device UI changes.
 
-This minimizes manual maintenance while keeping UI tests up-to-date!
+This process keeps your tests in sync with the UI with minimal manual effort.

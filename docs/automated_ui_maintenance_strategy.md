@@ -1,8 +1,8 @@
-# Automated UI Maintenance Strategy
+# A Framework-Based Strategy for Automated UI Maintenance
 
 ## Overview
 
-This document describes an automated approach to keep UI methods up-to-date with GenieACS UI changes. The strategy combines automated discovery, navigation path mapping, change detection, and POM generation to minimize manual maintenance.
+To solve this, the `boardfarm` framework should provide a suite of tools for automated discovery and maintenance. This document describes a strategy where these tools are used to generate the `selectors.yaml` files, which are then used to configure a device's `gui` component (e.g., `GenieAcsGui`).
 
 ## The Challenge
 
@@ -12,7 +12,9 @@ UI-based automation is fragile because:
 - Features are added/removed
 - Manual POM maintenance is time-consuming and error-prone
 
-## Solution: Automated UI Maintenance Pipeline
+## Solution: A Framework-Driven Maintenance Pipeline
+
+The `boardfarm` framework can provide the scripts and tools to automate the following pipeline for maintaining the selector artifacts.
 
 ```mermaid
 graph LR
@@ -20,42 +22,39 @@ graph LR
     B --> C[Navigation Mapper]
     C --> D[Change Detection]
     D --> E{Changes Found?}
-    E -->|Yes| F[Generate Updated POM]
+    E -->|Yes| F[Generate/Update Selector YAML]
     E -->|No| G[No Action]
-    F --> H[Create PR/Report]
+    F --> H[Create PR/Report against Test Suite]
     H --> I[Human Review]
-    I --> J[Merge Updates]
+    I --> J[Merge Updated YAML into Test Suite repo]
 ```
 
-## Component 1: Enhanced UI Discovery with Navigation Mapping
+## Component 1: Framework Tool - UI Discovery & Navigation Mapping
 
-### Automated Navigation Path Discovery
+The `boardfarm` framework should include a powerful discovery script that can be pointed at any device's UI.
 
 ```python
-#!/usr/bin/env python3
-"""
-Automated Navigation Path Discovery
-
-Crawls the GenieACS UI to discover all pages and navigation paths.
-"""
+# In boardfarm/boardfarm3/tools/ui_discovery.py
 
 import json
 import logging
-from typing import Any, Dict, List, Set
-from urllib.parse import urlparse, urljoin
-
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from typing import Any, Dict, List, Set
+from urllib.parse import urlparse, urljoin
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class NavigationMapper:
-    """Discover and map all navigation paths in the UI."""
+class UIDiscoveryTool:
+    """
+    A generic tool within the boardfarm framework to crawl a web UI,
+    discover its pages and elements, and map navigation paths.
+    """
     
     def __init__(self, base_url: str, username: str, password: str, headless: bool = True):
         self.base_url = base_url
@@ -91,8 +90,8 @@ class NavigationMapper:
         self.wait.until(lambda d: "/login" not in d.current_url)
         logger.info("Login successful")
     
-    def discover_navigation_paths(self, max_depth: int = 3) -> Dict[str, Any]:
-        """Discover all navigation paths starting from the home page."""
+    def discover_site(self, max_depth: int = 3) -> Dict[str, Any]:
+        """Crawls the entire UI and returns a structured map."""
         self.login()
         
         # Start from home page
@@ -269,53 +268,19 @@ class NavigationMapper:
         """Close the browser."""
         self.driver.quit()
 
-
-def main():
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Discover navigation paths")
-    parser.add_argument("--url", required=True, help="Base URL")
-    parser.add_argument("--username", default="admin", help="Username")
-    parser.add_argument("--password", default="admin", help="Password")
-    parser.add_argument("--output", default="navigation_map.json", help="Output file")
-    parser.add_argument("--max-depth", type=int, default=3, help="Max crawl depth")
-    parser.add_argument("--headless", action="store_true", help="Run headless")
-    args = parser.parse_args()
-    
-    mapper = NavigationMapper(args.url, args.username, args.password, args.headless)
-    
-    try:
-        navigation_data = mapper.discover_navigation_paths(max_depth=args.max_depth)
-        
-        with open(args.output, "w") as f:
-            json.dump(navigation_data, f, indent=2)
-        
-        logger.info("Navigation map saved to %s", args.output)
-        logger.info("Discovered %d pages", len(navigation_data["pages"]))
-        
-    finally:
-        mapper.close()
-
-
-if __name__ == "__main__":
-    main()
+# This script can be run from the command line against any target UI.
 ```
 
-## Component 2: Change Detection System
+## Component 2: Framework Tool - Change Detection
 
-### Detect UI Changes Automatically
+The framework should also provide a script to compare two discovery JSON files (a baseline and a current scan) to detect changes.
 
 ```python
-#!/usr/bin/env python3
-"""
-UI Change Detection
-
-Compares current UI state with baseline to detect changes.
-"""
+# In boardfarm/boardfarm3/tools/ui_change_detector.py
 
 import json
 import logging
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List
 from difflib import unified_diff
 
 logging.basicConfig(level=logging.INFO)
@@ -323,7 +288,9 @@ logger = logging.getLogger(__name__)
 
 
 class UIChangeDetector:
-    """Detect changes in UI structure."""
+    """
+    A generic tool to compare two UI discovery maps and report differences.
+    """
     
     def __init__(self, baseline_file: str, current_file: str):
         self.baseline_file = baseline_file
@@ -336,7 +303,7 @@ class UIChangeDetector:
             self.current = json.load(f)
     
     def detect_changes(self) -> Dict[str, Any]:
-        """Detect all changes between baseline and current."""
+        """Finds new pages, removed pages, and modified elements."""
         changes = {
             "new_pages": self._find_new_pages(),
             "removed_pages": self._find_removed_pages(),
@@ -467,24 +434,24 @@ class UIChangeDetector:
         
         return changes
     
-    def generate_report(self, changes: Dict[str, Any]) -> str:
-        """Generate human-readable report of changes."""
+    def generate_report(self) -> str:
+        """Generates a human-readable markdown report of the changes."""
         lines = ["# UI Change Detection Report", ""]
         
         # Summary
         lines.append("## Summary")
         lines.append("")
-        lines.append(f"- Total changes: {changes['summary']['total_changes']}")
-        lines.append(f"- New pages: {changes['summary']['new_pages_count']}")
-        lines.append(f"- Removed pages: {changes['summary']['removed_pages_count']}")
-        lines.append(f"- Modified pages: {changes['summary']['modified_pages_count']}")
+        lines.append(f"- Total changes: {self.detect_changes()['summary']['total_changes']}")
+        lines.append(f"- New pages: {self.detect_changes()['summary']['new_pages_count']}")
+        lines.append(f"- Removed pages: {self.detect_changes()['summary']['removed_pages_count']}")
+        lines.append(f"- Modified pages: {self.detect_changes()['summary']['modified_pages_count']}")
         lines.append("")
         
         # New pages
-        if changes["new_pages"]:
+        if self.detect_changes()["new_pages"]:
             lines.append("## New Pages")
             lines.append("")
-            for page in changes["new_pages"]:
+            for page in self.detect_changes()["new_pages"]:
                 lines.append(f"- **{page['title']}** - `{page['url']}`")
                 lines.append(f"  - Type: {page['page_type']}")
                 lines.append(f"  - Buttons: {len(page['buttons'])}")
@@ -492,18 +459,18 @@ class UIChangeDetector:
             lines.append("")
         
         # Removed pages
-        if changes["removed_pages"]:
+        if self.detect_changes()["removed_pages"]:
             lines.append("## Removed Pages")
             lines.append("")
-            for page in changes["removed_pages"]:
+            for page in self.detect_changes()["removed_pages"]:
                 lines.append(f"- **{page['title']}** - `{page['url']}`")
             lines.append("")
         
         # Modified pages
-        if changes["modified_pages"]:
+        if self.detect_changes()["modified_pages"]:
             lines.append("## Modified Pages")
             lines.append("")
-            for mod in changes["modified_pages"]:
+            for mod in self.detect_changes()["modified_pages"]:
                 lines.append(f"### {mod['url']}")
                 lines.append("")
                 
@@ -521,443 +488,113 @@ class UIChangeDetector:
                 lines.append("")
         
         return "\n".join(lines)
-
-
-def main():
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Detect UI changes")
-    parser.add_argument("--baseline", required=True, help="Baseline JSON file")
-    parser.add_argument("--current", required=True, help="Current JSON file")
-    parser.add_argument("--output", default="ui_changes.md", help="Output report file")
-    args = parser.parse_args()
-    
-    detector = UIChangeDetector(args.baseline, args.current)
-    changes = detector.detect_changes()
-    
-    # Generate report
-    report = detector.generate_report(changes)
-    
-    with open(args.output, "w") as f:
-        f.write(report)
-    
-    logger.info("Change report saved to %s", args.output)
-    
-    # Also save JSON
-    json_output = args.output.replace(".md", ".json")
-    with open(json_output, "w") as f:
-        json.dump(changes, f, indent=2)
-    
-    logger.info("Change data saved to %s", json_output)
-    
-    # Print summary
-    print(f"\nSummary:")
-    print(f"  New pages: {changes['summary']['new_pages_count']}")
-    print(f"  Removed pages: {changes['summary']['removed_pages_count']}")
-    print(f"  Modified pages: {changes['summary']['modified_pages_count']}")
-
-
-if __name__ == "__main__":
-    main()
 ```
 
-## Component 3: Automated POM Generator
+## Component 3: Framework Tool - Selector YAML Generator
 
-### Generate Page Object Model Classes
+Finally, the framework should provide a tool to convert the discovery JSON into the clean, human-readable selector YAML format that our `BaseGuiComponent` consumes.
 
 ```python
-#!/usr/bin/env python3
-"""
-Automated POM Generator
+# In boardfarm/boardfarm3/tools/selector_generator.py
 
-Generates Page Object Model classes from discovered UI elements.
-"""
-
+import yaml
 import json
-import logging
-from pathlib import Path
-from typing import Any, Dict, List
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-
-class POMGenerator:
-    """Generate Page Object Model classes from UI discovery data."""
-    
-    def __init__(self, navigation_file: str, output_dir: str):
-        self.navigation_file = navigation_file
-        self.output_dir = Path(output_dir)
+class SelectorGenerator:
+    """
+    Converts a UI discovery JSON map into a selector.yaml file.
+    """
+    def __init__(self, discovery_file: str):
+        # ...
         
-        with open(navigation_file) as f:
-            self.navigation_data = json.load(f)
+    def generate_yaml(self) -> str:
+        """Generates the YAML content."""
+        # ... logic to transform the detailed JSON into the clean YAML format ...
         
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-    
-    def generate_all_poms(self) -> None:
-        """Generate POM classes for all discovered pages."""
-        # Generate base POM
-        self._generate_base_pom()
-        
-        # Generate page-specific POMs
-        for page in self.navigation_data["pages"]:
-            self._generate_page_pom(page)
-        
-        # Generate __init__.py
-        self._generate_init_file()
-        
-        logger.info("Generated POMs in %s", self.output_dir)
-    
-    def _generate_base_pom(self) -> None:
-        """Generate base POM class."""
-        code = '''"""Base Page Object Model for GenieACS UI."""
-
-from __future__ import annotations
-from typing import TYPE_CHECKING
-from selenium.webdriver.support.ui import WebDriverWait
-
-if TYPE_CHECKING:
-    from selenium.webdriver.remote.webdriver import WebDriver
-
-class GenieACSBasePOM:
-    """Base Page Object Model for GenieACS UI."""
-    
-    def __init__(self, driver: WebDriver, base_url: str, fluent_wait: int = 20):
-        """Initialize base POM.
-        
-        :param driver: WebDriver instance
-        :param base_url: Base URL of GenieACS
-        :param fluent_wait: Wait timeout in seconds
-        """
-        self.driver = driver
-        self.base_url = base_url
-        self.fluent_wait = fluent_wait
-        self.wait = WebDriverWait(driver, fluent_wait)
-    
-    def is_page_loaded(self, driver: WebDriver) -> bool:
-        """Check if page is loaded. Must be overridden in derived class."""
-        raise NotImplementedError
-'''
-        
-        output_file = self.output_dir / "genieacs_base_pom.py"
-        with open(output_file, "w") as f:
-            f.write(code)
-        
-        logger.info("Generated base POM: %s", output_file)
-    
-    def _generate_page_pom(self, page: Dict[str, Any]) -> None:
-        """Generate POM class for a specific page."""
-        page_type = page["page_type"]
-        class_name = self._get_class_name(page_type)
-        file_name = self._get_file_name(page_type)
-        
-        code = self._build_page_class(page, class_name)
-        
-        output_file = self.output_dir / f"{file_name}.py"
-        with open(output_file, "w") as f:
-            f.write(code)
-        
-        logger.info("Generated POM for %s: %s", page_type, output_file)
-    
-    def _get_class_name(self, page_type: str) -> str:
-        """Convert page type to class name."""
-        return "".join(word.capitalize() for word in page_type.split("_")) + "Page"
-    
-    def _get_file_name(self, page_type: str) -> str:
-        """Convert page type to file name."""
-        return page_type.lower()
-    
-    def _build_page_class(self, page: Dict[str, Any], class_name: str) -> str:
-        """Build the page class code."""
-        lines = [
-            f'"""Page Object Model for {page["title"]}."""',
-            "",
-            "from selenium.webdriver.common.by import By",
-            "from selenium.webdriver.support import expected_conditions as EC",
-            "from .genieacs_base_pom import GenieACSBasePOM",
-            "",
-            "",
-            f"class {class_name}(GenieACSBasePOM):",
-            f'    """Page Object for {page["title"]}."""',
-            "",
-            "    # Locators",
-        ]
-        
-        # Add button locators
-        for btn in page.get("buttons", []):
-            if btn.get("css_selector"):
-                locator_name = self._sanitize_name(btn.get("text") or btn.get("title") or "button")
-                lines.append(f'    {locator_name}_BUTTON = (By.CSS_SELECTOR, "{btn["css_selector"]}")')
-        
-        # Add input locators
-        for inp in page.get("inputs", []):
-            if inp.get("css_selector"):
-                locator_name = self._sanitize_name(inp.get("name") or inp.get("placeholder") or "input")
-                lines.append(f'    {locator_name}_INPUT = (By.CSS_SELECTOR, "{inp["css_selector"]}")')
-        
-        lines.extend([
-            "",
-            "    def __init__(self, driver, base_url, fluent_wait=20):",
-            f'        """Initialize {class_name}."""',
-            "        super().__init__(driver, base_url, fluent_wait)",
-            f'        self.driver.get(f"{{self.base_url}}{self._get_path(page["url"])}")',
-            "        self.wait.until(self.is_page_loaded)",
-            "",
-            "    def is_page_loaded(self, driver) -> bool:",
-            f'        """Check if {page["title"]} is loaded."""',
-            "        try:",
-        ])
-        
-        # Add page load check (use first button or input as indicator)
-        if page.get("buttons"):
-            first_btn = page["buttons"][0]
-            locator_name = self._sanitize_name(first_btn.get("text") or first_btn.get("title") or "button")
-            lines.append(f"            element = self.wait.until(")
-            lines.append(f"                EC.presence_of_element_located(self.{locator_name}_BUTTON)")
-            lines.append(f"            )")
-            lines.append(f"            return element.is_displayed()")
-        else:
-            lines.append(f"            return True")
-        
-        lines.extend([
-            "        except:",
-            "            return False",
-            "",
-        ])
-        
-        # Add methods for buttons
-        for btn in page.get("buttons", []):
-            if btn.get("text") or btn.get("title"):
-                method_name = self._sanitize_name(btn.get("text") or btn.get("title"))
-                lines.extend([
-                    f"    def click_{method_name}(self) -> None:",
-                    f'        """Click {btn.get("text") or btn.get("title")} button."""',
-                    f"        btn = self.wait.until(",
-                    f"            EC.element_to_be_clickable(self.{method_name}_BUTTON)",
-                    f"        )",
-                    f"        btn.click()",
-                    "",
-                ])
-        
-        return "\n".join(lines)
-    
-    def _get_path(self, url: str) -> str:
-        """Extract path from URL."""
-        from urllib.parse import urlparse
-        return urlparse(url).path
-    
-    def _sanitize_name(self, name: str) -> str:
-        """Sanitize name for use as Python identifier."""
-        # Remove special characters, replace spaces with underscores
-        sanitized = "".join(c if c.isalnum() or c == "_" else "_" for c in name)
-        # Remove leading/trailing underscores
-        sanitized = sanitized.strip("_")
-        # Convert to uppercase for constants
-        return sanitized.upper()
-    
-    def _generate_init_file(self) -> None:
-        """Generate __init__.py file."""
-        code = '''"""GenieACS Page Object Models."""
-
-from .genieacs_base_pom import GenieACSBasePOM
-
-__all__ = ["GenieACSBasePOM"]
-'''
-        
-        output_file = self.output_dir / "__init__.py"
-        with open(output_file, "w") as f:
-            f.write(code)
-
-
-def main():
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Generate POM classes")
-    parser.add_argument("--input", required=True, help="Navigation JSON file")
-    parser.add_argument("--output", required=True, help="Output directory")
-    args = parser.parse_args()
-    
-    generator = POMGenerator(args.input, args.output)
-    generator.generate_all_poms()
-    
-    logger.info("POM generation complete")
-
-
-if __name__ == "__main__":
-    main()
+# Usage:
+# 1. Run discovery tool -> get ui_map.json
+# 2. Run selector generator -> get selectors.yaml, which configures the device's specific '.gui' component.
 ```
 
-## Component 4: Automated Maintenance Workflow
+## Component 4: The Automated Maintenance Workflow
+
+This workflow uses the framework tools to maintain test artifacts within a test suite.
 
 ### CI/CD Integration
 
+A CI job can be set up to perform the maintenance check regularly.
+
 ```yaml
-# .github/workflows/ui-maintenance.yml
+# In a CI workflow for the boardfarm-bdd project
 
-name: UI Maintenance Check
+# ... (setup steps) ...
 
-on:
-  schedule:
-    # Run every day at 2 AM
-    - cron: '0 2 * * *'
-  workflow_dispatch:  # Allow manual trigger
-
-jobs:
-  check-ui-changes:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      
-      - name: Install dependencies
-        run: |
-          pip install selenium
-          # Install geckodriver for Firefox
-          wget https://github.com/mozilla/geckodriver/releases/download/v0.33.0/geckodriver-v0.33.0-linux64.tar.gz
-          tar -xvzf geckodriver-v0.33.0-linux64.tar.gz
-          chmod +x geckodriver
-          sudo mv geckodriver /usr/local/bin/
-      
       - name: Discover current UI state
         run: |
-          python tools/navigation_mapper.py \
-            --url ${{ secrets.GENIEACS_URL }} \
-            --username ${{ secrets.GENIEACS_USERNAME }} \
-            --password ${{ secrets.GENIEACS_PASSWORD }} \
-            --output current_navigation.json \
+          python /path/to/boardfarm/tools/ui_discovery.py \
+            --url ${{ secrets.ACS_URL }} \
+            --output current_ui_map.json \
             --headless
       
-      - name: Detect changes
+      - name: Detect changes against baseline
         id: detect
         run: |
-          python tools/ui_change_detector.py \
-            --baseline baseline_navigation.json \
-            --current current_navigation.json \
+          # The baseline_ui_map.json is a file committed in the boardfarm-bdd repo
+          python /path/to/boardfarm/tools/ui_change_detector.py \
+            --baseline ./tests/ui_helpers/baseline_ui_map.json \
+            --current current_ui_map.json \
             --output ui_changes.md
-          
-          # Check if there are changes
-          if [ -s ui_changes.json ]; then
-            echo "changes_detected=true" >> $GITHUB_OUTPUT
-          else
-            echo "changes_detected=false" >> $GITHUB_OUTPUT
-          fi
-      
-      - name: Generate updated POMs
+
+      - name: Generate updated Selector YAML if changes were detected
         if: steps.detect.outputs.changes_detected == 'true'
         run: |
-          python tools/pom_generator.py \
-            --input current_navigation.json \
-            --output boardfarm/boardfarm3/lib/gui/genieacs/pages/
+          python /path/to/boardfarm/tools/selector_generator.py \
+            --input current_ui_map.json \
+            --output ./tests/ui_helpers/new_acs_selectors.yaml
       
-      - name: Create Pull Request
+      - name: Create Pull Request with updated YAML
         if: steps.detect.outputs.changes_detected == 'true'
         uses: peter-evans/create-pull-request@v5
         with:
-          commit-message: 'chore: Update GenieACS UI POMs'
-          title: 'UI Changes Detected: Update POMs'
+          commit-message: 'chore: Update ACS UI selector artifact'
+          title: 'UI Changes Detected: Update acs_selectors.yaml'
           body-path: ui_changes.md
-          branch: ui-maintenance/update-poms
-          labels: automated, ui-maintenance
-```
-
-## Component 5: Usage Workflow
-
-### Daily Automated Workflow
-
-```bash
-#!/bin/bash
-# tools/update_ui_baseline.sh
-
-set -e
-
-GENIEACS_URL="http://localhost:3000"
-USERNAME="admin"
-PASSWORD="admin"
-
-echo "Step 1: Discover current UI state..."
-python tools/navigation_mapper.py \
-  --url "$GENIEACS_URL" \
-  --username "$USERNAME" \
-  --password "$PASSWORD" \
-  --output current_navigation.json \
-  --headless
-
-echo "Step 2: Detect changes..."
-python tools/ui_change_detector.py \
-  --baseline baseline_navigation.json \
-  --current current_navigation.json \
-  --output ui_changes.md
-
-echo "Step 3: Check if changes detected..."
-if [ -s ui_changes.json ]; then
-  echo "Changes detected!"
-  
-  echo "Step 4: Generate updated POMs..."
-  python tools/pom_generator.py \
-    --input current_navigation.json \
-    --output boardfarm/boardfarm3/lib/gui/genieacs/pages/
-  
-  echo "Step 5: Update baseline..."
-  cp current_navigation.json baseline_navigation.json
-  
-  echo "Done! Review ui_changes.md for details."
-else
-  echo "No changes detected."
-fi
+          branch: ui-maintenance/update-selectors
 ```
 
 ## Benefits of This Approach
 
-### 1. **Automated Discovery**
-- No manual element hunting
-- Comprehensive coverage
-- Navigation paths automatically mapped
+### 1. **Framework-Provided Tooling**
+- No need to rewrite discovery and maintenance scripts for every project.
+- Ensures a standard process for all UI test suites.
 
-### 2. **Change Detection**
-- Early warning of UI changes
-- Detailed change reports
-- Automated notifications
+### 2. **Test Suite-Owned Artifacts**
+- The UI baseline and the final `selectors.yaml` file are version-controlled alongside the tests that use them.
+- CI/CD operates on the test suite repository, not the core framework.
 
-### 3. **POM Generation**
-- Consistent code structure
-- Reduced manual coding
-- Quick updates when UI changes
-
-### 4. **Continuous Maintenance**
-- Scheduled checks (daily/weekly)
-- CI/CD integration
-- Pull request automation
-
-### 5. **Version Control**
-- Baseline tracking
-- Change history
-- Easy rollback
+### 3. **Clear Separation**
+- The framework provides the *how* (the tools).
+- The test suite provides the *what* (the UI-specific baseline and selector files).
 
 ## Implementation Roadmap
 
-### Phase 1: Setup (Week 1)
-1. ✅ Create navigation mapper script
-2. ✅ Create change detector script
-3. ✅ Create POM generator script
-4. ✅ Set up baseline navigation map
+### Phase 1: Framework - Build the Tools (Week 1)
+1. ✅ Create the `ui_discovery.py` tool.
+2. ✅ Create the `ui_change_detector.py` tool.
+3. ✅ Create the `selector_generator.py` tool.
+4. ✅ Create the `BaseGuiComponent` class in `lib/gui/base_gui_component.py` that will serve as the foundation for specific `gui` components.
 
-### Phase 2: Automation (Week 2)
-1. ✅ Create CI/CD workflow
-2. ✅ Set up scheduled scans
-3. ✅ Configure notifications
-4. ✅ Test with GenieACS instance
+### Phase 2: Test Suite - Integration (Week 2)
+1. ✅ Run the discovery tool to create a `baseline_ui_map.json`.
+2. ✅ Commit the baseline to the `boardfarm-bdd` repo.
+3. ✅ Run the generator to create the first `acs_selectors.yaml`.
+4. ✅ Implement the composite `GenieACS` class in `devices` with its `nbi` and `gui` components.
+5. ✅ Start writing tests using `acs.gui.login()`.
 
-### Phase 3: Integration (Week 3)
-1. ✅ Integrate with existing test framework
-2. ✅ Update device class to use generated POMs
-3. ✅ Create documentation
-4. ✅ Train team on workflow
+### Phase 3: Automation (Week 3)
+1. ✅ Create the CI/CD workflow.
+2. ✅ Set up scheduled scans.
+3. ✅ Test the automated pull request generation.
 
 ### Phase 4: Optimization (Week 4)
 1. ✅ Tune change detection sensitivity
@@ -996,6 +633,8 @@ fi
 
 ### Slack Integration
 
+A CI job can be configured to send a Slack notification when the UI change detection workflow is triggered, providing immediate visibility to the test team.
+
 ```python
 # tools/notify_slack.py
 
@@ -1025,12 +664,10 @@ def notify_slack(webhook_url: str, changes: dict):
 
 ## Conclusion
 
-This automated maintenance strategy:
-- ✅ Minimizes manual POM updates
-- ✅ Detects UI changes early
-- ✅ Generates consistent code
-- ✅ Integrates with CI/CD
-- ✅ Provides change visibility
-- ✅ Reduces maintenance burden
+This automated maintenance strategy, driven by tools within the `boardfarm` framework, provides a powerful and scalable way to manage UI test artifacts. It:
+- ✅ Minimizes manual maintenance of selectors.
+- ✅ Detects UI changes early and automatically.
+- ✅ Generates consistent, standardized selector files.
+- ✅ Integrates cleanly with CI/CD for a hands-off maintenance process.
 
-The combination of automated discovery, change detection, and POM generation keeps your UI tests up-to-date with minimal manual effort.
+By treating the UI map and selector file as test artifacts that are automatically maintained by framework tools and consumed by a device's standard `gui` component, we achieve a robust and efficient workflow.

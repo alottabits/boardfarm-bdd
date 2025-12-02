@@ -1,358 +1,144 @@
-# Practical Example: Using the Scalable UI Testing Approach
+# Practical Example: Implementing the Compositional UI Architecture
 
-This document provides a complete, working example of how to use the scalable UI testing approach with YAML-based selectors.
+This document provides a complete, working example of the compositional architecture, showing how code is organized between the `lib` and `devices` directories.
 
 ## File Structure
 
 ```
+boardfarm/
+└── boardfarm3/
+    ├── devices/
+    │   └── acs.py                     # All ACS-specific components & composite class
+    ├── lib/
+    │   └── gui/
+    │       ├── gui_helper.py          # WebDriver factory
+    │       └── base_gui_component.py  # Generic, reusable base class for GUI components
+    └── templates/
+        └── acs.py                     # The abstract ACS interface
+
 boardfarm-bdd/
-├── tests/
-│   ├── conftest.py                    # Add UI fixtures here
-│   ├── ui_helpers/
-│   │   ├── __init__.py
-│   │   ├── acs_ui_helpers.py          # ✅ Created
-│   │   └── acs_ui_selectors.yaml      # ✅ Created
-│   └── step_defs/
-│       └── reboot_ui_steps.py         # Example below
+└── tests/
+    ├── ui_helpers/
+    │   └── acs_ui_selectors.yaml      # Test artifact: UI selectors
+    └── step_defs/
+        └── reboot_steps.py            # Consumes the device components
 ```
 
-## Step 1: Add UI Fixtures to conftest.py
+## Step 1: Framework `lib` - Create the Generic Base Component
 
-Add these fixtures to your existing `boardfarm-bdd/tests/conftest.py`:
+This class is vendor-agnostic and lives in its own file in the `lib` directory.
 
 ```python
-import pytest
+# In boardfarm/boardfarm3/lib/gui/base_gui_component.py
+import yaml
+from selenium.webdriver.support.ui import WebDriverWait
+
+class BaseGuiComponent:
+    """Generic component provided by the framework. Knows how to load YAML."""
+    def __init__(self, driver, selector_file: str):
+        self.driver = driver
+        self.wait = WebDriverWait(driver, 20)
+        with open(selector_file) as f:
+            self.selectors = yaml.safe_load(f)
+
+    def _get_locator(self, selector_path: str, **kwargs) -> tuple:
+        # ... logic to parse "dot.path" from self.selectors ...
+        pass
+```
+
+## Step 2: Framework `devices` - Define Specific Components and the Composite Class
+
+All code specific to GenieACS is co-located in its device file.
+
+```python
+# In boardfarm/boardfarm3/devices/genie_acs.py
+
+from boardfarm3.templates.acs import ACS
+from boardfarm3.devices.base_devices import LinuxDevice, BoardfarmDevice
+from boardfarm3.lib.gui.base_gui_component import BaseGuiComponent
 from boardfarm3.lib.gui.gui_helper import GuiHelperNoProxy
-from pathlib import Path
-import sys
 
-# Add ui_helpers to Python path
-sys.path.insert(0, str(Path(__file__).parent / "ui_helpers"))
+# Component 1: The NBI Implementation (specific to GenieACS)
+class GenieAcsNbi(LinuxDevice, ACS):
+    """Implements the ACS template for the GenieACS NBI."""
+    def Reboot(self, cpe_id, ...):
+        # ... specific POST request logic for GenieACS ...
+    # ... all other ACS abstract methods ...
 
+# Component 2: The GUI Implementation (specific to GenieACS)
+class GenieAcsGui(BaseGuiComponent):
+    """Implements UI actions by inheriting from the generic base component."""
+    def login(self, username, password):
+        # ... uses self._get_locator("login.username_field") ...
+        pass
+    def click_reboot_button(self):
+        locator = self._get_locator("device_details.reboot_button")
+        # ... wait for and click element ...
+        pass
 
-@pytest.fixture(scope="session")
-def acs_ui_driver(acs):
-    """Provide WebDriver for ACS UI automation.
+# Component 3: The Final Composite Device Class
+class GenieACS(BoardfarmDevice):
+    """Assembled from its specific interface components."""
     
-    This fixture creates a WebDriver instance for the ACS and provides
-    connection information. The driver is shared across the test session.
-    """
-    gui_helper = GuiHelperNoProxy(default_delay=20, headless=True)
-    driver = gui_helper.get_web_driver()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # The NBI component is a core part of the device.
+        self.nbi = GenieAcsNbi(*args, **kwargs)
+        # The GUI component is initialized on demand via the factory.
+        self.gui: GenieAcsGui | None = None
     
-    # Build base URL from ACS config
-    base_url = f"http://{acs.config.get('ipaddr')}:{acs.config.get('http_port')}"
-    
-    ui_info = {
-        "driver": driver,
-        "base_url": base_url,
-        "username": acs.config.get("http_username", "admin"),
-        "password": acs.config.get("http_password", "admin"),
-    }
-    
-    yield ui_info
-    
-    # Cleanup
-    driver.quit()
-
-
-@pytest.fixture
-def acs_ui_helpers(acs_ui_driver, acs):
-    """Provide ACS UI helper functions.
-    
-    This fixture creates an ACSUIHelpers instance with the WebDriver
-    and loads the appropriate selector configuration.
-    """
-    from acs_ui_helpers import ACSUIHelpers
-    
-    # Get ACS version from config (or use "default")
-    acs_version = acs.config.get("ui_version", "default")
-    
-    return ACSUIHelpers(acs_ui_driver, acs_version)
+    def init_gui(self, selector_file: str, headless: bool = True) -> GenieAcsGui:
+        """Factory for the GUI component."""
+        if self.gui is None:
+            # 1. Use the factory from gui_helper.py to get a driver
+            driver_factory = GuiHelperNoProxy(headless=headless)
+            driver = driver_factory.get_web_driver()
+            
+            # 2. Instantiate the GUI component with the driver
+            self.gui = GenieAcsGui(driver, selector_file)
+        return self.gui
 ```
 
-## Step 2: Create Step Definitions Using UI Helpers
+## Step 3: Test Suite - Create the Selector YAML Artifact
 
-Create `boardfarm-bdd/tests/step_defs/reboot_ui_steps.py`:
-
-```python
-"""Step definitions for UI-based reboot scenarios."""
-
-from pytest_bdd import given, when, then, scenario
-
-
-@scenario('../features/Remote CPE Reboot UI.feature', 
-          'UC-12347-UI: Successful Remote Reboot via UI')
-def test_reboot_via_ui():
-    """Test reboot via GenieACS UI."""
-    pass
-
-
-@when("the operator initiates a reboot task via the ACS UI for the CPE")
-def operator_initiates_reboot_ui(acs, cpe, acs_ui_helpers, bf_context):
-    """Operator clicks Reboot button in GenieACS UI.
-    
-    This step uses the acs_ui_helpers fixture to interact with the UI.
-    No UI code in the device class - all UI logic is in the helper.
-    """
-    # Get CPE ID
-    cpe_id = f"{cpe.config['oui']}-{cpe.config['product_class']}-{cpe.config['serial']}"
-    
-    # Use UI helpers (not device class methods!)
-    acs_ui_helpers.login()
-    acs_ui_helpers.navigate_to_device(cpe_id)
-    acs_ui_helpers.click_reboot_button()
-    
-    bf_context.reboot_command_key = "reboot_ui_test"
-
-
-# For comparison: NBI version (uses device class)
-@when("the operator initiates a reboot task on the ACS for the CPE")
-def operator_initiates_reboot_nbi(acs, cpe, bf_context):
-    """Operator initiates reboot via NBI API.
-    
-    This uses the stable device class method - no UI involved.
-    """
-    cpe_id = f"{cpe.config['oui']}-{cpe.config['product_class']}-{cpe.config['serial']}"
-    
-    # Use device class NBI method (stable, version-agnostic)
-    acs.Reboot(cpe_id=cpe_id, CommandKey="reboot_nbi_test")
-    
-    bf_context.reboot_command_key = "reboot_nbi_test"
-```
-
-## Step 3: Create Feature File
-
-Create `boardfarm-bdd/tests/features/Remote CPE Reboot UI.feature`:
-
-```gherkin
-Feature: Remote CPE Reboot via UI
-  As an operator of a network,
-  I want to remotely reboot a CPE device via the ACS UI
-  So that I can verify the UI workflow works correctly.
-
-  Background:
-    Given a CPE is online and fully provisioned
-    And the user has set the CPE GUI password to "p@ssw0rd123!"
-
-  Scenario: UC-12347-UI: Successful Remote Reboot via UI
-    When the operator initiates a reboot task via the ACS UI for the CPE
-    Then the ACS responds to the Inform message by issuing the Reboot RPC to the CPE
-    And after completing the boot sequence, the CPE sends an Inform message to the ACS indicating that the boot sequence has been completed
-    And the CPE resumes normal operation, continuing periodic communication with the ACS
-    And the CPE's configuration and operational state are preserved after reboot
-    And use case succeeds and all success guarantees are met
-```
-
-## Step 4: Update Inventory Configuration
-
-Add UI version to your inventory file `boardfarm-bdd/bf_config/inventory.yaml`:
+This file is the only thing that needs to change when the ACS UI is updated.
 
 ```yaml
-acs:
-  name: "genieacs"
-  type: "genie_acs"
-  ipaddr: "192.168.1.100"
-  http_port: 3000
-  http_username: "admin"
-  http_password: "admin"
-  ui_version: "default"  # or "1.2.8", "1.3.0", etc.
-```
-
-## Step 5: Run Tests
-
-```bash
-cd /home/rjvisser/projects/req-tst/boardfarm-bdd
-
-# Run UI-based test
-pytest tests/features/Remote\ CPE\ Reboot\ UI.feature::UC-12347-UI
-
-# Run NBI-based test (for comparison)
-pytest tests/features/Remote\ CPE\ Reboot.feature::UC-12347-Main
-```
-
-## Updating Selectors When UI Changes
-
-### Scenario: GenieACS UI Changes
-
-Let's say GenieACS updates and the Reboot button selector changes:
-
-**Old UI:**
-```html
-<button title="Reboot">Reboot</button>
-```
-
-**New UI:**
-```html
-<button data-action="reboot" class="btn-reboot">Reboot</button>
-```
-
-### Solution: Update YAML Only
-
-```bash
-# Edit the selector config
-vim boardfarm-bdd/tests/ui_helpers/acs_ui_selectors.yaml
-```
-
-Change:
-```yaml
+# In boardfarm-bdd/tests/ui_helpers/acs_ui_selectors.yaml
 device_details:
   reboot_button:
     by: "css_selector"
-    selector: "button[title='Reboot']"  # Old
-```
-
-To:
-```yaml
-device_details:
-  reboot_button:
-    by: "css_selector"
-    selector: "button[data-action='reboot']"  # New
-```
-
-**No code changes needed!** The `acs_ui_helpers.py` code remains unchanged.
-
-## Supporting Multiple GenieACS Versions
-
-### Create Version-Specific Selector Files
-
-```bash
-# Copy default config
-cp boardfarm-bdd/tests/ui_helpers/acs_ui_selectors.yaml \
-   boardfarm-bdd/tests/ui_helpers/acs_ui_selectors_v1.2.8.yaml
-
-# Create config for new version
-cp boardfarm-bdd/tests/ui_helpers/acs_ui_selectors.yaml \
-   boardfarm-bdd/tests/ui_helpers/acs_ui_selectors_v1.3.0.yaml
-
-# Edit new version config
-vim boardfarm-bdd/tests/ui_helpers/acs_ui_selectors_v1.3.0.yaml
-```
-
-Update version-specific selectors:
-
-```yaml
-# acs_ui_selectors_v1.3.0.yaml
-version: "1.3.0"
-last_updated: "2025-11-24"
-
-device_details:
-  reboot_button:
-    by: "css_selector"
-    selector: "button[data-action='reboot']"  # New selector for v1.3
-```
-
-### Configure Which Version to Use
-
-In your inventory:
-
-```yaml
-# For testbed with GenieACS 1.2.8
-acs:
-  ui_version: "1.2.8"
-
-# For testbed with GenieACS 1.3.0
-acs:
-  ui_version: "1.3.0"
-```
-
-The `ACSUIHelpers` class automatically loads the correct selector file!
-
-## Automated Selector Discovery
-
-Use the discovery tool to generate selector configs:
-
-```bash
-# Discover UI and generate selector config
-python tools/ui_discovery_complete.py \
-  --url http://localhost:3000 \
-  --username admin \
-  --password admin \
-  --output-json ui_discovery.json \
-  --headless
-
-# Generate YAML from discovery (you'll need to create this tool)
-python tools/generate_selector_config.py \
-  --input ui_discovery.json \
-  --output tests/ui_helpers/acs_ui_selectors_v1.3.0.yaml
-```
-
-## Benefits Demonstrated
-
-### ✅ Minimal Maintenance
-- UI changes? Update YAML, not Python code
-- No framework changes needed
-- Quick updates (minutes, not hours)
-
-### ✅ Maximum Portability
-- Support multiple GenieACS versions
-- Version-specific configs
-- Easy testbed switching
-
-### ✅ Clean Separation
-- Framework (boardfarm) has no UI code
-- Test layer handles all UI specifics
-- Clear responsibilities
-
-### ✅ Easy Testing
-```python
-# Test UI helpers independently
-def test_login(acs_ui_helpers):
-    acs_ui_helpers.login()
-    assert acs_ui_helpers._logged_in
-
-def test_navigate(acs_ui_helpers):
-    acs_ui_helpers.login()
-    acs_ui_helpers.navigate_to_device("ABC-CPE-123")
-    assert "/devices/ABC-CPE-123" in acs_ui_helpers.driver.current_url
-```
-
-## Comparison: Old vs New Approach
-
-### ❌ Old Approach (High Maintenance)
-
-```python
-# In boardfarm device class - BAD!
-class GenieACS:
-    def Reboot_UI(self, cpe_id):
-        # UI code in framework - hard to maintain
-        btn = driver.find_element(By.CSS_SELECTOR, "button[title='Reboot']")
-        btn.click()
-```
-
-**Problems:**
-- UI selector in framework code
-- Requires framework update for UI changes
-- Can't support multiple versions easily
-
-### ✅ New Approach (Low Maintenance)
-
-```python
-# In test layer - GOOD!
-@when("operator initiates reboot via UI")
-def step(acs_ui_helpers, cpe):
-    acs_ui_helpers.click_reboot_button()
-```
-
-```yaml
-# In YAML config - EASY TO UPDATE!
-device_details:
-  reboot_button:
     selector: "button[title='Reboot']"
 ```
 
-**Benefits:**
-- Selector in config file
-- Update YAML, not code
-- Version-specific configs supported
+## Step 4: Test Suite - Use the Device Components in BDD Steps
 
-## Summary
+The step definitions are now very clear. They access the appropriate component (`.nbi` or `.gui`) on the device fixture.
 
-This approach gives you:
+```python
+# In boardfarm-bdd/tests/step_defs/reboot_steps.py
 
-1. **Minimal maintenance** - Update YAML configs, not Python code
-2. **Maximum portability** - Support multiple GenieACS versions
-3. **Clean architecture** - Framework stays stable, tests stay flexible
-4. **Easy updates** - Discovery tool can generate configs
+from pytest_bdd import when
+# Assume 'acs' is a fixture that returns an instance of the composite GenieACS class
+from boardfarm.devices.genie_acs import GenieACS 
 
-The boardfarm device class remains focused on stable NBI methods, while the test layer handles all UI variability through easily-updatable YAML configuration files.
+@when("the operator reboots the CPE via the NBI")
+def reboot_via_nbi(acs: GenieACS, cpe):
+    """Interact with the NBI component."""
+    acs.nbi.Reboot(cpe_id=cpe.cpe_id)
+
+@when("the operator reboots the CPE via the UI")
+def reboot_via_gui(acs: GenieACS, cpe):
+    """Initialize and interact with the GUI component."""
+    selector_path = "tests/ui_helpers/acs_ui_selectors.yaml"
+    
+    # Initialize the gui component with the test suite's artifact
+    gui = acs.init_gui(selector_file=selector_path)
+    
+    # Use the component's methods
+    gui.login()
+    gui.navigate_to_device(cpe.cpe_id)
+    gui.click_reboot_button()
+```
+
+This example demonstrates the clean separation and clear division of responsibilities that makes this architecture easy to maintain and scale.
