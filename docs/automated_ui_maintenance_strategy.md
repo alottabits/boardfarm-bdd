@@ -271,6 +271,14 @@ class UIDiscoveryTool:
 # This script can be run from the command line against any target UI.
 ```
 
+
+Example command:
+```bash
+cd ~/projects/req-tst/boardfarm-bdd
+source .venv-3.12/bin/activate
+python ../boardfarm/boardfarm3/lib/gui/ui_discovery.py --url http://127.0.0.1:3000 --output /tmp/genie_acs_ui_map.json --username admin --password admin --max-depth 2 --headless
+'''
+
 ## Component 2: Framework Tool - Change Detection
 
 The framework should also provide a script to compare two discovery JSON files (a baseline and a current scan) to detect changes.
