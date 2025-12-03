@@ -2,7 +2,7 @@
 
 ## Overview
 
-To solve this, the `boardfarm` framework should provide a suite of tools for automated discovery and maintenance. This document describes a strategy where these tools are used to generate the `selectors.yaml` files, which are then used to configure a device's `gui` component (e.g., `GenieAcsGui`).
+To solve this, the `boardfarm` framework should provide a suite of tools for automated discovery and maintenance. This document describes a strategy where these tools are used to generate the `selectors.yaml` and `navigation.yaml` files, which are then used to configure a device's `gui` component (e.g., `GenieAcsGui`).
 
 ## The Challenge
 
@@ -14,7 +14,7 @@ UI-based automation is fragile because:
 
 ## Solution: A Framework-Driven Maintenance Pipeline
 
-The `boardfarm` framework can provide the scripts and tools to automate the following pipeline for maintaining the selector artifacts.
+The `boardfarm` framework can provide the scripts and tools to automate the following pipeline for maintaining the UI test artifacts.
 
 ```mermaid
 graph LR
@@ -22,11 +22,11 @@ graph LR
     B --> C[Navigation Mapper]
     C --> D[Change Detection]
     D --> E{Changes Found?}
-    E -->|Yes| F[Generate/Update Selector YAML]
+    E -->|Yes| F[Generate/Update Artifacts (selector & navigation YAML)]
     E -->|No| G[No Action]
     F --> H[Create PR/Report against Test Suite]
     H --> I[Human Review]
-    I --> J[Merge Updated YAML into Test Suite repo]
+    I --> J[Merge Updated YAMLs into Test Suite repo]
 ```
 
 ## Component 1: Framework Tool - UI Discovery & Navigation Mapping
@@ -516,18 +516,41 @@ class SelectorGenerator:
 # 2. Run selector generator -> get selectors.yaml, which configures the device's specific '.gui' component.
 ```
 
-## Component 4: The Automated Maintenance Workflow
+## Component 4: Framework Tool - Navigation YAML Generator
 
-This workflow uses the framework tools to maintain test artifacts within a test suite.
+The framework will also provide a tool to analyze the navigation graph from the discovery output and generate suggested navigation paths.
 
-### CI/CD Integration
+```python
+# In boardfarm/boardfarm3/tools/navigation_generator.py
 
-A CI job can be set up to perform the maintenance check regularly.
+import yaml
+import json
+
+class NavigationGenerator:
+    """
+    Converts a UI discovery JSON map into a navigation.yaml file.
+    """
+    def __init__(self, discovery_file: str):
+        # ...
+        
+    def generate_yaml(self) -> str:
+        """Generates the YAML content by finding common paths."""
+        # ... logic to analyze the navigation_graph from the JSON ...
+        # ... and generate common user journeys.
+```
+
+## Component 5: Recommended CI/CD Workflow for Product Development
+
+To ensure that UI test artifacts are kept in sync with the application, we recommend integrating an automated maintenance workflow directly into the product's development CI/CD pipeline. This workflow leverages the framework's tools to detect UI changes on every pull request or nightly build, providing immediate feedback to developers.
+
+### CI/CD Integration in the Product Repository
+
+The following is an example of a CI job that would run within the *product's* repository (not the test suite's). Its goal is to automatically update and validate the test artifacts, which can then be synchronized with the `boardfarm-bdd` repository.
 
 ```yaml
-# In a CI workflow for the boardfarm-bdd project
+# In a CI workflow for the PRODUCT repository (e.g., .github/workflows/ui_validation.yml)
 
-# ... (setup steps) ...
+# ... (setup steps, checkout product code) ...
 
       - name: Discover current UI state
         run: |
@@ -539,9 +562,10 @@ A CI job can be set up to perform the maintenance check regularly.
       - name: Detect changes against baseline
         id: detect
         run: |
-          # The baseline_ui_map.json is a file committed in the boardfarm-bdd repo
+          # The baseline_ui_map.json is a file stored with the product code or fetched
+          # from a shared artifact storage.
           python /path/to/boardfarm/tools/ui_change_detector.py \
-            --baseline ./tests/ui_helpers/baseline_ui_map.json \
+            --baseline ./path/to/baseline_ui_map.json \
             --current current_ui_map.json \
             --output ui_changes.md
 
@@ -552,29 +576,43 @@ A CI job can be set up to perform the maintenance check regularly.
             --input current_ui_map.json \
             --output ./tests/ui_helpers/new_acs_selectors.yaml
       
-      - name: Create Pull Request with updated YAML
+      - name: Generate updated Navigation YAML if changes were detected
+        if: steps.detect.outputs.changes_detected == 'true'
+        run: |
+          python /path/to/boardfarm/tools/navigation_generator.py \
+            --input current_ui_map.json \
+            --output ./tests/ui_helpers/new_acs_navigation.yaml
+
+      - name: Create Pull Request with updated YAML artifacts against the Test Suite repo
         if: steps.detect.outputs.changes_detected == 'true'
         uses: peter-evans/create-pull-request@v5
         with:
-          commit-message: 'chore: Update ACS UI selector artifact'
-          title: 'UI Changes Detected: Update acs_selectors.yaml'
+          # This would target the boardfarm-bdd repository
+          repository: your-org/boardfarm-bdd
+          token: ${{ secrets.BFF_BDD_PAT }} # A token with permissions to the test repo
+          commit-message: 'chore: Update UI test artifacts from product build'
+          title: 'UI Changes Detected: Update selector and navigation artifacts'
           body-path: ui_changes.md
-          branch: ui-maintenance/update-selectors
+          branch: ui-maintenance/auto-update-artifacts
 ```
 
 ## Benefits of This Approach
 
-### 1. **Framework-Provided Tooling**
+### 1. **Early Detection**
+- Developers are immediately notified of the impact their UI changes have on the test suite.
+- Reduces the feedback loop between development and QA.
+
+### 2. **Framework-Provided Tooling**
 - No need to rewrite discovery and maintenance scripts for every project.
 - Ensures a standard process for all UI test suites.
 
-### 2. **Test Suite-Owned Artifacts**
-- The UI baseline and the final `selectors.yaml` file are version-controlled alongside the tests that use them.
+### 3. **Test Suite-Owned Artifacts**
+- The UI baseline and the final `selectors.yaml` and `navigation.yaml` files are version-controlled alongside the tests that use them.
 - CI/CD operates on the test suite repository, not the core framework.
 
-### 3. **Clear Separation**
+### 4. **Clear Separation**
 - The framework provides the *how* (the tools).
-- The test suite provides the *what* (the UI-specific baseline and selector files).
+- The test suite provides the *what* (the UI-specific baseline and artifact files).
 
 ## Implementation Roadmap
 
@@ -582,14 +620,15 @@ A CI job can be set up to perform the maintenance check regularly.
 1. ✅ Create the `ui_discovery.py` tool.
 2. ✅ Create the `ui_change_detector.py` tool.
 3. ✅ Create the `selector_generator.py` tool.
-4. ✅ Create the `BaseGuiComponent` class in `lib/gui/base_gui_component.py` that will serve as the foundation for specific `gui` components.
+4. ✅ Create the `navigation_generator.py` tool.
+5. ✅ Create the `BaseGuiComponent` class in `lib/gui/base_gui_component.py` that will serve as the foundation for specific `gui` components.
 
 ### Phase 2: Test Suite - Integration (Week 2)
 1. ✅ Run the discovery tool to create a `baseline_ui_map.json`.
 2. ✅ Commit the baseline to the `boardfarm-bdd` repo.
-3. ✅ Run the generator to create the first `acs_selectors.yaml`.
+3. ✅ Run the generators to create the first `acs_selectors.yaml` and `acs_navigation.yaml`.
 4. ✅ Implement the composite `GenieACS` class in `devices` with its `nbi` and `gui` components.
-5. ✅ Start writing tests using `acs.gui.login()`.
+5. ✅ Start writing tests using `acs.gui.navigate_to()`.
 
 ### Phase 3: Automation (Week 3)
 1. ✅ Create the CI/CD workflow.
@@ -665,9 +704,9 @@ def notify_slack(webhook_url: str, changes: dict):
 ## Conclusion
 
 This automated maintenance strategy, driven by tools within the `boardfarm` framework, provides a powerful and scalable way to manage UI test artifacts. It:
-- ✅ Minimizes manual maintenance of selectors.
+- ✅ Minimizes manual maintenance of selectors and navigation paths.
 - ✅ Detects UI changes early and automatically.
-- ✅ Generates consistent, standardized selector files.
+- ✅ Generates consistent, standardized selector and navigation files.
 - ✅ Integrates cleanly with CI/CD for a hands-off maintenance process.
 
-By treating the UI map and selector file as test artifacts that are automatically maintained by framework tools and consumed by a device's standard `gui` component, we achieve a robust and efficient workflow.
+By treating the UI map, selector file, and navigation file as test artifacts that are automatically maintained by framework tools and consumed by a device's standard `gui` component, we achieve a robust and efficient workflow.

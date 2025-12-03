@@ -1,32 +1,35 @@
-# Practical Example: Implementing the Compositional UI Architecture
+# Practical Example: Implementing the "Flat Name" UI Architecture
 
-This document provides a complete, working example of the compositional architecture, showing how code is organized between the `lib` and `devices` directories.
+This document provides a complete, working example of the compositional architecture using the "Flat Name" convention for navigation paths.
 
 ## File Structure
+
+The file structure remains the same, with a clear separation between framework `lib`, framework `devices`, and test suite artifacts.
 
 ```
 boardfarm/
 └── boardfarm3/
     ├── devices/
-    │   └── acs.py                     # All ACS-specific components & composite class
+    │   └── acs.py
     ├── lib/
     │   └── gui/
-    │       ├── gui_helper.py          # WebDriver factory
-    │       └── base_gui_component.py  # Generic, reusable base class for GUI components
+    │       ├── gui_helper.py
+    │       └── base_gui_component.py
     └── templates/
-        └── acs.py                     # The abstract ACS interface
+        └── acs.py
 
 boardfarm-bdd/
 └── tests/
     ├── ui_helpers/
-    │   └── acs_ui_selectors.yaml      # Test artifact: UI selectors
+    │   ├── acs_ui_selectors.yaml
+    │   └── acs_ui_navigation.yaml
     └── step_defs/
-        └── reboot_steps.py            # Consumes the device components
+        └── reboot_steps.py
 ```
 
 ## Step 1: Framework `lib` - Create the Generic Base Component
 
-This class is vendor-agnostic and lives in its own file in the `lib` directory.
+The `BaseGuiComponent` is a simple engine that takes a path name and executes it.
 
 ```python
 # In boardfarm/boardfarm3/lib/gui/base_gui_component.py
@@ -34,43 +37,48 @@ import yaml
 from selenium.webdriver.support.ui import WebDriverWait
 
 class BaseGuiComponent:
-    """Generic component provided by the framework. Knows how to load YAML."""
-    def __init__(self, driver, selector_file: str):
+    """Generic component. Knows how to execute a named path from a YAML file."""
+    def __init__(self, driver, selector_file: str, navigation_file: str):
         self.driver = driver
         self.wait = WebDriverWait(driver, 20)
         with open(selector_file) as f:
             self.selectors = yaml.safe_load(f)
+        with open(navigation_file) as f:
+            self.navigation = yaml.safe_load(f)
 
     def _get_locator(self, selector_path: str, **kwargs) -> tuple:
         # ... logic to parse "dot.path" from self.selectors ...
         pass
+
+    def navigate_path(self, path_name: str, **kwargs):
+        """Executes a single, uniquely named path from the navigation artifact."""
+        path_steps = self.navigation["navigation_paths"].get(path_name)
+        if not path_steps:
+            raise ValueError(f"Path '{path_name}' not found in navigation.yaml")
+        for step in path_steps:
+            # ... logic to interpret the action (click, type, etc.) ...
+            # ... and substitute kwargs into templated values ...
+            pass
 ```
 
-## Step 2: Framework `devices` - Define Specific Components and the Composite Class
+## Step 2: Framework `devices` - Define the Composite Class
 
-All code specific to GenieACS is co-located in its device file.
+The specific component (`GenieAcsGui`) is very lean. It contains device-specific actions but inherits the generic `navigate_path` engine.
 
 ```python
 # In boardfarm/boardfarm3/devices/genie_acs.py
-
 from boardfarm3.templates.acs import ACS
 from boardfarm3.devices.base_devices import LinuxDevice, BoardfarmDevice
 from boardfarm3.lib.gui.base_gui_component import BaseGuiComponent
 from boardfarm3.lib.gui.gui_helper import GuiHelperNoProxy
 
-# Component 1: The NBI Implementation (specific to GenieACS)
+# Component 1: The NBI Implementation
 class GenieAcsNbi(LinuxDevice, ACS):
-    """Implements the ACS template for the GenieACS NBI."""
-    def Reboot(self, cpe_id, ...):
-        # ... specific POST request logic for GenieACS ...
-    # ... all other ACS abstract methods ...
+    # ...
 
-# Component 2: The GUI Implementation (specific to GenieACS)
+# Component 2: The GUI Implementation
 class GenieAcsGui(BaseGuiComponent):
-    """Implements UI actions by inheriting from the generic base component."""
-    def login(self, username, password):
-        # ... uses self._get_locator("login.username_field") ...
-        pass
+    """Implements UI actions and inherits the navigation engine."""
     def click_reboot_button(self):
         locator = self._get_locator("device_details.reboot_button")
         # ... wait for and click element ...
@@ -79,66 +87,91 @@ class GenieAcsGui(BaseGuiComponent):
 # Component 3: The Final Composite Device Class
 class GenieACS(BoardfarmDevice):
     """Assembled from its specific interface components."""
-    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # The NBI component is a core part of the device.
         self.nbi = GenieAcsNbi(*args, **kwargs)
-        # The GUI component is initialized on demand via the factory.
         self.gui: GenieAcsGui | None = None
     
-    def init_gui(self, selector_file: str, headless: bool = True) -> GenieAcsGui:
+    def init_gui(
+        self, selector_file: str, navigation_file: str, headless: bool = True
+    ) -> GenieAcsGui:
         """Factory for the GUI component."""
         if self.gui is None:
-            # 1. Use the factory from gui_helper.py to get a driver
             driver_factory = GuiHelperNoProxy(headless=headless)
             driver = driver_factory.get_web_driver()
-            
-            # 2. Instantiate the GUI component with the driver
-            self.gui = GenieAcsGui(driver, selector_file)
+            self.gui = GenieAcsGui(driver, selector_file, navigation_file)
         return self.gui
 ```
 
-## Step 3: Test Suite - Create the Selector YAML Artifact
+## Step 3: Test Suite - Create the Navigation YAML Artifact
 
-This file is the only thing that needs to change when the ACS UI is updated.
+This file defines the implementation of each user journey, using unique, descriptive names.
+
+```yaml
+# In boardfarm-bdd/tests/ui_helpers/acs_ui_navigation.yaml
+navigation_paths:
+
+  Path_Home_to_DeviceDetails_via_Search:
+    - action: click
+      target: main_menu.devices_link
+    - action: type
+      target: device_list.search_bar
+      value: "{{ cpe_id }}" # Templated value
+    - action: click
+      target: device_list.first_row_link
+```
+
+## Step 4: Test Suite - Create the Selector YAML Artifact
+
+This file remains the same, providing the dictionary of UI elements.
 
 ```yaml
 # In boardfarm-bdd/tests/ui_helpers/acs_ui_selectors.yaml
-device_details:
-  reboot_button:
-    by: "css_selector"
-    selector: "button[title='Reboot']"
+main_menu:
+  devices_link:
+    by: "id"
+    selector: "devices-menu-item"
+# ... etc ...
 ```
 
-## Step 4: Test Suite - Use the Device Components in BDD Steps
+## Step 5: Test Suite - Write the BDD Scenario
 
-The step definitions are now very clear. They access the appropriate component (`.nbi` or `.gui`) on the device fixture.
+The scenario is now explicit about the path being tested. This is the "stable intent".
+
+```gherkin
+# In boardfarm-bdd/tests/features/reboot.feature
+Feature: Device Reboot
+
+  Scenario: A user can reboot a device via the standard search path
+    Given the user navigates to the device details using path "Path_Home_to_DeviceDetails_via_Search"
+    When the operator clicks the reboot button on the UI
+    Then the device should reboot
+```
+
+## Step 6: Test Suite - Implement the BDD Step Definition
+
+The step definition is a simple one-liner that passes the path name from the Gherkin step directly to the GUI component's engine.
 
 ```python
 # In boardfarm-bdd/tests/step_defs/reboot_steps.py
-
-from pytest_bdd import when
-# Assume 'acs' is a fixture that returns an instance of the composite GenieACS class
+from pytest_bdd import given, when
 from boardfarm.devices.genie_acs import GenieACS 
 
-@when("the operator reboots the CPE via the NBI")
-def reboot_via_nbi(acs: GenieACS, cpe):
-    """Interact with the NBI component."""
-    acs.nbi.Reboot(cpe_id=cpe.cpe_id)
-
-@when("the operator reboots the CPE via the UI")
-def reboot_via_gui(acs: GenieACS, cpe):
-    """Initialize and interact with the GUI component."""
+@given('the user navigates to the device details using path "{path_name}"')
+def navigate_to_device_page(acs: GenieACS, path_name: str, cpe):
+    """Initializes GUI and handles navigation."""
     selector_path = "tests/ui_helpers/acs_ui_selectors.yaml"
+    navigation_path = "tests/ui_helpers/acs_ui_navigation.yaml"
     
-    # Initialize the gui component with the test suite's artifact
-    gui = acs.init_gui(selector_file=selector_path)
+    gui = acs.init_gui(
+        selector_file=selector_path,
+        navigation_file=navigation_path
+    )
     
-    # Use the component's methods
-    gui.login()
-    gui.navigate_to_device(cpe.cpe_id)
-    gui.click_reboot_button()
-```
+    gui.navigate_path(path_name, cpe_id=cpe.cpe_id)
 
-This example demonstrates the clean separation and clear division of responsibilities that makes this architecture easy to maintain and scale.
+@when("the operator clicks the reboot button on the UI")
+def click_reboot_button_on_ui(acs: GenieACS):
+    """Performs the specific action on the page."""
+    acs.gui.click_reboot_button()
+```
