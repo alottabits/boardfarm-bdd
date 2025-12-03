@@ -123,15 +123,30 @@ navigation_paths:
 
 ## Step 4: Test Suite - Create the Selector YAML Artifact
 
-This file remains the same, providing the dictionary of UI elements.
+This file provides the dictionary of UI elements, organized by page or component. It should only contain locator data.
 
 ```yaml
 # In boardfarm-bdd/tests/ui_helpers/acs_ui_selectors.yaml
-main_menu:
-  devices_link:
-    by: "id"
-    selector: "devices-menu-item"
-# ... etc ...
+
+# Top-level keys correspond to pages or reusable components.
+home_page:
+  main_menu:
+    devices_link:
+      by: "id"
+      selector: "devices-menu-item"
+
+device_list_page:
+  search_bar:
+    by: "css_selector"
+    selector: "input.search"
+  first_row_link:
+    by: "xpath"
+    selector: "//tbody/tr[1]/td[1]/a"
+
+device_details_page:
+  reboot_button:
+    by: "css_selector"
+    selector: "button[title='Reboot']"
 ```
 
 ## Step 5: Test Suite - Write the BDD Scenario

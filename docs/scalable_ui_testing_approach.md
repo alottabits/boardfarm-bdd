@@ -28,20 +28,27 @@ To achieve maximum flexibility and maintainability, we separate the "what" from 
 
 The path names in `navigation.yaml` are designed to be descriptive and unique, acting as the key that links a BDD scenario's intent to a concrete implementation.
 
-A typical `selector.yaml` remains the same:
+A typical `selector.yaml` is organized by page:
 ```yaml
 # boardfarm-bdd/tests/ui_helpers/acs_selectors.yaml
-main_menu:
-  devices_link:
-    by: "id"
-    selector: "devices-menu-item"
-device_list:
+home_page:
+  main_menu:
+    devices_link:
+      by: "id"
+      selector: "devices-menu-item"
+
+device_list_page:
   search_bar:
     by: "css_selector"
     selector: "input.search"
   first_row_link:
     by: "xpath"
     selector: "//tbody/tr[1]/td[1]/a"
+
+device_details_page:
+  reboot_button:
+    by: "css_selector"
+    selector: "button[title='Reboot']"
 ```
 
 A typical `navigation.yaml` now uses descriptive, unique names for each path:
@@ -64,6 +71,15 @@ navigation_paths:
     - action: click
       target: home_page.dashboard_widget.first_device_link
 ```
+
+### `selectors.yaml`: Structure and Best Practices
+
+To ensure the artifacts are clear and scalable, we follow a strict convention for `selectors.yaml`:
+
+1.  **Pages as Top-Level Keys**: The file is organized by pages or major, reusable components. Each top-level key represents a page (e.g., `login_page`, `home_page`).
+2.  **Locators Only**: The sole purpose of this file is to map a name to a locator (`by` and `selector`). It should **never** contain behavioral information like `navigates_to` or other logic. This enforces a strict separation of concerns.
+
+This structure allows for clear, dot-notated references (e.g., `home_page.main_menu.devices_link`) and prevents the responsibilities of the two artifacts from bleeding into one another.
 
 ## Architecture Overview: The ACS Example
 
