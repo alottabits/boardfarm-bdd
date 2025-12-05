@@ -1,9 +1,9 @@
 """UI Helpers Package
 
-This package provides reusable UI automation helpers for test scenarios.
-Selectors are loaded from YAML configuration files for easy maintenance.
+This package is reserved for test-specific UI helpers if needed.
+
+Note: Device UI components should be implemented in boardfarm3/devices/
+following the compositional pattern (e.g., GenieAcsGui extending AcsGuiTemplate).
 """
 
-from .acs_ui_helpers import ACSUIHelpers
-
-__all__ = ["ACSUIHelpers"]
+__all__ = []
