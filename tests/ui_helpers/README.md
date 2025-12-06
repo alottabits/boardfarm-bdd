@@ -116,9 +116,37 @@ The discovery tool now captures rich functional metadata for semantic element se
 
 This metadata enables **self-healing tests** that can find elements by function even when names/IDs change.
 
+## Template Pattern: Task-Oriented Methods
+
+The GUI templates (`ACSGUI`) use **task-oriented methods** that describe business operations, not UI navigation. This follows the same pattern as `ACSNBI`:
+
+**✅ Recommended:**
+```python
+acs.gui.reboot_device_via_gui(cpe_id)      # Task: what to do
+acs.gui.get_device_status(cpe_id)          # Task: what to get
+```
+
+**❌ Not Recommended:**
+```python
+acs.gui.navigate_to_device_list()          # Navigation: how to do it
+acs.gui.click_reboot_button()              # UI action: too low-level
+```
+
+**Why Task-Oriented?**
+- Vendor-neutral - works for any ACS implementation
+- Test clarity - states intent, not navigation steps
+- Self-healing - implementations use semantic search
+- Consistent - matches proven NBI pattern
+
+**Implementation:**
+Device-specific implementations (e.g., `GenieAcsGUI`) use the generated artifacts and semantic element search to fulfill the task-oriented interface, hiding all navigation and UI-structure details.
+
+For complete details, see: `boardfarm/boardfarm3/lib/gui/README.md` (section: "Task-Oriented Template Pattern")
+
 ## See Also
 
-- Full documentation: `boardfarm/boardfarm3/lib/gui/README_UI_DISCOVERY.md`
-- Original tool: `boardfarm/boardfarm3/lib/gui/ui_discovery.py`
-- Graph architecture: `boardfarm/boardfarm3/lib/gui/NETWORKX_GRAPH_ARCHITECTURE.md`
-- **NEW:** Semantic search: `boardfarm/boardfarm3/lib/gui/SEMANTIC_SEARCH_OVERVIEW.md` - Self-healing test architecture
+- **Framework Overview:** `boardfarm/boardfarm3/lib/gui/README.md` - Complete architecture and task-oriented pattern
+- **UI Discovery:** `boardfarm/boardfarm3/lib/gui/README_UI_DISCOVERY.md` - Discovery tool documentation
+- **Graph Architecture:** `boardfarm/boardfarm3/lib/gui/NETWORKX_GRAPH_ARCHITECTURE.md` - NetworkX graph details
+- **Semantic Search:** `boardfarm/boardfarm3/lib/gui/SEMANTIC_SEARCH_OVERVIEW.md` - Self-healing test capability
+- **Template Definition:** `boardfarm/boardfarm3/templates/acs/acs_gui.py` - ACSGUI with 18 task-oriented methods
