@@ -94,13 +94,31 @@ python discover_ui.py \
 The script generates a JSON file containing:
 - NetworkX graph representation of the UI
 - Page nodes (URLs, titles, types)
-- Element nodes (buttons, inputs, selects)
+- Element nodes (buttons, inputs, selects) with **rich functional metadata**
 - Modal and form nodes (if `--discover-interactions` is enabled)
 - Navigation edges between pages (including query parameters)
 - Graph statistics and discovery metrics
+
+### Enhanced Metadata (Phase 5)
+
+The discovery tool now captures rich functional metadata for semantic element search:
+
+**For Buttons:**
+- `text`, `title`, `aria-label` - User-visible descriptions
+- `data-action`, `data-target` - Functional attributes
+- `onclick` - JavaScript handler hints
+- `id`, `class` - Developer identifiers
+
+**For Inputs:**
+- `name`, `placeholder`, `aria-label` - Field descriptions
+- `type` - Input purpose (text, email, search, etc.)
+- Custom `data-*` attributes
+
+This metadata enables **self-healing tests** that can find elements by function even when names/IDs change.
 
 ## See Also
 
 - Full documentation: `boardfarm/boardfarm3/lib/gui/README_UI_DISCOVERY.md`
 - Original tool: `boardfarm/boardfarm3/lib/gui/ui_discovery.py`
 - Graph architecture: `boardfarm/boardfarm3/lib/gui/NETWORKX_GRAPH_ARCHITECTURE.md`
+- **NEW:** Semantic search: `boardfarm/boardfarm3/lib/gui/SEMANTIC_SEARCH_OVERVIEW.md` - Self-healing test architecture
