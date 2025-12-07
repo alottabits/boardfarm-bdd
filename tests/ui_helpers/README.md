@@ -116,6 +116,179 @@ The discovery tool now captures rich functional metadata for semantic element se
 
 This metadata enables **self-healing tests** that can find elements by function even when names/IDs change.
 
+## Configuration: Optional GUI Testing
+
+### Overview
+
+GUI testing is **completely optional**. By default, devices use only the machine to maching API's / NBI (Northbound Interface) for fast API-based testing. GUI testing is enabled by adding configuration to your device config.
+
+### Enabling GUI Testing for a Device
+
+**1. Generate UI artifacts** (one-time per ACS vendor):
+
+```bash
+# From boardfarm-bdd directory with venv activated
+cd tests/ui_helpers
+
+# Discover UI structure
+python discover_ui.py \
+  --url http://127.0.0.1:7557 \
+  --username admin \
+  --password admin \
+  --discover-interactions \
+  --skip-pattern-duplicates \
+  --output ../../bf_config/gui_artifacts/genieacs/ui_map.json
+
+# Generate selectors
+cd ../../
+python -m boardfarm3.lib.gui.selector_generator \
+  --input bf_config/gui_artifacts/genieacs/ui_map.json \
+  --output bf_config/gui_artifacts/genieacs/selectors.yaml
+
+# Generate navigation paths
+python -m boardfarm3.lib.gui.navigation_generator \
+  --input bf_config/gui_artifacts/genieacs/ui_map.json \
+  --output bf_config/gui_artifacts/genieacs/navigation.yaml
+```
+
+**2. Update device config** in `bf_config/boardfarm_config_example.json`:
+
+```json
+{
+    "prplos-docker-1": {
+        "devices": [
+            {
+                "name": "genieacs",
+                "type": "bf_acs",
+                "ipaddr": "localhost",
+                "http_port": 7557,
+                "http_username": "admin",
+                "http_password": "admin",
+                "port": 4503,
+                
+                "gui_selector_file": "bf_config/gui_artifacts/genieacs/selectors.yaml",
+                "gui_navigation_file": "bf_config/gui_artifacts/genieacs/navigation.yaml",
+                "gui_headless": true,
+                "gui_default_timeout": 30
+            }
+        ]
+    }
+}
+```
+
+**3. GUI automatically initializes** when device boots.
+
+### Configuration Options in case the GUI is intended to be used
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `gui_selector_file` | Yes (for GUI) | - | Path to generated selectors.yaml |
+| `gui_navigation_file` | Yes (for GUI) | - | Path to generated navigation.yaml |
+| `gui_base_url` | No | Derived from `ipaddr:http_port` | Base URL for GUI |
+| `gui_headless` | No | `true` | Run browser in headless mode |
+| `gui_default_timeout` | No | `20` | Element wait timeout in seconds |
+
+### Without GUI Testing
+
+Simply **omit** the GUI config fields - the device works perfectly with just NBI:
+
+```json
+{
+    "name": "genieacs",
+    "type": "bf_acs",
+    "ipaddr": "localhost",
+    "http_port": 7557,
+    "http_username": "admin",
+    "http_password": "admin"
+}
+```
+
+### Using GUI in Step Definitions
+
+**Check availability first:**
+
+```python
+from boardfarm3.exceptions import BoardfarmException
+
+@given("the ACS GUI is available")
+def step_acs_gui_available(bf_context):
+    """Ensure ACS GUI is ready for testing."""
+    acs = bf_context.device_manager.get_device_by_name("genieacs")
+    
+    # Skip if GUI not configured
+    if not acs.gui.is_gui_configured():
+        pytest.skip("GUI testing not configured for this device")
+    
+    # Initialize if needed
+    if not acs.gui.is_initialized():
+        acs.gui.initialize()
+    
+    # Verify login
+    assert acs.gui.is_logged_in() or acs.gui.login()
+
+
+@when("I reboot device {cpe_id} via ACS GUI")
+def step_reboot_via_gui(bf_context, cpe_id):
+    """Reboot device using ACS GUI."""
+    acs = bf_context.device_manager.get_device_by_name("genieacs")
+    success = acs.gui.reboot_device_via_gui(cpe_id)
+    assert success, f"Failed to reboot {cpe_id} via GUI"
+```
+
+**Conditional usage (GUI preferred, NBI fallback):**
+
+```python
+@when("I reboot device {cpe_id}")
+def step_reboot_device(bf_context, cpe_id):
+    """Reboot device using best available interface."""
+    acs = bf_context.device_manager.get_device_by_name("genieacs")
+    
+    # Use GUI if initialized, otherwise NBI
+    if acs.gui.is_initialized():
+        success = acs.gui.reboot_device_via_gui(cpe_id)
+    else:
+        success = acs.nbi.reboot_device(cpe_id)
+    
+    assert success
+```
+
+### Recommended Directory Structure
+
+```
+boardfarm-bdd/
+  bf_config/
+    gui_artifacts/
+      genieacs/
+        selectors.yaml       # Element locators
+        navigation.yaml      # Navigation paths
+        ui_map.json          # Source (for regeneration)
+      axiros/
+        selectors.yaml
+        navigation.yaml
+        ui_map.json
+    boardfarm_config_example.json   # References artifacts
+```
+
+### Benefits of Optional GUI
+
+✅ **Fast by Default** - NBI-only tests run quickly  
+✅ **No Breaking Changes** - Existing tests continue to work  
+✅ **Progressive Enhancement** - Add GUI testing incrementally  
+✅ **Environment Flexibility** - Enable GUI per testbed/environment  
+✅ **Clear Errors** - Helpful messages when GUI unavailable  
+✅ **CI/CD Friendly** - Easy to enable/disable per pipeline  
+
+### Migration Checklist
+
+- [ ] Run `discover_ui.py` to generate `ui_map.json`
+- [ ] Run `selector_generator.py` to create `selectors.yaml`
+- [ ] Run `navigation_generator.py` to create `navigation.yaml`
+- [ ] Add `gui_selector_file` to device config
+- [ ] Add `gui_navigation_file` to device config
+- [ ] (Optional) Set `gui_headless: true` for CI/CD
+- [ ] Test with `acs.gui.is_gui_configured()` in step definitions
+- [ ] Create GUI-specific scenarios or enhance existing ones
+
 ## Template Pattern: Task-Oriented Methods
 
 The GUI templates (`ACSGUI`) use **task-oriented methods** that describe business operations, not UI navigation. This follows the same pattern as `ACSNBI`:
