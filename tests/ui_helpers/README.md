@@ -176,17 +176,27 @@ python -m boardfarm3.lib.gui.navigation_generator \
 }
 ```
 
+**Important: Path Resolution**
+- File paths are relative to the **current working directory** (where you run pytest)
+- **Not** relative to the config file's location
+- When running from `boardfarm-bdd/`, paths should start with `bf_config/`
+
 **3. GUI automatically initializes** when device boots.
 
 ### Configuration Options in case the GUI is intended to be used
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `gui_selector_file` | Yes (for GUI) | - | Path to generated selectors.yaml |
-| `gui_navigation_file` | Yes (for GUI) | - | Path to generated navigation.yaml |
+| `gui_selector_file` | Yes (for GUI) | - | Path to generated selectors.yaml (relative to working directory) |
+| `gui_navigation_file` | Yes (for GUI) | - | Path to generated navigation.yaml (relative to working directory) |
 | `gui_base_url` | No | Derived from `ipaddr:http_port` | Base URL for GUI |
 | `gui_headless` | No | `true` | Run browser in headless mode |
 | `gui_default_timeout` | No | `20` | Element wait timeout in seconds |
+
+**Path Resolution Context:**
+- Paths resolve relative to where you **run pytest** (the current working directory)
+- Typically: `cd ~/projects/req-tst/boardfarm-bdd && pytest ...`
+- Example path: `bf_config/gui_artifacts/genieacs/selectors.yaml`
 
 ### Without GUI Testing
 
@@ -255,19 +265,25 @@ def step_reboot_device(bf_context, cpe_id):
 ### Recommended Directory Structure
 
 ```
-boardfarm-bdd/
+boardfarm-bdd/                           # ← Run pytest from here (working directory)
   bf_config/
+    boardfarm_config_example.json        # Config file
     gui_artifacts/
       genieacs/
-        selectors.yaml       # Element locators
-        navigation.yaml      # Navigation paths
-        ui_map.json          # Source (for regeneration)
+        selectors.yaml                   # Element locators
+        navigation.yaml                  # Navigation paths
+        ui_map.json                      # Source (for regeneration)
       axiros/
         selectors.yaml
         navigation.yaml
         ui_map.json
-    boardfarm_config_example.json   # References artifacts
 ```
+
+**How Path Resolution Works:**
+1. You run: `cd boardfarm-bdd && pytest ...`
+2. Working directory: `boardfarm-bdd/`
+3. Config path: `bf_config/gui_artifacts/genieacs/selectors.yaml`
+4. Resolves to: `boardfarm-bdd/bf_config/gui_artifacts/genieacs/selectors.yaml` ✅
 
 ### Benefits of Optional GUI
 
