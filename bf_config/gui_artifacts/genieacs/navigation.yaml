@@ -1,0 +1,217 @@
+# UI Navigation Paths
+# Auto-generated from UI discovery graph
+# 
+# Structure: path_name -> description, from, to, steps
+# Each step has an action, element, and locator
+#
+
+Path_overview_to_devices:
+  description: Navigate from home to devices
+  from: '#!/overview'
+  to: '#!/devices/'
+  steps:
+  - action: click
+    element: (no text)
+    locator:
+      by: css
+      value: a
+Path_overview_to_faults:
+  description: Navigate from home to faults
+  from: '#!/overview'
+  to: '#!/faults'
+  steps:
+  - action: click
+    element: Faults
+    locator:
+      by: css
+      value: a
+Path_overview_to_admin:
+  description: Navigate from home to admin
+  from: '#!/overview'
+  to: '#!/admin'
+  steps:
+  - action: click
+    element: Admin
+    locator:
+      by: css
+      value: a
+Path_overview_to_devices_16b642_sn16b6425fe2f7:
+  description: Navigate from home to devices_16B642-SN16B6425FE2F7
+  from: '#!/overview'
+  to: '#!/devices/16B642-SN16B6425FE2F7'
+  steps:
+  - action: click
+    element: Devices
+    locator:
+      by: css
+      value: a
+  - action: click
+    element: SN16B6425FE2F7
+    locator:
+      by: css
+      value: a
+Path_overview_to_devices_6e9875_sn6e987540799f:
+  description: Navigate from home to devices_6E9875-SN6E987540799F
+  from: '#!/overview'
+  to: '#!/devices/6E9875-SN6E987540799F'
+  steps:
+  - action: click
+    element: Devices
+    locator:
+      by: css
+      value: a
+  - action: click
+    element: SN6E987540799F
+    locator:
+      by: css
+      value: a
+Path_overview_to_devices_7ab8bb_sn7ab8bbf666eb:
+  description: Navigate from home to devices_7AB8BB-SN7AB8BBF666EB
+  from: '#!/overview'
+  to: '#!/devices/7AB8BB-SN7AB8BBF666EB'
+  steps:
+  - action: click
+    element: Devices
+    locator:
+      by: css
+      value: a
+  - action: click
+    element: SN7AB8BBF666EB
+    locator:
+      by: css
+      value: a
+Path_overview_to_devices_7ec3cc_sn7ec3cc42269d:
+  description: Navigate from home to devices_7EC3CC-SN7EC3CC42269D
+  from: '#!/overview'
+  to: '#!/devices/7EC3CC-SN7EC3CC42269D'
+  steps:
+  - action: click
+    element: Devices
+    locator:
+      by: css
+      value: a
+  - action: click
+    element: SN7EC3CC42269D
+    locator:
+      by: css
+      value: a
+Path_overview_to_devices_ce80b3_snce80b324e04d:
+  description: Navigate from home to devices_CE80B3-SNCE80B324E04D
+  from: '#!/overview'
+  to: '#!/devices/CE80B3-SNCE80B324E04D'
+  steps:
+  - action: click
+    element: Devices
+    locator:
+      by: css
+      value: a
+  - action: click
+    element: SNCE80B324E04D
+    locator:
+      by: css
+      value: a
+Path_overview_to_admin_presets:
+  description: Navigate from home to admin_presets
+  from: '#!/overview'
+  to: '#!/admin/presets'
+  steps:
+  - action: click
+    element: Admin
+    locator:
+      by: css
+      value: a
+  - action: click
+    element: Presets
+    locator:
+      by: css
+      value: a
+Path_overview_to_admin_provisions:
+  description: Navigate from home to admin_provisions
+  from: '#!/overview'
+  to: '#!/admin/provisions'
+  steps:
+  - action: click
+    element: Admin
+    locator:
+      by: css
+      value: a
+  - action: click
+    element: Provisions
+    locator:
+      by: css
+      value: a
+Path_overview_to_admin_virtualparameters:
+  description: Navigate from home to admin_virtualParameters
+  from: '#!/overview'
+  to: '#!/admin/virtualParameters'
+  steps:
+  - action: click
+    element: Admin
+    locator:
+      by: css
+      value: a
+  - action: click
+    element: Virtual Parameters
+    locator:
+      by: css
+      value: a
+Path_overview_to_admin_files:
+  description: Navigate from home to admin_files
+  from: '#!/overview'
+  to: '#!/admin/files'
+  steps:
+  - action: click
+    element: Admin
+    locator:
+      by: css
+      value: a
+  - action: click
+    element: Files
+    locator:
+      by: css
+      value: a
+Path_overview_to_admin_config:
+  description: Navigate from home to admin_config
+  from: '#!/overview'
+  to: '#!/admin/config'
+  steps:
+  - action: click
+    element: Admin
+    locator:
+      by: css
+      value: a
+  - action: click
+    element: Config
+    locator:
+      by: css
+      value: a
+Path_overview_to_admin_permissions:
+  description: Navigate from home to admin_permissions
+  from: '#!/overview'
+  to: '#!/admin/permissions'
+  steps:
+  - action: click
+    element: Admin
+    locator:
+      by: css
+      value: a
+  - action: click
+    element: Permissions
+    locator:
+      by: css
+      value: a
+Path_overview_to_admin_users:
+  description: Navigate from home to admin_users
+  from: '#!/overview'
+  to: '#!/admin/users'
+  steps:
+  - action: click
+    element: Admin
+    locator:
+      by: css
+      value: a
+  - action: click
+    element: Users
+    locator:
+      by: css
+      value: a
