@@ -111,7 +111,11 @@
                 "password": "bigfoot1",
                 "port": 4503,
                 "type": "bf_acs",
-                "username": "root"
+                "username": "root",
+                "gui_selector_file": "bf_config/gui_artifacts/genieacs/selectors.yaml",
+                "gui_navigation_file": "bf_config/gui_artifacts/genieacs/navigation.yaml",
+                "gui_headless": true,
+                "gui_default_timeout": 30
             }
         ]
     }
