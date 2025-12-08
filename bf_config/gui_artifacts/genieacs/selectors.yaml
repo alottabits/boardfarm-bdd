@@ -5,6 +5,29 @@
 # Each locator has 'by' (strategy) and 'selector' (value)
 #
 
+login_page:
+  inputs:
+    username:
+      by: css
+      selector: input[name="username"]
+      input_type: text
+      name: username
+      visibility_observed: visible
+    password:
+      by: css
+      selector: input[name="password"]
+      input_type: password
+      name: password
+      visibility_observed: visible
+  buttons:
+    login:
+      by: css
+      selector: button.primary
+      text: Login
+      button_type: submit
+      button_class: primary
+      visibility_observed: visible
+
 home_page:
   buttons:
     log_out:
