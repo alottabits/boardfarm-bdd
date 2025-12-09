@@ -35,7 +35,7 @@ from urllib.parse import urlparse
 from playwright.async_api import async_playwright, Page, Locator, TimeoutError as PlaywrightTimeoutError
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # ENABLE DEBUG LOGGING
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -108,39 +108,49 @@ class StateFingerprinter:
     
     @staticmethod
     def _extract_url_pattern(url: str) -> str:
-        """Extract stable URL pattern (removing volatile IDs).
+        """Extract stable URL pattern (removing volatile IDs but keeping structure).
         
         Args:
             url: Full URL
             
         Returns:
-            Normalized URL pattern
+            Normalized URL pattern (e.g. "admin/config" or "devices/edit")
         """
         parsed = urlparse(url)
-        # For SPAs, fragment is the "path"
+        # For SPAs, fragment is often the "path"
         path = parsed.fragment if parsed.fragment else parsed.path
         
-        # Remove query params
-        if '?' in path:
-            path = path.split('?')[0]
+        # NOTE: We do NOT strip query params blindly anymore, as they might define state (tabs)
+        # But for GenieACS, the "path" is usually in the fragment BEFORE the query (?)
+        # structure: #/admin/config
         
-        # Strip leading ! for hash routing (e.g., #!/overview -> /overview)
+        # Handle "hash-bang" or clean paths
         if path.startswith('!'):
             path = path[1:]
         
-        # Clean up the path
+        # Clean up
         path = path.strip('/')
         
-        # If path is empty after cleaning, check the original URL more carefully
+        # Remove known pattern of specific IDs (digits or UUIDs) at the END of path
+        # intended to collapse /devices/123 -> /devices
+        # But we want to keep /admin/config -> /admin/config
+        
+        parts = path.split('/')
+        normalized_parts = []
+        
+        for part in parts:
+            # Simple heuristic: if it looks like an ID, replace with placeholder or skip
+            # But for now, we leave it, trusting the caller to handle it or 
+            # refined logic to spot pure IDs. 
+            # In GenieACS, paths are usually semantic tokens (admin, config, users).
+            # IDs usually appear in edit pages.
+            normalized_parts.append(part)
+            
+        path = '/'.join(normalized_parts)
+
+        # If path is empty, check root
         if not path:
-            # Might be at root or just a fragment identifier
-            if parsed.fragment:
-                # Empty after cleaning, likely just '#'
-                return 'root'
-            elif parsed.path and parsed.path != '/':
-                return parsed.path.strip('/')
-            else:
-                return 'root'
+             return 'root'
         
         return path
     
@@ -234,6 +244,11 @@ class StateFingerprinter:
                 '[role="table"]',
                 '[role="grid"]',
             ],
+            "tabs_container": [
+                '.tabs',
+                '[role="tablist"]',
+                'ul.tabs',
+            ]
         }
         
         for comp_name, selectors in checks.items():
@@ -320,7 +335,7 @@ class StateFingerprinter:
             
             # Get all visible links
             links = await page.locator('a[href]:visible').all()
-            for link in links[:20]:
+            for link in links[:30]: # Increased from 20 to capture tabs
                 try:
                     element = await StateFingerprinter._create_element_descriptor(link, "link")
                     if element:
@@ -475,19 +490,28 @@ class StateClassifier:
         # Priority 4: Logged-in states (check BEFORE login form)
         # If we have logout button and navigation menu, we're logged in
         if has_logout and "navigation_menu" in components:
-            # Check URL pattern to determine which page
+            # DYNAMIC CLASSIFICATION: Use the URL pattern to define the state
+            # This allows discovery of ANY sub-page (admin/config, admin/users)
+            # without hardcoding.
+            
+            # Special case for root/dashboard
             if "overview" in url_pattern or "overview" in title:
                 return "dashboard", "V_OVERVIEW_PAGE"
-            elif "devices" in url_pattern:
-                return "list", "V_DEVICES_PAGE"
-            elif "faults" in url_pattern:
-                return "list", "V_FAULTS_PAGE"
-            elif "admin" in url_pattern:
-                return "admin", "V_ADMIN_PAGE"
+            
+            # For everything else, derive ID from normalized URL
+            # e.g. "admin/config" -> "V_ADMIN_CONFIG"
+            # e.g. "devices" -> "V_DEVICES"
+            state_id = f"V_{StateClassifier._normalize_name(url_pattern)}"
+            
+            # Determine type (heuristic)
+            if "admin" in url_pattern:
+                state_type = "admin"
+            elif "list" in url_pattern or "table" in components:
+                 state_type = "list"
             else:
-                # Generic logged-in page
-                state_id = f"V_PAGE_{StateClassifier._normalize_name(url_pattern)}"
-                return "page", state_id
+                state_type = "page"
+                
+            return state_type, state_id
         
         # Priority 5: Login form states (empty/ready)
         # Check if we're on a login page (has form and login button, no logout)
@@ -547,7 +571,7 @@ class UIStateMachineDiscovery:
         headless: bool = True,
         timeout: int = 10000,
         max_states: int = 50,
-        safe_button_patterns: str = "New,Add,Edit,View,Show,Cancel,Close,Search,Filter",
+        safe_button_patterns: str = "New,Add,Edit,View,Show,Cancel,Close,Search,Filter,Create,Upload,Refresh,Submit,Save,Update,Confirm,OK,Yes",
         use_dfs: bool = True,
     ):
         """Initialize the state machine discovery tool.
@@ -659,6 +683,9 @@ class UIStateMachineDiscovery:
         Returns:
             UIState object representing current state
         """
+        # Wait for state to stabilize (e.g. loading spinners to disappear)
+        await self._wait_for_stable_state(page)
+
         # Create fingerprint
         fingerprint = await StateFingerprinter.create_fingerprint(page)
         
@@ -680,6 +707,39 @@ class UIStateMachineDiscovery:
                     state_id, fingerprint.get("visible_components"))
         
         return state
+
+    async def _wait_for_stable_state(self, page: Page, timeout: int = 2000) -> None:
+        """Wait for the UI to stabilize (loading indicators to clear).
+
+        Args:
+            page: Playwright Page object
+            timeout: Max time to wait for stability in ms
+        """
+        start_time = time.time()
+        check_interval = 0.2
+        
+        # Already waited for networkidle in navigation, but give a small buffer for UI rendering
+        await asyncio.sleep(0.2)
+
+        while (time.time() - start_time) * 1000 < timeout:
+            try:
+                # Check directly for loading indicators without full fingerprinting
+                page_state = await StateFingerprinter._get_page_state(page)
+                
+                # Also check component presence if needed
+                # But _get_page_state covers aria-busy and generic loading classes
+                
+                if not page_state["is_loading"]:
+                    # Stable!
+                    return
+                
+                logger.debug("Waiting for state to stabilize (loading detected)...")
+                await asyncio.sleep(check_interval)
+            except Exception:
+                # If check fails, assume stable enough or error will be caught later
+                return
+        
+        logger.debug("State verification timed out waiting for stability, proceeding anyway")
     
     def _create_verification_logic(self, fingerprint: dict[str, Any]) -> dict[str, Any]:
         """Create assertions to verify this state.
@@ -1461,6 +1521,7 @@ class UIStateMachineDiscovery:
             List of safe link descriptors
         """
         safe_links = []
+        seen_hashes = set()  # To avoid duplicates
         
         # Safe navigation patterns (menu items, not data links)
         safe_nav_patterns = [
@@ -1470,29 +1531,86 @@ class UIStateMachineDiscovery:
         ]
         
         try:
-            # Find links in navigation menu
-            nav_links = await page.locator('nav a:visible, [role="navigation"] a:visible').all()
+            # 1. Standard Navigation Links
+            nav_locators = [
+                page.locator('nav a'),  # removed :visible to see if that's the blocker
+                page.locator('[role="navigation"] a'),
+                page.locator('.wrapper .sidebar a'), # Less specific sidebar selector
+                page.locator('header a')
+            ]
+
+            # 2. Tab Links
+            tab_locators = [
+                page.locator('.tabs a'),
+                page.locator('ul.tabs a'),
+                page.locator('[role="tablist"] a'),
+                page.locator('[role="tab"]')
+            ]
             
-            for link in nav_links[:20]:  # Limit scan
+            all_locators = nav_locators + tab_locators
+            
+            # Iterate through all locator strategies
+            candidates = []
+            for loc in all_locators:
                 try:
+                    count = await loc.count()
+                    logger.debug("Locator found %d candidates", count)
+                    for i in range(count):
+                        candidates.append(loc.nth(i))
+                except Exception as e:
+                    logger.debug("Error counting locator: %s", e)
+                    continue
+            
+            logger.debug("Total candidates found: %d", len(candidates))
+            
+            # Process candidates (limit to unique ones)
+            for link in candidates:
+                try:
+                    # Deduplication check
+                    if len(safe_links) >= 30:
+                        break
+
                     text = await link.text_content()
                     text_lower = text.strip().lower() if text else ""
                     href = await link.get_attribute('href')
                     
-                    # Skip if no href or external link
-                    if not href or href.startswith('http'):
+                    logger.debug("Checking link: text='%s', href='%s'", text_lower, href)
+                    
+                    # Dedupe based on href + text
+                    link_hash = f"{href}|{text_lower}"
+                    if link_hash in seen_hashes:
+                        logger.debug("Skipping duplicate")
                         continue
+                    seen_hashes.add(link_hash)
+
+                    # Skip external links
+                    if href and href.startswith('http') and self.base_url not in href:
+                         logger.debug("Skipping external link")
+                         continue
+                    
+                    # TRUST TABS AND NAV: If it's in a known nav/tab container, it's likely safe
+                    # regardless of text pattern, unless it looks destructive.
                     
                     # Check if matches safe navigation patterns
-                    is_safe = any(pattern in text_lower or pattern in href.lower() 
+                    is_known_safe_term = any(pattern in text_lower or (href and pattern in href.lower()) 
                                  for pattern in safe_nav_patterns)
                     
-                    if is_safe:
+                    # Heuristic: If it's in a tab/nav container and DOESN'T look like "delete" or "remove"
+                    is_likely_safe_nav = True
+                    unsafe_terms = ["delete", "remove", "destroy", "drop"]
+                    if any(term in text_lower for term in unsafe_terms):
+                        is_likely_safe_nav = False
+                        
+                    if is_known_safe_term or is_likely_safe_nav:
+                        logger.debug("Link accepted as safe")
                         descriptor = await self._get_element_descriptor(link)
                         if descriptor:
                             safe_links.append(descriptor)
+                    else:
+                        logger.debug("Link rejected as unsafe")
                 
-                except Exception:
+                except Exception as e:
+                    logger.debug("Error processing link candidate: %s", e)
                     continue
         
         except Exception as e:
@@ -1512,7 +1630,8 @@ class UIStateMachineDiscovery:
         safe_buttons = []
         
         try:
-            all_buttons = await page.locator('button:visible').all()
+            # BROADENED SCOPE: Include role="button" elements
+            all_buttons = await page.locator('button:visible, [role="button"]:visible').all()
             
             for button in all_buttons[:20]:  # Limit scan
                 try:
