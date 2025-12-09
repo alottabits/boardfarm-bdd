@@ -93,28 +93,53 @@ python discover_ui.py \
 
 The script generates a JSON file containing:
 - NetworkX graph representation of the UI
-- Page nodes (URLs, titles, types)
-- Element nodes (buttons, inputs, selects) with **rich functional metadata**
+- Page nodes (URLs, titles, types, **friendly names**)
+- Element nodes (buttons, inputs, selects) with **rich functional metadata** and **friendly names**
 - Modal and form nodes (if `--discover-interactions` is enabled)
 - Navigation edges between pages (including query parameters)
 - Graph statistics and discovery metrics
 
-### Enhanced Metadata (Phase 5)
+### Friendly Names (NEW in Phase 2)
 
-The discovery tool now captures rich functional metadata for semantic element search:
+All pages and elements now include **friendly_name** attributes that are generated automatically during discovery:
+
+**Page Examples:**
+- `"login_page"` - For login pages
+- `"home_page"` - For home/overview pages
+- `"device_list_page"` - For device listing pages
+- `"device_details_page"` - For individual device pages
+
+**Element Examples:**
+- `"log_out_button"` - Button with text "Log out"
+- `"username_input"` - Input with placeholder "Username"
+- `"password_input"` - Password input field
+- `"login_button"` - Login submit button
+
+These friendly names provide stable, semantic identifiers for test automation and are stored directly in the graph as the **single source of truth**.
+
+### Enhanced Metadata
+
+The discovery tool captures rich functional metadata for semantic element search:
 
 **For Buttons:**
 - `text`, `title`, `aria-label` - User-visible descriptions
 - `data-action`, `data-target` - Functional attributes
 - `onclick` - JavaScript handler hints
 - `id`, `class` - Developer identifiers
+- **`friendly_name`** - Auto-generated semantic name (e.g., `"log_out_button"`)
 
 **For Inputs:**
 - `name`, `placeholder`, `aria-label` - Field descriptions
 - `type` - Input purpose (text, email, search, etc.)
 - Custom `data-*` attributes
+- **`friendly_name`** - Auto-generated semantic name (e.g., `"username_input"`)
 
-This metadata enables **self-healing tests** that can find elements by function even when names/IDs change.
+**For Pages:**
+- `page_type` - Classification (login, home, device_list, etc.)
+- `title` - Page title from browser
+- **`friendly_name`** - Auto-generated semantic name (e.g., `"login_page"`)
+
+This metadata enables **self-healing tests** that can find elements by function even when names/IDs change. Friendly names provide stable test references that are generated once during discovery.
 
 ## Configuration: Optional GUI Testing
 
@@ -189,7 +214,12 @@ python discover_ui.py \
 - Example path: `bf_config/gui_artifacts/genieacs/ui_map.json`
 
 **Note**: `gui_selector_file` and `gui_navigation_file` are **deprecated** as of Phase 2. 
-Use `gui_graph_file` instead - it's the single source of truth with everything needed.
+Use `gui_graph_file` instead - it's the single source of truth with everything needed, including:
+- Page structure and classification
+- Element metadata with locators
+- **Friendly names** for pages and elements
+- Navigation paths between pages
+- Modal and form definitions
 
 ### Without GUI Testing
 
@@ -205,6 +235,32 @@ Simply **omit** the GUI config fields - the device works perfectly with just NBI
     "http_password": "admin"
 }
 ```
+
+### How Friendly Names Work
+
+When you use the GUI component in tests, you reference elements by their friendly names:
+
+```python
+# Example from GenieACS login implementation
+def login(self, username: str, password: str) -> bool:
+    """Login using friendly names from ui_map.json."""
+    self._driver.get(self._login_url)
+    
+    # Find elements using friendly names from graph
+    self._graph_component.find_element('login_page', 'username_input')
+    self._graph_component.find_element('login_page', 'password_input')
+    self._graph_component.find_element('login_page', 'login_button')
+    
+    # ... fill and submit ...
+```
+
+The `BaseGuiComponent` reads these friendly names directly from the `ui_map.json` graph - no runtime generation needed!
+
+**Key Architecture Points:**
+- **Discovery time**: Friendly names generated once by `ui_discovery.py`
+- **Storage**: Stored as `friendly_name` attribute in graph nodes
+- **Runtime**: Read directly by `BaseGuiComponent`, zero overhead
+- **Extensibility**: Override naming methods in `UIDiscoveryTool` subclasses
 
 ### Using GUI in Step Definitions
 
@@ -373,20 +429,22 @@ No more selectors.yaml or navigation.yaml needed.
 
 ### Migration Checklist
 
-**Phase 2 (Current - Graph-Based)**:
-- [ ] Run `discover_ui.py` to generate `ui_map.json`
+**Phase 2 (Current - Graph-Based with Friendly Names)**:
+- [ ] Run `discover_ui.py` to generate `ui_map.json` with friendly names
 - [ ] Add `gui_graph_file` to device config (single source of truth!)
 - [ ] Remove `gui_selector_file` and `gui_navigation_file` if present (deprecated)
 - [ ] (Optional) Set `gui_headless: true` for CI/CD
 - [ ] Test with `acs.gui.is_gui_configured()` in step definitions
 - [ ] Create GUI-specific scenarios or enhance existing ones
 
-**Benefits vs Old Approach**:
-- ✅ 67% fewer files to maintain (1 vs 3)
-- ✅ No sync issues between files
-- ✅ 5x faster initialization
-- ✅ 10-100x faster element lookups
-- ✅ State tracking with validation
+**Architecture Benefits**:
+- ✅ **67% fewer files** to maintain (1 vs 3)
+- ✅ **No sync issues** between files
+- ✅ **5x faster initialization** (single file load)
+- ✅ **10-100x faster element lookups** (graph-based)
+- ✅ **State tracking** with validation
+- ✅ **Friendly names** generated once, stored in graph
+- ✅ **Clean separation** - UI-specific logic in discovery tool, not framework
 
 ## Template Pattern: Task-Oriented Methods
 
