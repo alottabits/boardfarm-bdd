@@ -88,29 +88,62 @@ class StateTransition:
 
 
 class StateFingerprinter:
-    """Creates robust fingerprints for UI states.
+    """Creates robust fingerprints using Accessibility Tree as primary source.
     
-    A fingerprint is a collection of stable attributes that uniquely
-    identify a state, even if minor UI changes occur.
+    The accessibility tree provides semantic, stable state identification
+    that is resilient to CSS and DOM changes. This approach prioritizes:
+    1. Semantic identity (ARIA roles, landmarks, states) - 60%
+    2. Functional identity (actionable elements) - 25%
+    3. Structural identity (URL pattern) - 10%
+    4. Content identity (title, headings) - 4%
+    5. Style identity (DOM hash - optional) - 1%
     """
     
     @staticmethod
     async def create_fingerprint(page: Page) -> dict[str, Any]:
-        """Generate a multi-faceted state fingerprint.
+        """Generate accessibility-tree-based state fingerprint.
+        
+        This replaces DOM scraping with semantic capture from the browser's
+        accessibility tree, providing maximum resilience to UI changes.
         
         Args:
             page: Playwright Page object
             
         Returns:
-            Dictionary with multiple fingerprint dimensions
+            Dictionary with accessibility-first fingerprint dimensions
         """
+        # Capture the accessibility tree (PRIMARY SOURCE)
+        # Use Playwright's native ariaSnapshot() API
+        a11y_tree = await StateFingerprinter._capture_a11y_tree_via_aria_snapshot(page)
+        
+        if not a11y_tree:
+            logger.warning("Accessibility tree capture returned None, falling back to basic fingerprint")
+            # Fallback to minimal fingerprint
+            return {
+                "url_pattern": StateFingerprinter._extract_url_pattern(page.url),
+                "title": await page.title(),
+                "accessibility_tree": None,
+                "actionable_elements": {"buttons": [], "links": [], "inputs": [], "total_count": 0},
+            }
+        
+        # Extract structured fingerprint from a11y tree
         return {
+            # PRIMARY IDENTITY (60% weight) - Semantic
+            "accessibility_tree": StateFingerprinter._extract_a11y_fingerprint(a11y_tree),
+            
+            # FUNCTIONAL IDENTITY (25% weight) - Actionable elements
+            "actionable_elements": StateFingerprinter._extract_actionable_elements(a11y_tree),
+            
+            # STRUCTURAL IDENTITY (10% weight)
             "url_pattern": StateFingerprinter._extract_url_pattern(page.url),
-            "dom_structure_hash": await StateFingerprinter._get_dom_hash(page),
-            "visible_components": await StateFingerprinter._get_visible_components(page),
-            "page_state": await StateFingerprinter._get_page_state(page),
-            "key_elements": await StateFingerprinter._get_key_elements(page),
+            "route_params": StateFingerprinter._extract_route_params(page.url),
+            
+            # CONTENT IDENTITY (4% weight)
             "title": await page.title(),
+            "main_heading": await StateFingerprinter._get_main_heading(page),
+            
+            # STYLE IDENTITY (1% weight - OPTIONAL, only for edge cases)
+            # "dom_structure_hash": await StateFingerprinter._get_dom_hash(page),
         }
     
     @staticmethod
@@ -160,6 +193,508 @@ class StateFingerprinter:
              return 'root'
         
         return path
+    
+    @staticmethod
+    def _extract_route_params(url: str) -> dict[str, str]:
+        """Extract route parameters from URL (query and fragment params).
+        
+        Args:
+            url: Full URL
+            
+        Returns:
+            Dictionary of parameters
+        """
+        parsed = urlparse(url)
+        params = {}
+        
+        # Extract query parameters
+        if parsed.query:
+            from urllib.parse import parse_qs
+            query_params = parse_qs(parsed.query)
+            # Flatten single-value lists
+            params.update({k: v[0] if len(v) == 1 else v for k, v in query_params.items()})
+        
+        # For SPAs, check fragment for additional params
+        if parsed.fragment and '?' in parsed.fragment:
+            fragment_query = parsed.fragment.split('?', 1)[1]
+            from urllib.parse import parse_qs
+            frag_params = parse_qs(fragment_query)
+            params.update({k: v[0] if len(v) == 1 else v for k, v in frag_params.items()})
+        
+        return params
+    
+    @staticmethod
+    async def _capture_a11y_tree_via_aria_snapshot(page: Page) -> dict:
+        """Capture accessibility tree using Playwright's native ariaSnapshot() API.
+        
+        This uses Playwright's built-in ARIA snapshot feature which provides
+        a YAML representation of the accessible elements. This is the official,
+        supported method for capturing accessibility state.
+        
+        Args:
+            page: Playwright Page object
+            
+        Returns:
+            Accessibility tree dictionary parsed from ARIA snapshot YAML
+        """
+        try:
+            # Use native ariaSnapshot() API - returns YAML string
+            locator = page.locator('body')
+            yaml_snapshot = await locator.aria_snapshot()
+            
+            # Parse YAML to extract structured data
+            tree = StateFingerprinter._parse_aria_snapshot_yaml(yaml_snapshot)
+            return tree
+        except Exception as e:
+            logger.warning(f"Error capturing ARIA snapshot: {e}")
+            return None
+    
+    @staticmethod
+    def _parse_aria_snapshot_yaml(yaml_str: str) -> dict:
+        """Parse ARIA snapshot YAML into structured tree.
+        
+        ARIA snapshot format (actual example):
+            - navigation:
+              - list:
+                - listitem:
+                  - link "Overview":
+                    - /url: "#!/overview"
+            - heading "Dashboard" [level=2]
+            - button "Submit"
+        
+        Args:
+            yaml_str: YAML string from ariaSnapshot()
+            
+        Returns:
+            Parsed tree structure with role/name/children
+        """
+        import re
+        
+        lines = yaml_str.strip().split('\n')
+        root = {'role': 'root', 'name': '', 'children': []}
+        stack = [(-2, root)]  # (indent_level, node)
+        
+        for line in lines:
+            # Calculate indent level (each indent is 2 spaces)
+            indent = (len(line) - len(line.lstrip()))
+            content = line.strip()
+            
+            if not content or content.startswith('#'):
+                continue
+            
+            # Skip URL lines (they're metadata, not nodes)
+            if content.startswith('- /url:') or content.startswith('/url:'):
+                # Extract URL and add to parent node
+                url_match = re.search(r'/url:\s*"([^"]+)"', content)
+                if url_match and stack:
+                    parent = stack[-1][1]
+                    parent['value'] = url_match.group(1)
+                continue
+            
+            # Remove leading '- '
+            if content.startswith('- '):
+                content = content[2:]
+            
+            # Skip if it's just a key: value pair (not a role)
+            if not content or content.startswith('/'):
+                continue
+            
+            # Parse node: role "name" [attributes]
+            node = {'children': []}
+            
+            # Check for attributes in brackets
+            attr_match = re.search(r'\[([^\]]+)\]$', content)
+            if attr_match:
+                attrs_str = attr_match.group(1)
+                content = content[:attr_match.start()].strip()
+                
+                # Parse attributes (level=1, pressed=true, etc.)
+                for attr_pair in attrs_str.split(','):
+                    if '=' in attr_pair:
+                        key, val = attr_pair.split('=', 1)
+                        key = key.strip()
+                        val = val.strip()
+                        
+                        # Convert to appropriate type
+                        if val.lower() == 'true':
+                            node[key] = True
+                        elif val.lower() == 'false':
+                            node[key] = False
+                        elif val.isdigit():
+                            node[key] = int(val)
+                        else:
+                            node[key] = val
+            
+            # Check if ends with colon (container node)
+            is_container = content.endswith(':')
+            if is_container:
+                content = content[:-1].strip()
+            
+            # Parse role and name
+            # Format: role "name" or just role or text: "content"
+            
+            # Handle text: "content" specially
+            if content.startswith('text:'):
+                text_match = re.search(r'text:\s*"?([^"]*)"?', content)
+                if text_match:
+                    node['role'] = 'text'
+                    node['name'] = text_match.group(1)
+                else:
+                    node['role'] = 'text'
+                    node['name'] = content[5:].strip()
+            else:
+                # Try to match: role "name"
+                name_match = re.search(r'^(\S+)\s+"([^"]+)"$', content)
+                if name_match:
+                    node['role'] = name_match.group(1)
+                    node['name'] = name_match.group(2)
+                else:
+                    # Just role, no name
+                    node['role'] = content if content else 'generic'
+                    node['name'] = ''
+            
+            # Pop stack to correct parent level
+            while len(stack) > 1 and stack[-1][0] >= indent:
+                stack.pop()
+            
+            # Add to parent
+            if stack:
+                parent = stack[-1][1]
+                if 'children' not in parent:
+                    parent['children'] = []
+                parent['children'].append(node)
+            
+            # Push current node onto stack (it might have children)
+            stack.append((indent, node))
+        
+        return root
+    
+    @staticmethod
+    async def _get_main_heading(page: Page) -> str:
+        """Get the main heading (h1) from the page.
+        
+        Args:
+            page: Playwright Page object
+            
+        Returns:
+            Text content of first h1 element, or empty string
+        """
+        try:
+            h1 = page.locator('h1').first
+            if await h1.count() > 0:
+                return await h1.text_content() or ""
+        except Exception:
+            pass
+        return ""
+    
+    @staticmethod
+    def _extract_a11y_fingerprint(tree: dict) -> dict:
+        """Extract stable semantic fingerprint from accessibility tree.
+        
+        Args:
+            tree: Accessibility tree from page.accessibility.snapshot()
+            
+        Returns:
+            Dictionary with semantic fingerprint components
+        """
+        return {
+            "structure_hash": StateFingerprinter._hash_tree_structure(tree),
+            "landmark_roles": StateFingerprinter._extract_landmarks(tree),
+            "interactive_count": StateFingerprinter._count_interactive(tree),
+            "heading_hierarchy": StateFingerprinter._extract_headings(tree),
+            "key_landmarks": StateFingerprinter._extract_key_landmarks(tree),
+            "aria_states": StateFingerprinter._extract_aria_states(tree),
+        }
+    
+    @staticmethod
+    def _extract_actionable_elements(tree: dict) -> dict:
+        """Extract all interactive elements from accessibility tree.
+        
+        This REPLACES ui_map.json seeding! The a11y tree provides both
+        state identity AND the list of available actions.
+        
+        Args:
+            tree: Accessibility tree
+            
+        Returns:
+            Dictionary with categorized actionable elements
+        """
+        buttons = []
+        links = []
+        inputs = []
+        
+        def traverse(node: dict):
+            role = node.get("role", "")
+            name = node.get("name", "")
+            value = node.get("value")
+            
+            if role == "button":
+                buttons.append({
+                    "role": role,
+                    "name": name,
+                    "aria_states": StateFingerprinter._get_node_aria_states(node),
+                    "locator_strategy": f"getByRole('button', {{ name: '{name}' }})"
+                })
+            elif role == "link":
+                links.append({
+                    "role": role,
+                    "name": name,
+                    "href": value,
+                    "aria_states": StateFingerprinter._get_node_aria_states(node),
+                    "locator_strategy": f"getByRole('link', {{ name: '{name}' }})"
+                })
+            elif role in ["textbox", "combobox", "searchbox", "spinbutton"]:
+                inputs.append({
+                    "role": role,
+                    "name": name,
+                    "aria_states": StateFingerprinter._get_node_aria_states(node),
+                    "locator_strategy": f"getByLabel('{name}')" if name else f"getByRole('{role}')"
+                })
+            
+            # Recurse to children
+            for child in node.get("children", []):
+                traverse(child)
+        
+        traverse(tree)
+        
+        return {
+            "buttons": buttons,
+            "links": links,
+            "inputs": inputs,
+            "total_count": len(buttons) + len(links) + len(inputs),
+        }
+    
+    @staticmethod
+    def _hash_tree_structure(tree: dict) -> str:
+        """Create hash of accessibility tree topology (roles + hierarchy).
+        
+        This is MORE stable than DOM hash because it captures semantic structure.
+        Text is truncated to avoid hash changes from content updates.
+        
+        Args:
+            tree: Accessibility tree
+            
+        Returns:
+            8-character hash of tree structure
+        """
+        def extract_structure(node: dict) -> dict:
+            return {
+                "role": node.get("role"),
+                "name": node.get("name", "")[:20],  # Truncate to avoid text changes
+                "children": [extract_structure(child) for child in node.get("children", [])]
+            }
+        
+        structure = extract_structure(tree)
+        structure_str = json.dumps(structure, sort_keys=True)
+        return hashlib.md5(structure_str.encode()).hexdigest()[:8]
+    
+    @staticmethod
+    def _extract_landmarks(tree: dict) -> list[str]:
+        """Extract ARIA landmark roles (most stable identifiers).
+        
+        Args:
+            tree: Accessibility tree
+            
+        Returns:
+            List of landmark role names
+        """
+        landmarks = []
+        landmark_roles = {"navigation", "main", "complementary", "contentinfo", 
+                         "banner", "search", "form", "region"}
+        
+        def traverse(node: dict):
+            role = node.get("role", "")
+            if role in landmark_roles:
+                landmarks.append(role)
+            for child in node.get("children", []):
+                traverse(child)
+        
+        traverse(tree)
+        return landmarks
+    
+    @staticmethod
+    def _count_interactive(tree: dict) -> int:
+        """Count total interactive elements.
+        
+        Args:
+            tree: Accessibility tree
+            
+        Returns:
+            Count of interactive elements
+        """
+        interactive_roles = {"button", "link", "textbox", "combobox", 
+                            "checkbox", "radio", "searchbox", "spinbutton"}
+        count = 0
+        
+        def traverse(node: dict):
+            nonlocal count
+            if node.get("role") in interactive_roles:
+                count += 1
+            for child in node.get("children", []):
+                traverse(child)
+        
+        traverse(tree)
+        return count
+    
+    @staticmethod
+    def _extract_headings(tree: dict) -> list[str]:
+        """Extract heading hierarchy (h1-h6).
+        
+        Args:
+            tree: Accessibility tree
+            
+        Returns:
+            List of headings with levels (e.g., ["h1: Dashboard", "h2: Overview"])
+        """
+        headings = []
+        
+        def traverse(node: dict):
+            role = node.get("role", "")
+            if role == "heading":
+                level = node.get("level", 0)
+                name = node.get("name", "")
+                if name:  # Only include non-empty headings
+                    headings.append(f"h{level}: {name}")
+            for child in node.get("children", []):
+                traverse(child)
+        
+        traverse(tree)
+        return headings
+    
+    @staticmethod
+    def _extract_key_landmarks(tree: dict) -> dict:
+        """Extract stable anchor landmarks for contextual navigation.
+        
+        Args:
+            tree: Accessibility tree
+            
+        Returns:
+            Dictionary of key landmarks with their paths
+        """
+        landmarks = {}
+        
+        def traverse(node: dict, path: list[str]):
+            role = node.get("role", "")
+            name = node.get("name", "")
+            
+            # Record navigation landmarks (most stable)
+            if role == "navigation" and name:
+                landmarks[f"nav_{len(landmarks)}"] = {
+                    "role": role,
+                    "name": name,
+                    "path": " > ".join(path + [role])
+                }
+            
+            # Record main content area
+            if role == "main":
+                landmarks["main_content"] = {
+                    "role": role,
+                    "name": name,
+                    "path": " > ".join(path + [role])
+                }
+            
+            # Record search landmarks
+            if role == "search":
+                landmarks["search"] = {
+                    "role": role,
+                    "name": name,
+                    "path": " > ".join(path + [role])
+                }
+            
+            for child in node.get("children", []):
+                traverse(child, path + [role])
+        
+        traverse(tree, [])
+        return landmarks
+    
+    @staticmethod
+    def _extract_aria_states(tree: dict) -> dict:
+        """Extract ARIA state attributes from the tree.
+        
+        ARIA states capture dynamic functional conditions:
+        - aria-expanded: Collapsible menus/accordions
+        - aria-selected: Tabs/options
+        - aria-checked: Checkboxes/radios
+        - aria-disabled: Disabled elements
+        - aria-current: Current page/step
+        - aria-pressed: Toggle buttons
+        
+        Args:
+            tree: Accessibility tree
+            
+        Returns:
+            Dictionary summarizing ARIA states in the tree
+        """
+        states_summary = {
+            "expanded_elements": [],
+            "selected_elements": [],
+            "checked_elements": [],
+            "disabled_count": 0,
+            "current_indicators": [],
+        }
+        
+        def traverse(node: dict, path: list[str]):
+            role = node.get("role", "")
+            name = node.get("name", "")
+            
+            # Check for various ARIA states
+            if node.get("expanded") is not None:
+                states_summary["expanded_elements"].append({
+                    "role": role,
+                    "name": name,
+                    "expanded": node.get("expanded"),
+                    "path": " > ".join(path + [role]) if path else role
+                })
+            
+            if node.get("selected") is not None:
+                states_summary["selected_elements"].append({
+                    "role": role,
+                    "name": name,
+                    "selected": node.get("selected")
+                })
+            
+            if node.get("checked") is not None:
+                states_summary["checked_elements"].append({
+                    "role": role,
+                    "name": name,
+                    "checked": node.get("checked")
+                })
+            
+            if node.get("disabled"):
+                states_summary["disabled_count"] += 1
+            
+            # aria-current indicates current page/step
+            if node.get("current"):
+                states_summary["current_indicators"].append({
+                    "role": role,
+                    "name": name,
+                    "current": node.get("current")
+                })
+            
+            for child in node.get("children", []):
+                traverse(child, path + [role])
+        
+        traverse(tree, [])
+        return states_summary
+    
+    @staticmethod
+    def _get_node_aria_states(node: dict) -> dict:
+        """Extract ARIA state attributes from a single node.
+        
+        Args:
+            node: Single node from accessibility tree
+            
+        Returns:
+            Dictionary of ARIA states for this node
+        """
+        return {
+            "expanded": node.get("expanded"),
+            "selected": node.get("selected"),
+            "checked": node.get("checked"),
+            "disabled": node.get("disabled"),
+            "pressed": node.get("pressed"),
+            "current": node.get("current"),
+        }
     
     @staticmethod
     async def _get_dom_hash(page: Page) -> str:
@@ -428,6 +963,389 @@ class StateFingerprinter:
             return None
 
 
+class StateComparer:
+    """Compares UI states using weighted similarity scoring.
+    
+    Implements fuzzy matching based on accessibility tree properties
+    to identify same states even after UI changes (CSS, DOM restructure).
+    
+    Weighting Hierarchy (from Architecting UI Test Resilience):
+    1. Semantic identity (60%): Accessibility tree (landmarks, roles, structure)
+    2. Functional identity (25%): Actionable elements (buttons, links, inputs)
+    3. Structural identity (10%): URL pattern
+    4. Content identity (4%): Title, headings
+    5. Style identity (1%): DOM hash (optional, rarely used)
+    """
+    
+    # Similarity thresholds
+    MATCH_THRESHOLD = 0.80  # 80% similarity = same state
+    STRONG_MATCH = 0.90     # 90%+ = very confident match
+    WEAK_MATCH = 0.70       # 70-80% = possible match (needs review)
+    
+    @staticmethod
+    def calculate_similarity(fp1: dict[str, Any], fp2: dict[str, Any]) -> float:
+        """Calculate weighted similarity between two state fingerprints.
+        
+        Args:
+            fp1: First state fingerprint (with accessibility tree)
+            fp2: Second state fingerprint (with accessibility tree)
+            
+        Returns:
+            Similarity score between 0.0 and 1.0
+        """
+        scores = {}
+        
+        # 1. Semantic identity (60%): Accessibility tree
+        scores['semantic'] = StateComparer._compare_a11y_trees(
+            fp1.get('accessibility_tree'),
+            fp2.get('accessibility_tree')
+        )
+        
+        # 2. Functional identity (25%): Actionable elements
+        scores['functional'] = StateComparer._compare_actionable_elements(
+            fp1.get('actionable_elements'),
+            fp2.get('actionable_elements')
+        )
+        
+        # 3. Structural identity (10%): URL pattern
+        scores['structural'] = StateComparer._compare_url_patterns(
+            fp1.get('url_pattern', ''),
+            fp2.get('url_pattern', '')
+        )
+        
+        # 4. Content identity (4%): Title and headings
+        scores['content'] = StateComparer._compare_content(
+            fp1.get('title', ''),
+            fp2.get('title', ''),
+            fp1.get('main_heading', ''),
+            fp2.get('main_heading', '')
+        )
+        
+        # 5. Style identity (1%): Optional, not used by default
+        # scores['style'] = ...
+        
+        # Calculate weighted average
+        weighted_score = (
+            scores['semantic'] * 0.60 +
+            scores['functional'] * 0.25 +
+            scores['structural'] * 0.10 +
+            scores['content'] * 0.04
+            # + scores['style'] * 0.01  # Optional
+        )
+        
+        logger.debug(
+            "Similarity scores: semantic=%.2f, functional=%.2f, "
+            "structural=%.2f, content=%.2f, weighted=%.2f",
+            scores['semantic'], scores['functional'],
+            scores['structural'], scores['content'], weighted_score
+        )
+        
+        return weighted_score
+    
+    @staticmethod
+    def _compare_a11y_trees(tree1: dict | None, tree2: dict | None) -> float:
+        """Compare accessibility trees for semantic similarity.
+        
+        Compares:
+        - Landmark roles (navigation, main, etc.)
+        - Interactive element count
+        - Heading hierarchy
+        - Key landmarks
+        - ARIA states
+        
+        Args:
+            tree1: First accessibility tree
+            tree2: Second accessibility tree
+            
+        Returns:
+            Similarity score 0.0-1.0
+        """
+        if not tree1 or not tree2:
+            return 0.0
+        
+        scores = []
+        
+        # Compare landmark roles (most stable) - 40% of semantic score
+        landmarks1 = set(tree1.get('landmark_roles', []))
+        landmarks2 = set(tree2.get('landmark_roles', []))
+        if landmarks1 or landmarks2:
+            landmark_score = len(landmarks1 & landmarks2) / max(len(landmarks1 | landmarks2), 1)
+            scores.append((landmark_score, 0.40))
+        
+        # Compare interactive count (approximate) - 20% of semantic score
+        count1 = tree1.get('interactive_count', 0)
+        count2 = tree2.get('interactive_count', 0)
+        if count1 or count2:
+            # Allow 20% variance (e.g., 8 vs 10 elements)
+            max_count = max(count1, count2)
+            diff = abs(count1 - count2)
+            count_score = max(0.0, 1.0 - (diff / max(max_count * 0.2, 1)))
+            scores.append((count_score, 0.20))
+        
+        # Compare heading hierarchy - 20% of semantic score
+        headings1 = tree1.get('heading_hierarchy', [])
+        headings2 = tree2.get('heading_hierarchy', [])
+        if headings1 or headings2:
+            # Exact match on headings (they're stable content)
+            heading_score = 1.0 if headings1 == headings2 else 0.5
+            scores.append((heading_score, 0.20))
+        
+        # Compare key landmarks - 10% of semantic score
+        key_landmarks1 = set(tree1.get('key_landmarks', {}).keys())
+        key_landmarks2 = set(tree2.get('key_landmarks', {}).keys())
+        if key_landmarks1 or key_landmarks2:
+            key_landmark_score = len(key_landmarks1 & key_landmarks2) / max(len(key_landmarks1 | key_landmarks2), 1)
+            scores.append((key_landmark_score, 0.10))
+        
+        # Compare ARIA states - 10% of semantic score
+        aria_score = StateComparer._compare_aria_states(
+            tree1.get('aria_states'),
+            tree2.get('aria_states')
+        )
+        scores.append((aria_score, 0.10))
+        
+        # Calculate weighted average
+        if not scores:
+            return 0.5  # Neutral if no data
+        
+        total_weight = sum(weight for _, weight in scores)
+        weighted_sum = sum(score * weight for score, weight in scores)
+        return weighted_sum / total_weight if total_weight > 0 else 0.0
+    
+    @staticmethod
+    def _compare_aria_states(states1: dict | None, states2: dict | None) -> float:
+        """Compare ARIA state attributes.
+        
+        Compares expanded/selected/checked/disabled states to detect
+        same page in different dynamic conditions.
+        
+        Args:
+            states1: First ARIA states dict
+            states2: Second ARIA states dict
+            
+        Returns:
+            Similarity score 0.0-1.0
+        """
+        if not states1 or not states2:
+            return 1.0  # If no states, assume same (no dynamic state)
+        
+        scores = []
+        
+        # Compare expanded elements count
+        exp1_count = len(states1.get('expanded_elements', []))
+        exp2_count = len(states2.get('expanded_elements', []))
+        if exp1_count or exp2_count:
+            max_exp = max(exp1_count, exp2_count)
+            exp_score = 1.0 - (abs(exp1_count - exp2_count) / max(max_exp, 1))
+            scores.append(exp_score)
+        
+        # Compare selected elements count
+        sel1_count = len(states1.get('selected_elements', []))
+        sel2_count = len(states2.get('selected_elements', []))
+        if sel1_count or sel2_count:
+            max_sel = max(sel1_count, sel2_count)
+            sel_score = 1.0 - (abs(sel1_count - sel2_count) / max(max_sel, 1))
+            scores.append(sel_score)
+        
+        # Compare disabled count
+        dis1 = states1.get('disabled_count', 0)
+        dis2 = states2.get('disabled_count', 0)
+        if dis1 or dis2:
+            max_dis = max(dis1, dis2)
+            dis_score = 1.0 - (abs(dis1 - dis2) / max(max_dis, 1))
+            scores.append(dis_score)
+        
+        return sum(scores) / len(scores) if scores else 1.0
+    
+    @staticmethod
+    def _compare_actionable_elements(
+        actions1: dict | None,
+        actions2: dict | None
+    ) -> float:
+        """Compare actionable elements (buttons, links, inputs).
+        
+        Uses fuzzy matching on role + name to handle text changes.
+        
+        Args:
+            actions1: First actionable elements dict
+            actions2: Second actionable elements dict
+            
+        Returns:
+            Similarity score 0.0-1.0
+        """
+        if not actions1 or not actions2:
+            return 0.0
+        
+        scores = []
+        
+        # Compare button count and names
+        buttons1 = actions1.get('buttons', [])
+        buttons2 = actions2.get('buttons', [])
+        if buttons1 or buttons2:
+            button_score = StateComparer._compare_element_lists(buttons1, buttons2)
+            scores.append((button_score, 0.40))  # Buttons are important
+        
+        # Compare link count and names
+        links1 = actions1.get('links', [])
+        links2 = actions2.get('links', [])
+        if links1 or links2:
+            link_score = StateComparer._compare_element_lists(links1, links2)
+            scores.append((link_score, 0.40))  # Links are important
+        
+        # Compare input count
+        inputs1 = actions1.get('inputs', [])
+        inputs2 = actions2.get('inputs', [])
+        if inputs1 or inputs2:
+            input_score = StateComparer._compare_element_lists(inputs1, inputs2)
+            scores.append((input_score, 0.20))
+        
+        # Calculate weighted average
+        if not scores:
+            return 0.5
+        
+        total_weight = sum(weight for _, weight in scores)
+        weighted_sum = sum(score * weight for score, weight in scores)
+        return weighted_sum / total_weight if total_weight > 0 else 0.0
+    
+    @staticmethod
+    def _compare_element_lists(list1: list, list2: list) -> float:
+        """Compare two lists of elements by role and name.
+        
+        Uses fuzzy string matching for names to handle minor text changes.
+        
+        Args:
+            list1: First element list
+            list2: Second element list
+            
+        Returns:
+            Similarity score 0.0-1.0
+        """
+        if not list1 and not list2:
+            return 1.0
+        if not list1 or not list2:
+            return 0.0
+        
+        # Extract names from elements
+        names1 = [elem.get('name', '') for elem in list1]
+        names2 = [elem.get('name', '') for elem in list2]
+        
+        # Count exact matches
+        set1 = set(names1)
+        set2 = set(names2)
+        exact_matches = len(set1 & set2)
+        
+        # Calculate Jaccard similarity
+        union_size = len(set1 | set2)
+        if union_size == 0:
+            return 1.0  # Both empty
+        
+        return exact_matches / union_size
+    
+    @staticmethod
+    def _compare_url_patterns(url1: str, url2: str) -> float:
+        """Compare URL patterns.
+        
+        Args:
+            url1: First URL pattern
+            url2: Second URL pattern
+            
+        Returns:
+            Similarity score 0.0-1.0
+        """
+        if not url1 and not url2:
+            return 1.0
+        if not url1 or not url2:
+            return 0.0
+        
+        # Exact match
+        if url1 == url2:
+            return 1.0
+        
+        # Partial match (e.g., "admin/config" vs "admin/users" = 50%)
+        parts1 = url1.split('/')
+        parts2 = url2.split('/')
+        
+        # Match as many parts as possible
+        matches = sum(1 for p1, p2 in zip(parts1, parts2) if p1 == p2)
+        max_parts = max(len(parts1), len(parts2))
+        
+        return matches / max_parts if max_parts > 0 else 0.0
+    
+    @staticmethod
+    def _compare_content(
+        title1: str,
+        title2: str,
+        heading1: str,
+        heading2: str
+    ) -> float:
+        """Compare content (title and main heading).
+        
+        Args:
+            title1: First page title
+            title2: Second page title
+            heading1: First main heading
+            heading2: Second main heading
+            
+        Returns:
+            Similarity score 0.0-1.0
+        """
+        scores = []
+        
+        # Compare titles (70% of content score)
+        if title1 or title2:
+            title_score = 1.0 if title1 == title2 else 0.0
+            scores.append((title_score, 0.70))
+        
+        # Compare headings (30% of content score)
+        if heading1 or heading2:
+            heading_score = 1.0 if heading1 == heading2 else 0.0
+            scores.append((heading_score, 0.30))
+        
+        if not scores:
+            return 1.0
+        
+        total_weight = sum(weight for _, weight in scores)
+        weighted_sum = sum(score * weight for score, weight in scores)
+        return weighted_sum / total_weight if total_weight > 0 else 1.0
+    
+    @staticmethod
+    def find_matching_state(
+        candidate_fingerprint: dict[str, Any],
+        existing_states: list[UIState],
+        threshold: float = 0.80
+    ) -> tuple[UIState | None, float]:
+        """Find the best matching state from existing states.
+        
+        Args:
+            candidate_fingerprint: Fingerprint to match
+            existing_states: List of existing UIState objects
+            threshold: Minimum similarity score to consider a match
+            
+        Returns:
+            Tuple of (matched_state, similarity_score) or (None, 0.0)
+        """
+        best_match = None
+        best_score = 0.0
+        
+        for state in existing_states:
+            score = StateComparer.calculate_similarity(
+                candidate_fingerprint,
+                state.fingerprint
+            )
+            
+            if score >= threshold and score > best_score:
+                best_match = state
+                best_score = score
+        
+        if best_match:
+            logger.info(
+                "Found matching state: %s (similarity: %.2f%%)",
+                best_match.state_id, best_score * 100
+            )
+        
+        return best_match, best_score
+
+
 class StateClassifier:
     """Classifies UI states based on fingerprint.
     
@@ -450,31 +1368,46 @@ class StateClassifier:
             - ("dashboard", "V_DASHBOARD_LOADED")
         """
         url_pattern = fingerprint.get("url_pattern", "")
-        components = fingerprint.get("visible_components", [])
-        page_state = fingerprint.get("page_state", {})
         title = fingerprint.get("title", "").lower()
-        key_elements = fingerprint.get("key_elements", [])
+        
+        # Extract from accessibility tree
+        a11y_tree = fingerprint.get("accessibility_tree", {})
+        landmarks = a11y_tree.get("landmark_roles", []) if a11y_tree else []
+        
+        # Extract from actionable elements
+        actionable = fingerprint.get("actionable_elements", {})
+        buttons = actionable.get("buttons", [])
+        links = actionable.get("links", [])
         
         # Check for logout button as indicator of logged-in state
         has_logout = any(
-            elem.get("locators", {}).get("text", "").lower() in ["log out", "logout", "sign out"]
-            for elem in key_elements
+            btn.get("name", "").lower() in ["log out", "logout", "sign out"]
+            for btn in buttons
+        ) or any(
+            link.get("name", "").lower() in ["log out", "logout", "sign out"]
+            for link in links
         )
         
         # Check for login button (indicates we're on login page, not logged in)
         has_login_button = any(
-            elem.get("locators", {}).get("text", "").lower() in ["login", "log in", "sign in"]
-            and elem.get("element_type") == "button"
-            for elem in key_elements
+            btn.get("name", "").lower() in ["login", "log in", "sign in"]
+            for btn in buttons
         )
         
-        # Priority 1: Error states (but NOT if it's just the login form)
-        # Only treat as error if we have actual error state indicators
-        has_actual_error = page_state.get("has_errors") or "error_banner" in components
+        # Check for form role (login forms)
+        has_form = "form" in landmarks
+        
+        # Check for data table
+        has_table = any(btn.get("role") == "table" for btn in buttons)
+        
+        # Priority 1: Error states
+        # Check for alert role or error indicators in URL/title
+        has_actual_error = ("alert" in landmarks or 
+                           "error" in url_pattern.lower() or 
+                           "error" in title)
         if has_actual_error:
-            # If it has a login form AND login button, it's a login page (even with error banner)
-            # The error banner might be from a previous failed attempt or just a message
-            if "login_form" in components and has_login_button:
+            # If it has form and login button, it's a login page (even with error banner)
+            if has_form and has_login_button:
                 # This is a login page, not an error page
                 logger.debug("Login form detected with error banner, treating as login page")
                 pass  # Fall through to login form handling
@@ -484,19 +1417,24 @@ class StateClassifier:
                 state_id = f"V_ERROR_{StateClassifier._normalize_name(url_pattern)}"
                 return "error", state_id
         
-        # Priority 2: Modal states
-        if "modal_dialog" in components:
+        # Priority 2: Modal states (dialog role)
+        if "dialog" in [btn.get("role") for btn in buttons]:
             state_id = f"V_MODAL_{StateClassifier._normalize_name(url_pattern)}"
             return "modal", state_id
         
         # Priority 3: Loading states
-        if page_state.get("is_loading") or "loading_indicator" in components:
+        # Check for aria-busy or loading text
+        is_loading = any(
+            btn.get("aria_states", {}).get("disabled") and "load" in btn.get("name", "").lower()
+            for btn in buttons
+        )
+        if is_loading or "loading" in url_pattern.lower():
             state_id = f"V_LOADING_{StateClassifier._normalize_name(url_pattern)}"
             return "loading", state_id
         
         # Priority 4: Logged-in states (check BEFORE login form)
-        # If we have logout button and navigation menu, we're logged in
-        if has_logout and "navigation_menu" in components:
+        # If we have logout button and navigation landmark, we're logged in
+        if has_logout and "navigation" in landmarks:
             # DYNAMIC CLASSIFICATION: Use the URL pattern to define the state
             # This allows discovery of ANY sub-page (admin/config, admin/users)
             # without hardcoding.
@@ -513,7 +1451,7 @@ class StateClassifier:
             # Determine type (heuristic)
             if "admin" in url_pattern:
                 state_type = "admin"
-            elif "list" in url_pattern or "table" in components:
+            elif "list" in url_pattern or has_table:
                  state_type = "list"
             else:
                 state_type = "page"
@@ -522,22 +1460,22 @@ class StateClassifier:
         
         # Priority 5: Login form states (empty/ready)
         # Check if we're on a login page (has form and login button, no logout)
-        if ("login_form" in components or "login" in url_pattern or "login" in title) and has_login_button:
+        if (has_form or "login" in url_pattern or "login" in title) and has_login_button:
             # Only classify as login form if we DON'T have logout button
             if not has_logout:
                 return "form", "V_LOGIN_FORM_EMPTY"
         
         # Priority 6: Dashboard/main application states
-        if "dashboard" in components or "dashboard" in title:
+        if "main" in landmarks and ("dashboard" in url_pattern or "dashboard" in title or "overview" in url_pattern):
             return "dashboard", "V_DASHBOARD_LOADED"
         
-        if "navigation_menu" in components and "data_table" in components:
+        if "navigation" in landmarks and has_table:
             # Likely a list/management page
             state_id = f"V_LIST_{StateClassifier._normalize_name(url_pattern)}"
             return "list", state_id
         
-        # Priority 7: Success states
-        if "success_message" in components:
+        # Priority 7: Success states (status role)
+        if "status" in landmarks:
             state_id = f"V_SUCCESS_{StateClassifier._normalize_name(url_pattern)}"
             return "success", state_id
         
@@ -812,13 +1750,17 @@ class UIStateMachineDiscovery:
                 await browser.close()
     
     async def _discover_current_state(self, page: Page) -> UIState:
-        """Discover and classify the current UI state.
+        """Discover and classify the current UI state with fuzzy matching.
+        
+        Uses StateComparer to find matching states before creating new ones.
+        This enables resilience to CSS changes, DOM restructuring, and minor
+        UI updates by recognizing "same state" based on semantic similarity.
         
         Args:
             page: Playwright Page object
             
         Returns:
-            UIState object representing current state
+            UIState object (existing match or newly created)
         """
         # Wait for state to stabilize (e.g. loading spinners to disappear)
         await self._wait_for_stable_state(page)
@@ -826,22 +1768,71 @@ class UIStateMachineDiscovery:
         # Create fingerprint
         fingerprint = await StateFingerprinter.create_fingerprint(page)
         
-        # Classify state
+        # PHASE 2: Try to find matching existing state (fuzzy matching)
+        existing_states = list(self.states.values())
+        matched_state, similarity = StateComparer.find_matching_state(
+            fingerprint,
+            existing_states,
+            threshold=StateComparer.MATCH_THRESHOLD  # 80% threshold
+        )
+        
+        if matched_state:
+            # Found a match! Reuse existing state
+            logger.info(
+                "Matched existing state: %s (%.1f%% similar)",
+                matched_state.state_id, similarity * 100
+            )
+            
+            # Update element descriptors if new fingerprint has more/different elements
+            # (UI might have changed slightly but still same state)
+            actionable = fingerprint.get("actionable_elements", {})
+            new_descriptors = (
+                actionable.get("buttons", []) + 
+                actionable.get("links", []) + 
+                actionable.get("inputs", [])
+            )
+            
+            # Merge descriptors (keep union of old + new)
+            existing_names = {d.get('name') for d in matched_state.element_descriptors}
+            for desc in new_descriptors:
+                if desc.get('name') not in existing_names:
+                    matched_state.element_descriptors.append(desc)
+                    logger.debug(
+                        "Added new element to matched state: %s",
+                        desc.get('name')
+                    )
+            
+            return matched_state
+        
+        # No match found - create new state
         state_type, state_id = StateClassifier.classify_state(fingerprint)
         
         # Create verification logic
         verification = self._create_verification_logic(fingerprint)
+        
+        # Extract actionable elements for state transitions
+        actionable = fingerprint.get("actionable_elements", {})
+        element_descriptors = (
+            actionable.get("buttons", []) + 
+            actionable.get("links", []) + 
+            actionable.get("inputs", [])
+        )
         
         state = UIState(
             state_id=state_id,
             state_type=state_type,
             fingerprint=fingerprint,
             verification_logic=verification,
-            element_descriptors=fingerprint.get("key_elements", [])
+            element_descriptors=element_descriptors
         )
         
-        logger.debug("Discovered state: %s (components: %s)", 
-                    state_id, fingerprint.get("visible_components"))
+        # Log discovery with a11y info
+        a11y_tree = fingerprint.get("accessibility_tree", {})
+        landmarks = a11y_tree.get("landmark_roles", []) if a11y_tree else []
+        logger.info(
+            "Created NEW state: %s (landmarks: %s, actions: %d)", 
+            state_id, landmarks, actionable.get("total_count", 0)
+        )
         
         return state
 
@@ -882,17 +1873,19 @@ class UIStateMachineDiscovery:
         """Create assertions to verify this state.
         
         Args:
-            fingerprint: State fingerprint
+            fingerprint: State fingerprint (accessibility tree-based)
             
         Returns:
             Dictionary of verification checks
         """
+        a11y_tree = fingerprint.get("accessibility_tree", {})
+        
         return {
-            "url_pattern": fingerprint["url_pattern"],
-            "required_components": fingerprint["visible_components"],
-            "dom_hash": fingerprint["dom_structure_hash"],
-            "page_ready": fingerprint["page_state"]["ready"],
-            "no_loading": not fingerprint["page_state"]["is_loading"],
+            "url_pattern": fingerprint.get("url_pattern", ""),
+            "required_landmarks": a11y_tree.get("landmark_roles", []) if a11y_tree else [],
+            "min_interactive_count": a11y_tree.get("interactive_count", 0) if a11y_tree else 0,
+            "structure_hash": a11y_tree.get("structure_hash") if a11y_tree else None,
+            "title": fingerprint.get("title", ""),
         }
     
     async def _navigate_to_state(
