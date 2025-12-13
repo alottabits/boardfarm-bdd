@@ -1,482 +1,155 @@
-# UI Discovery Wrapper
+# UI Helpers - Reference Data
 
-This directory contains a convenience wrapper script for the UI discovery tool.
+**Status**: Code and documentation have been migrated to StateExplorer monorepo.
 
-## Prerequisites
+---
 
-Make sure to activate the virtual environment before running the script:
+## ⚠️ Migration Notice
+
+All UI discovery code, tests, and documentation have been **migrated to StateExplorer**.
+
+### Migrated Components
+
+**Code (100% migrated):**
+- ~~`ui_mbt_discovery.py`~~ → `StateExplorer/packages/`
+- ~~`test_*.py`~~ → `StateExplorer/tests/`
+- ~~`discover_ui.py`~~ → Replaced by `aria-discover` CLI
+
+**Documentation (reorganized & condensed):**
+- ~~ACCESSIBILITY_TREE_STRATEGY.md~~ → `StateExplorer/docs/architecture/FINGERPRINTING_STRATEGY.md`
+- ~~Architecting UI Test Resilience.md~~ → `StateExplorer/docs/architecture/RESILIENCE_PRINCIPLES.md`
+- ~~Hybrid_MBT.md~~ → `StateExplorer/docs/architecture/FSM_VS_POM.md` + `MODEL_BASED_TESTING.md`
+- ~~README.md (old)~~ → `StateExplorer/docs/guides/GETTING_STARTED.md`
+
+**Historical records:**
+- PHASE_*.md → `archive/`
+- NEXT_STEPS.md, PRIORITY_1_FIXES.md → `archive/`
+
+---
+
+## 📁 What Remains Here
+
+### Reference Data & Output Files
+
+- **`fsm_graph.json`** (360KB) - FSM graph from NEW tool (aria-discover)
+
+
+### Historical Archive
+
+- **`archive/`** - Historical milestone documents and notes
+  - `PHASE_1_COMPLETE.md`
+  - `PHASE_2_COMPLETE.md`
+  - `NEXT_STEPS.md`
+  - `PRIORITY_1_FIXES.md`
+  - etc.
+
+---
+
+## 🚀 Using the New Tool
+
+### Installation
 
 ```bash
-# From the boardfarm-bdd directory
-source .venv-3.12/bin/activate
+cd /path/to/StateExplorer
+
+# Install packages
+pip install -e packages/model-resilience-core
+pip install -e packages/aria-state-mapper
+
+# Install Playwright browsers
+playwright install chromium
 ```
 
-## Quick Start
+### Running Discovery
 
 ```bash
-# From the boardfarm-bdd directory (with venv activated)
-cd tests/ui_helpers
-
-# Run UI discovery (basic usage)
-python discover_ui.py --url http://127.0.0.1:3000 --username admin --password admin
-
-# Run with all recommended options
-python discover_ui.py \
+# New CLI command (replaces python ui_mbt_discovery.py)
+aria-discover \
   --url http://127.0.0.1:3000 \
   --username admin \
   --password admin \
-  --discover-interactions \
-  --skip-pattern-duplicates \
-  --pattern-sample-size 3 \
-  --output genieacs_ui_map.json
+  --output fsm_graph.json
 ```
 
-## What This Script Does
+### Documentation
 
-The `discover_ui.py` script is a thin wrapper that imports and calls the `main()` function from `boardfarm3.lib.gui.ui_discovery`.
+All documentation is now in StateExplorer:
 
-**Prerequisites:**
-- Boardfarm must be installed in your active Python environment
-- If using editable install: `pip install -e /path/to/boardfarm`
-- Required dependencies: selenium, networkx
+- **Quick Start**: `StateExplorer/docs/guides/GETTING_STARTED.md`
+- **Migration Guide**: `StateExplorer/docs/MIGRATION_GUIDE.md`
+- **Architecture**: `StateExplorer/docs/architecture/`
+- **Research**: `StateExplorer/docs/research/`
 
-This allows you to use the UI discovery functionality locally with a simple command, without navigating to the boardfarm directory.
+---
 
-## Available Options
+## 📊 Comparison: Old vs New Tool
 
-All command-line options from `ui_discovery.py` are supported:
+### Graph Output Comparison
 
-- `--url` - Base URL of the application to crawl (required)
-- `--output` - Output file for UI map (default: ui_map.json)
-- `--username` - Login username (optional)
-- `--password` - Login password (optional)
-- `--login-url` - Custom login URL (optional)
-- `--headless` - Run browser in headless mode (default: True)
-- `--no-headless` - Run browser with GUI
-- `--no-login` - Skip login step
-- `--disable-pattern-detection` - Disable URL pattern detection
-- `--pattern-min-count` - Minimum URLs required to form a pattern (default: 3)
-- `--skip-pattern-duplicates` - Skip URLs matching detected patterns after sampling
-- `--pattern-sample-size` - Number of pattern instances to crawl before skipping (default: 3)
-- `--discover-interactions` - Discover modals and dialogs by clicking buttons
-- `--safe-buttons` - Comma-separated list of safe button text patterns
-- `--interaction-timeout` - Seconds to wait for modals to appear after clicking (default: 2)
+| Metric | Old Tool | New Tool (aria-discover) | Improvement |
+|--------|----------|--------------------------|-------------|
+| **States** | 32 | 10 | 3x fewer (more logical) |
+| **Transitions** | 58 | 58 | Same coverage |
+| **File Size** | 833 KB | 215 KB | 4x smaller |
+| **Fingerprinting** | DOM-based | Accessibility tree | More resilient |
+| **State Identity** | URL + DOM hash | ARIA + semantic | Behavioral focus |
 
-## Example Workflows
+### Key Improvements
 
-### Basic crawl without login
-```bash
-python discover_ui.py --url http://example.com --no-login --output example_ui.json
-```
+✅ **Accessibility-first fingerprinting** (resilient to CSS/DOM changes)  
+✅ **ARIA state differentiation** (menu open/closed as separate states)  
+✅ **Weighted fuzzy matching** (semantic 60%, functional 25%, etc.)  
+✅ **Modular architecture** (reusable core, extensible for mobile)  
+✅ **Professional CLI** (installed command, not script)
 
-### Full discovery with interaction testing
-```bash
-python discover_ui.py \
-  --url http://127.0.0.1:3000 \
-  --username admin \
-  --password admin \
-  --discover-interactions \
-  --skip-pattern-duplicates \
-  --output complete_ui_map.json
-```
+---
 
-### Debug mode (visible browser)
-```bash
-python discover_ui.py \
-  --url http://127.0.0.1:3000 \
-  --username admin \
-  --password admin \
-  --no-headless
-```
-
-## Output
-
-The script generates a JSON file containing:
-- NetworkX graph representation of the UI
-- Page nodes (URLs, titles, types, **friendly names**)
-- Element nodes (buttons, inputs, selects) with **rich functional metadata** and **friendly names**
-- Modal and form nodes (if `--discover-interactions` is enabled)
-- Navigation edges between pages (including query parameters)
-- Graph statistics and discovery metrics
-
-### Friendly Names (NEW in Phase 2)
-
-All pages and elements now include **friendly_name** attributes that are generated automatically during discovery:
-
-**Page Examples:**
-- `"login_page"` - For login pages
-- `"home_page"` - For home/overview pages
-- `"device_list_page"` - For device listing pages
-- `"device_details_page"` - For individual device pages
-
-**Element Examples:**
-- `"log_out_button"` - Button with text "Log out"
-- `"username_input"` - Input with placeholder "Username"
-- `"password_input"` - Password input field
-- `"login_button"` - Login submit button
-
-These friendly names provide stable, semantic identifiers for test automation and are stored directly in the graph as the **single source of truth**.
-
-### Enhanced Metadata
-
-The discovery tool captures rich functional metadata for semantic element search:
-
-**For Buttons:**
-- `text`, `title`, `aria-label` - User-visible descriptions
-- `data-action`, `data-target` - Functional attributes
-- `onclick` - JavaScript handler hints
-- `id`, `class` - Developer identifiers
-- **`friendly_name`** - Auto-generated semantic name (e.g., `"log_out_button"`)
-
-**For Inputs:**
-- `name`, `placeholder`, `aria-label` - Field descriptions
-- `type` - Input purpose (text, email, search, etc.)
-- Custom `data-*` attributes
-- **`friendly_name`** - Auto-generated semantic name (e.g., `"username_input"`)
-
-**For Pages:**
-- `page_type` - Classification (login, home, device_list, etc.)
-- `title` - Page title from browser
-- **`friendly_name`** - Auto-generated semantic name (e.g., `"login_page"`)
-
-This metadata enables **self-healing tests** that can find elements by function even when names/IDs change. Friendly names provide stable test references that are generated once during discovery.
-
-## Configuration: Optional GUI Testing
-
-### Overview
-
-GUI testing is **completely optional**. By default, devices use only the machine to maching API's / NBI (Northbound Interface) for fast API-based testing. GUI testing is enabled by adding configuration to your device config.
-
-### Enabling GUI Testing for a Device
-
-**1. Generate UI artifacts** (one-time per ACS vendor):
-
-```bash
-# From boardfarm-bdd directory with venv activated
-cd tests/ui_helpers
-
-# Discover UI structure (this is all you need!)
-python discover_ui.py \
-  --url http://127.0.0.1:7557 \
-  --username admin \
-  --password admin \
-  --discover-interactions \
-  --skip-pattern-duplicates \
-  --output ../../bf_config/gui_artifacts/genieacs/ui_map.json
-
-# That's it! ui_map.json is the single source of truth
-# (selectors.yaml and navigation.yaml are no longer needed)
-```
-
-**2. Update device config** in `bf_config/boardfarm_config_example.json`:
-
-```json
-{
-    "prplos-docker-1": {
-        "devices": [
-            {
-                "name": "genieacs",
-                "type": "bf_acs",
-                "ipaddr": "localhost",
-                "http_port": 7557,
-                "http_username": "admin",
-                "http_password": "admin",
-                "port": 4503,
-                
-                "gui_graph_file": "bf_config/gui_artifacts/genieacs/ui_map.json",
-                "gui_headless": true,
-                "gui_default_timeout": 30
-            }
-        ]
-    }
-}
-```
-
-**Important: Path Resolution**
-- File paths are relative to the **current working directory** (where you run pytest)
-- **Not** relative to the config file's location
-- When running from `boardfarm-bdd/`, paths should start with `bf_config/`
-
-**3. GUI automatically initializes** when device boots.
-
-### Configuration Options in case the GUI is intended to be used
-
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `gui_graph_file` | Yes (for GUI) | - | Path to ui_map.json (single source of truth, relative to working directory) |
-| `gui_base_url` | No | Derived from `ipaddr:http_port` | Base URL for GUI |
-| `gui_headless` | No | `true` | Run browser in headless mode |
-| `gui_default_timeout` | No | `30` | Element wait timeout in seconds |
-
-**Path Resolution Context:**
-- Paths resolve relative to where you **run pytest** (the current working directory)
-- Typically: `cd ~/projects/req-tst/boardfarm-bdd && pytest ...`
-- Example path: `bf_config/gui_artifacts/genieacs/ui_map.json`
-
-**Note**: `gui_selector_file` and `gui_navigation_file` are **deprecated** as of Phase 2. 
-Use `gui_graph_file` instead - it's the single source of truth with everything needed, including:
-- Page structure and classification
-- Element metadata with locators
-- **Friendly names** for pages and elements
-- Navigation paths between pages
-- Modal and form definitions
-
-### Without GUI Testing
-
-Simply **omit** the GUI config fields - the device works perfectly with just NBI:
-
-```json
-{
-    "name": "genieacs",
-    "type": "bf_acs",
-    "ipaddr": "localhost",
-    "http_port": 7557,
-    "http_username": "admin",
-    "http_password": "admin"
-}
-```
-
-### How Friendly Names Work
-
-When you use the GUI component in tests, you reference elements by their friendly names:
-
-```python
-# Example from GenieACS login implementation
-def login(self, username: str, password: str) -> bool:
-    """Login using friendly names from ui_map.json."""
-    self._driver.get(self._login_url)
-    
-    # Find elements using friendly names from graph
-    self._graph_component.find_element('login_page', 'username_input')
-    self._graph_component.find_element('login_page', 'password_input')
-    self._graph_component.find_element('login_page', 'login_button')
-    
-    # ... fill and submit ...
-```
-
-The `BaseGuiComponent` reads these friendly names directly from the `ui_map.json` graph - no runtime generation needed!
-
-**Key Architecture Points:**
-- **Discovery time**: Friendly names generated once by `ui_discovery.py`
-- **Storage**: Stored as `friendly_name` attribute in graph nodes
-- **Runtime**: Read directly by `BaseGuiComponent`, zero overhead
-- **Extensibility**: Override naming methods in `UIDiscoveryTool` subclasses
-
-### Using GUI in Step Definitions
-
-**Check availability first:**
-
-```python
-from boardfarm3.exceptions import BoardfarmException
-
-@given("the ACS GUI is available")
-def step_acs_gui_available(bf_context):
-    """Ensure ACS GUI is ready for testing."""
-    acs = bf_context.device_manager.get_device_by_name("genieacs")
-    
-    # Skip if GUI not configured
-    if not acs.gui.is_gui_configured():
-        pytest.skip("GUI testing not configured for this device")
-    
-    # Initialize if needed
-    if not acs.gui.is_initialized():
-        acs.gui.initialize()
-    
-    # Verify login
-    assert acs.gui.is_logged_in() or acs.gui.login()
-
-
-@when("I reboot device {cpe_id} via ACS GUI")
-def step_reboot_via_gui(bf_context, cpe_id):
-    """Reboot device using ACS GUI."""
-    acs = bf_context.device_manager.get_device_by_name("genieacs")
-    success = acs.gui.reboot_device_via_gui(cpe_id)
-    assert success, f"Failed to reboot {cpe_id} via GUI"
-```
-
-### Robust Interaction Methods
-
-The framework provides **robust interaction methods** in `BaseGuiComponent` to handle common UI testing challenges. These methods automatically handle:
-
-- **Scrolling** - Elements not in viewport
-- **Waiting** - Elements not immediately interactable
-- **JavaScript Fallbacks** - When standard Selenium methods fail
-- **Stale Elements** - Retry logic for DOM changes
-- **Click Interception** - Other elements covering target element
-- **Input Failures** - Clear/type operations that fail
-
-#### Available Methods
-
-**For Clicking:**
-```python
-# Find and click elements from selectors.yaml
-self._base_component._find_and_click_robust(
-    selector_path="login_page.buttons.submit",
-    timeout=10
-)
-
-# Click with page-agnostic XPath selectors
-button, selector = self._base_component._find_element_with_selectors(
-    selectors=["//button[text()='Submit']", "//button[@type='submit']"],
-    timeout=10
-)
-self._base_component._click_element_robust(button, selector, timeout=10)
-```
-
-**For Typing:**
-```python
-# Find and type into elements from selectors.yaml
-self._base_component._find_and_type_robust(
-    selector_path="login_page.inputs.username",
-    text="admin",
-    timeout=10,
-    clear_first=True,  # Clear existing value first
-    verify=False       # Optionally verify value was set
-)
-```
-
-#### When to Use Robust Methods
-
-Use robust methods when:
-- ✅ Element might not be immediately visible
-- ✅ UI has overlapping elements (modals, dropdowns, menus)
-- ✅ JavaScript frameworks delay element readiness
-- ✅ Standard `.click()` or `.send_keys()` occasionally fails
-- ✅ Testing against dynamic, JavaScript-heavy UIs
-
-Standard methods are fine for:
-- ⚡ Simple static pages
-- ⚡ Tests that already work reliably
-- ⚡ Non-critical test utilities
-
-**Example: GenieACS Login (uses robust methods)**
-```python
-def login(self, username: str | None = None, password: str | None = None) -> bool:
-    """Login with robust input handling."""
-    self._driver.get(login_url)
-    
-    # Robust typing - handles scroll, wait, JavaScript fallback
-    self._base_component._find_and_type_robust(
-        selector_path="login_page.inputs.username",
-        text=username,
-        timeout=self._gui_timeout
-    )
-    
-    self._base_component._find_and_type_robust(
-        selector_path="login_page.inputs.password",
-        text=password,
-        timeout=self._gui_timeout
-    )
-    
-    # Robust clicking - handles interception, JavaScript fallback
-    self._base_component._find_and_click_robust(
-        selector_path="login_page.buttons.login",
-        timeout=self._gui_timeout
-    )
-    
-    return True
-```
-
-For complete documentation, see: `boardfarm/boardfarm3/lib/gui/README.md` (section: "Robust Interaction Methods")
-
-**Conditional usage (GUI preferred, NBI fallback):**
-
-```python
-@when("I reboot device {cpe_id}")
-def step_reboot_device(bf_context, cpe_id):
-    """Reboot device using best available interface."""
-    acs = bf_context.device_manager.get_device_by_name("genieacs")
-    
-    # Use GUI if initialized, otherwise NBI
-    if acs.gui.is_initialized():
-        success = acs.gui.reboot_device_via_gui(cpe_id)
-    else:
-        success = acs.nbi.reboot_device(cpe_id)
-    
-    assert success
-```
-
-### Recommended Directory Structure
+## 📦 StateExplorer Package Structure
 
 ```
-boardfarm-bdd/                           # ← Run pytest from here (working directory)
-  bf_config/
-    boardfarm_config_example.json        # Config file
-    gui_artifacts/
-      genieacs/
-        ui_map.json                      # Single source of truth! (everything)
-      axiros/
-        ui_map.json                      # Single source of truth! (everything)
+StateExplorer/
+├── packages/
+│   ├── model-resilience-core/     # Platform-agnostic algorithms
+│   │   ├── models/                 # UIState, StateTransition
+│   │   ├── fingerprinting/         # StateFingerprinter
+│   │   └── matching/               # StateComparer
+│   │
+│   └── aria-state-mapper/         # Playwright implementation
+│       ├── discovery/              # UIStateMachineDiscovery
+│       ├── playwright_integration/ # Async wrappers
+│       └── cli.py                  # aria-discover command
+│
+├── docs/                          # Reorganized documentation
+│   ├── architecture/
+│   ├── guides/
+│   └── research/
+│
+├── tests/                         # Pytest test suite
+└── examples/                      # Working code samples
 ```
 
-**How Path Resolution Works:**
-1. You run: `cd boardfarm-bdd && pytest ...`
-2. Working directory: `boardfarm-bdd/`
-3. Config path: `bf_config/gui_artifacts/genieacs/ui_map.json`
-4. Resolves to: `boardfarm-bdd/bf_config/gui_artifacts/genieacs/ui_map.json` ✅
+---
 
-**Note**: Simpler than before! Just one file per ACS vendor (ui_map.json).
-No more selectors.yaml or navigation.yaml needed.
+## 🗂️ Legacy File Retention
 
-### Benefits of Optional GUI
+These files are kept for **reference and comparison**:
 
-✅ **Fast by Default** - NBI-only tests run quickly  
-✅ **No Breaking Changes** - Existing tests continue to work  
-✅ **Progressive Enhancement** - Add GUI testing incrementally  
-✅ **Environment Flexibility** - Enable GUI per testbed/environment  
-✅ **Clear Errors** - Helpful messages when GUI unavailable  
-✅ **CI/CD Friendly** - Easy to enable/disable per pipeline  
+1. **`fsm_graph.json`** - Latest output from new tool
+2. **`fsm_graph_old.json`** - Output from original tool for validation
+3. **`ui_map.json`**, **`seed_test.json`** - Seed data that may still be useful
+4. **`archive/`** - Historical project documentation
 
-### Migration Checklist
+---
 
-**Phase 2 (Current - Graph-Based with Friendly Names)**:
-- [ ] Run `discover_ui.py` to generate `ui_map.json` with friendly names
-- [ ] Add `gui_graph_file` to device config (single source of truth!)
-- [ ] Remove `gui_selector_file` and `gui_navigation_file` if present (deprecated)
-- [ ] (Optional) Set `gui_headless: true` for CI/CD
-- [ ] Test with `acs.gui.is_gui_configured()` in step definitions
-- [ ] Create GUI-specific scenarios or enhance existing ones
+## 📚 Further Reading
 
-**Architecture Benefits**:
-- ✅ **67% fewer files** to maintain (1 vs 3)
-- ✅ **No sync issues** between files
-- ✅ **5x faster initialization** (single file load)
-- ✅ **10-100x faster element lookups** (graph-based)
-- ✅ **State tracking** with validation
-- ✅ **Friendly names** generated once, stored in graph
-- ✅ **Clean separation** - UI-specific logic in discovery tool, not framework
+- StateExplorer main README: `../../StateExplorer/README.md`
+- Getting started guide: `../../StateExplorer/docs/guides/GETTING_STARTED.md`
+- Migration guide: `../../StateExplorer/docs/MIGRATION_GUIDE.md`
+- Documentation index: `../../StateExplorer/docs/DOCUMENTATION_INDEX.md`
 
-## Template Pattern: Task-Oriented Methods
+---
 
-The GUI templates (`ACSGUI`) use **task-oriented methods** that describe business operations, not UI navigation. This follows the same pattern as `ACSNBI`:
+**Last Updated**: December 13, 2025  
+**Migration Status**: ✅ Complete (100%)
 
-**✅ Recommended:**
-```python
-acs.gui.reboot_device_via_gui(cpe_id)      # Task: what to do
-acs.gui.get_device_status(cpe_id)          # Task: what to get
-```
-
-**❌ Not Recommended:**
-```python
-acs.gui.navigate_to_device_list()          # Navigation: how to do it
-acs.gui.click_reboot_button()              # UI action: too low-level
-```
-
-**Why Task-Oriented?**
-- Vendor-neutral - works for any ACS implementation
-- Test clarity - states intent, not navigation steps
-- Self-healing - implementations use semantic search
-- Consistent - matches proven NBI pattern
-
-**Implementation:**
-Device-specific implementations (e.g., `GenieAcsGUI`) use the generated artifacts and semantic element search to fulfill the task-oriented interface, hiding all navigation and UI-structure details.
-
-For complete details, see: `boardfarm/boardfarm3/lib/gui/README.md` (section: "Task-Oriented Template Pattern")
-
-## See Also
-
-- **Framework Overview:** `boardfarm/boardfarm3/lib/gui/README.md` - Complete architecture and task-oriented pattern
-- **UI Discovery:** `boardfarm/boardfarm3/lib/gui/README_UI_DISCOVERY.md` - Discovery tool documentation
-- **Graph Architecture:** `boardfarm/boardfarm3/lib/gui/NETWORKX_GRAPH_ARCHITECTURE.md` - NetworkX graph details
-- **Semantic Search:** `boardfarm/boardfarm3/lib/gui/SEMANTIC_SEARCH_OVERVIEW.md` - Self-healing test capability
-- **Template Definition:** `boardfarm/boardfarm3/templates/acs/acs_gui.py` - ACSGUI with 18 task-oriented methods

@@ -1,0 +1,2421 @@
+{
+  "base_url": "http://127.0.0.1:3000",
+  "graph_type": "fsm_mbt",
+  "discovery_method": "playwright_state_machine_dfs",
+  "nodes": [
+    {
+      "id": "V_LOGIN_FORM_EMPTY",
+      "node_type": "state",
+      "state_type": "form",
+      "fingerprint": {
+        "url_pattern": "login?continue=%2Foverview",
+        "dom_structure_hash": "c1ecec90",
+        "visible_components": [
+          "login_form",
+          "error_banner",
+          "navigation_menu"
+        ],
+        "page_state": {
+          "ready": true,
+          "has_errors": false,
+          "is_loading": false
+        },
+        "key_elements": [
+          {
+            "element_type": "button",
+            "locators": {
+              "text": "Login"
+            },
+            "metadata": {
+              "tag": "button"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "input_type": "text",
+              "name": "username"
+            },
+            "metadata": {
+              "tag": "input"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "input_type": "password",
+              "name": "password"
+            },
+            "metadata": {
+              "tag": "input"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "text": "Log in",
+              "href": "#!/login?continue=%2Flogin%3Fcontinue%3D%252Foverview"
+            },
+            "metadata": {
+              "tag": "a"
+            }
+          }
+        ],
+        "title": "Login - GenieACS"
+      },
+      "verification_logic": {
+        "url_pattern": "login?continue=%2Foverview",
+        "required_components": [
+          "login_form",
+          "error_banner",
+          "navigation_menu"
+        ],
+        "dom_hash": "c1ecec90",
+        "page_ready": true,
+        "no_loading": true
+      },
+      "element_descriptors": [
+        {
+          "element_type": "button",
+          "locators": {
+            "text": "Login"
+          },
+          "metadata": {
+            "tag": "button"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "input_type": "text",
+            "name": "username"
+          },
+          "metadata": {
+            "tag": "input"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "input_type": "password",
+            "name": "password"
+          },
+          "metadata": {
+            "tag": "input"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "text": "Log in",
+            "href": "#!/login?continue=%2Flogin%3Fcontinue%3D%252Foverview"
+          },
+          "metadata": {
+            "tag": "a"
+          }
+        }
+      ],
+      "discovered_at": 1765454042.2491894
+    },
+    {
+      "id": "V_OVERVIEW",
+      "node_type": "state",
+      "state_type": "page",
+      "fingerprint": {
+        "url_pattern": "overview",
+        "title": "Overview - GenieACS",
+        "key_elements": [
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "Log out",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "log_out_button"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Devices",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "devices_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Faults",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "faults_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Admin",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "admin_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "10.00%",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "1000_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "90.00%",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "9000_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "0",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "0_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "1",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "1_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "9",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "9_link"
+            }
+          }
+        ]
+      },
+      "verification_logic": {
+        "url_pattern": "overview"
+      },
+      "element_descriptors": [
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "Log out",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "log_out_button"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Devices",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "devices_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Faults",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "faults_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Admin",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "admin_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "10.00%",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "1000_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "90.00%",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "9000_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "0",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "0_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "1",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "1_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "9",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "9_link"
+          }
+        }
+      ],
+      "discovered_at": 1765454038.1310441
+    },
+    {
+      "id": "V_DEVICES",
+      "node_type": "state",
+      "state_type": "page",
+      "fingerprint": {
+        "url_pattern": "devices",
+        "title": "Devices - GenieACS",
+        "key_elements": [
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "Log out",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "log_out_button"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "More",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "more_button"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": ".primary",
+              "text": "Reboot",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "reboot_button"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": ".critical",
+              "text": "Reset",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "reset_button"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": ".critical",
+              "text": "Push file",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "push_file_button"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": ".primary",
+              "text": "Delete",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "delete_button"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": ".primary",
+              "text": "Tag",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "tag_button"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": ".primary",
+              "text": "Untag",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "untag_button"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Overview",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "overview_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Faults",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "faults_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Admin",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "admin_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "SN16B6425FE2F7",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "sn16b6425fe2f7_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Show",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "show_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "SN4232395B8BC0",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "sn4232395b8bc0_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Show",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "show_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "SN4AF1B6EBA367",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "sn4af1b6eba367_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Show",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "show_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "SN6E987540799F",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "sn6e987540799f_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Show",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "show_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "SN7AB8BBF666EB",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "sn7ab8bbf666eb_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Show",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "show_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "SN7EC3CC42269D",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "sn7ec3cc42269d_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Show",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "show_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "SN8E3B9B3FCBD4",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "sn8e3b9b3fcbd4_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Show",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "show_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "SNBA58307ACB9A",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "snba58307acb9a_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Show",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "show_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "SNCE80B324E04D",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "snce80b324e04d_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Show",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "show_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "SNF2206B17FFD7",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "snf2206b17ffd7_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Show",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "show_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": ".download-csv",
+              "text": "Download",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "download_link"
+            }
+          }
+        ]
+      },
+      "verification_logic": {
+        "url_pattern": "devices"
+      },
+      "element_descriptors": [
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "Log out",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "log_out_button"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "More",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "more_button"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": ".primary",
+            "text": "Reboot",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "reboot_button"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": ".critical",
+            "text": "Reset",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "reset_button"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": ".critical",
+            "text": "Push file",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "push_file_button"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": ".primary",
+            "text": "Delete",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "delete_button"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": ".primary",
+            "text": "Tag",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "tag_button"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": ".primary",
+            "text": "Untag",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "untag_button"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Overview",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "overview_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Faults",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "faults_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Admin",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "admin_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "SN16B6425FE2F7",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "sn16b6425fe2f7_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Show",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "show_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "SN4232395B8BC0",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "sn4232395b8bc0_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Show",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "show_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "SN4AF1B6EBA367",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "sn4af1b6eba367_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Show",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "show_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "SN6E987540799F",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "sn6e987540799f_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Show",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "show_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "SN7AB8BBF666EB",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "sn7ab8bbf666eb_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Show",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "show_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "SN7EC3CC42269D",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "sn7ec3cc42269d_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Show",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "show_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "SN8E3B9B3FCBD4",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "sn8e3b9b3fcbd4_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Show",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "show_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "SNBA58307ACB9A",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "snba58307acb9a_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Show",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "show_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "SNCE80B324E04D",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "snce80b324e04d_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Show",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "show_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "SNF2206B17FFD7",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "snf2206b17ffd7_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Show",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "show_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": ".download-csv",
+            "text": "Download",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "download_link"
+          }
+        }
+      ],
+      "discovered_at": 1765454038.1311731
+    },
+    {
+      "id": "V_FAULTS",
+      "node_type": "state",
+      "state_type": "page",
+      "fingerprint": {
+        "url_pattern": "faults",
+        "title": "Faults - GenieACS",
+        "key_elements": [
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "Log out",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "log_out_button"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "More",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "more_button"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": ".primary",
+              "text": "Delete",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "delete_button"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Overview",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "overview_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Devices",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "devices_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Admin",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "admin_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": ".download-csv",
+              "text": "Download",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "download_link"
+            }
+          }
+        ]
+      },
+      "verification_logic": {
+        "url_pattern": "faults"
+      },
+      "element_descriptors": [
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "Log out",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "log_out_button"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "More",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "more_button"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": ".primary",
+            "text": "Delete",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "delete_button"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Overview",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "overview_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Devices",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "devices_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Admin",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "admin_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": ".download-csv",
+            "text": "Download",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "download_link"
+          }
+        }
+      ],
+      "discovered_at": 1765454038.131217
+    },
+    {
+      "id": "V_ADMIN",
+      "node_type": "state",
+      "state_type": "page",
+      "fingerprint": {
+        "url_pattern": "admin",
+        "title": "Presets - GenieACS",
+        "key_elements": [
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "Log out",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "log_out_button"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "button_unknown"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": "button",
+              "text": "More",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "more_button"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": ".primary",
+              "text": "New",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "new_button"
+            }
+          },
+          {
+            "element_type": "button",
+            "locators": {
+              "css": ".primary",
+              "text": "Delete",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "delete_button"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "input",
+            "locators": {
+              "css": "input",
+              "text": "",
+              "test_id": ""
+            },
+            "metadata": {
+              "friendly_name": "input_unknown"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Overview",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "overview_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Devices",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "devices_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Faults",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "faults_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Presets",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "presets_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Provisions",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "provisions_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Virtual Parameters",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "virtual_parameters_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Files",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "files_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Config",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "config_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Permissions",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "permissions_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "Users",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "users_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "bootstrap",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "bootstrap_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "default",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "default_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": "a",
+              "text": "inform",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "inform_link"
+            }
+          },
+          {
+            "element_type": "link",
+            "locators": {
+              "css": ".download-csv",
+              "text": "Download",
+              "test_id": null
+            },
+            "metadata": {
+              "friendly_name": "download_link"
+            }
+          }
+        ]
+      },
+      "verification_logic": {
+        "url_pattern": "admin"
+      },
+      "element_descriptors": [
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "Log out",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "log_out_button"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "button_unknown"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": "button",
+            "text": "More",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "more_button"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": ".primary",
+            "text": "New",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "new_button"
+          }
+        },
+        {
+          "element_type": "button",
+          "locators": {
+            "css": ".primary",
+            "text": "Delete",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "delete_button"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "input",
+          "locators": {
+            "css": "input",
+            "text": "",
+            "test_id": ""
+          },
+          "metadata": {
+            "friendly_name": "input_unknown"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Overview",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "overview_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Devices",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "devices_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Faults",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "faults_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Presets",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "presets_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Provisions",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "provisions_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Virtual Parameters",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "virtual_parameters_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Files",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "files_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Config",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "config_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Permissions",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "permissions_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "Users",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "users_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "bootstrap",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "bootstrap_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "default",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "default_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": "a",
+            "text": "inform",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "inform_link"
+          }
+        },
+        {
+          "element_type": "link",
+          "locators": {
+            "css": ".download-csv",
+            "text": "Download",
+            "test_id": null
+          },
+          "metadata": {
+            "friendly_name": "download_link"
+          }
+        }
+      ],
+      "discovered_at": 1765454038.1312637
+    }
+  ],
+  "edges": [],
+  "statistics": {
+    "state_count": 5,
+    "transition_count": 0,
+    "visited_states": 1,
+    "state_types": {
+      "form": 1,
+      "page": 4
+    }
+  }
+}
