@@ -38,7 +38,8 @@ Feature: ACS GUI Device Management
     Then the reboot command should be sent to the device
     And a confirmation message should be displayed
     And the device should reboot successfully
-    And the device should reconnect to the ACS after reboot
+    And after completing the boot sequence, the CPE sends an Inform message to the ACS indicating that the boot sequence has been completed
+    And the CPE resumes normal operation, continuing periodic communication with the ACS
 
   Scenario: UC-ACS-GUI-01-GetParam: Retrieve Device Parameter via GUI
     Given the operator is logged into the ACS GUI

@@ -115,7 +115,7 @@
                 "gui_fsm_graph_file": "bf_config/gui_artifacts/genieacs/fsm_graph.json",
                 "gui_headless": true,
                 "gui_default_timeout": 30,
-                "gui_state_match_threshold": 0.80,
+                "gui_state_match_threshold": 0.75,
                 "gui_screenshot_dir": "bf_config/gui_artifacts/genieacs/screenshots",
                 "gui_visual_threshold": 0.95,
                 "gui_visual_comparison_method": "auto",

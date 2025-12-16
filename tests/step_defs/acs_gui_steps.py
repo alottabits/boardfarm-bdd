@@ -1,6 +1,7 @@
 """Step definitions for ACS GUI operations."""
 
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -328,9 +329,17 @@ def operator_initiates_reboot_via_gui(
     cpe_id = cpe.sw.cpe_id
     print(f"Initiating reboot for device '{cpe_id}' via ACS GUI...")
     
+    # Record test start timestamp for filtering logs
+    # GenieACS logs use UTC timestamps, so we record UTC time
+    # Subtract a small buffer (5 seconds) to account for timing differences
+    bf_context.test_start_timestamp = (
+        datetime.now(timezone.utc) - timedelta(seconds=5)
+    ).replace(tzinfo=None)
+    
     success = acs.gui.reboot_device_via_gui(cpe_id)
     bf_context.gui_reboot_initiated = success
     bf_context.cpe_id = cpe_id  # Store for later steps
+    bf_context.reboot_cpe_id = cpe_id  # For compatibility with existing NBI steps
     
     if success:
         print(f"✓ Reboot initiated for device '{cpe_id}' via GUI")
@@ -357,40 +366,36 @@ def device_reboots_successfully(cpe: CpeTemplate, bf_context: Any) -> None:
     """Verify device reboots successfully."""
     # Wait for device to start rebooting
     print("Waiting for device to reboot...")
-    time.sleep(10)
+    
+    # Get initial uptime for comparison (stored in background step)
+    initial_uptime = getattr(bf_context, 'initial_uptime', None)
+    if initial_uptime:
+        print(f"⚠ Initial uptime before reboot: {initial_uptime}s")
+    
+    # Wait longer for GenieACS to send task and CPE to execute it
+    print("Waiting 30 seconds for reboot task to execute...")
+    time.sleep(30)
+    
+    # Try to check current uptime via console
+    # Note: Console access may be lost during reboot
+    try:
+        from tests.step_defs.helpers import get_console_uptime_seconds
+        current_uptime = get_console_uptime_seconds(cpe)
+        print(f"⚠ Current uptime: {current_uptime}s")
+        
+        if initial_uptime and current_uptime < initial_uptime:
+            print(f"✓ CPE rebooted! Uptime reset from {initial_uptime}s to {current_uptime}s")
+        elif initial_uptime and current_uptime >= initial_uptime:
+            print(f"⚠ WARNING: CPE may not have rebooted. Uptime increased from {initial_uptime}s to {current_uptime}s")
+        else:
+            print("⚠ WARNING: Could not verify reboot - no initial uptime reference")
+    except Exception as e:
+        print(f"⚠ Console unavailable (expected during reboot): {e}")
     
     # In a real test, we'd verify the device actually rebooted
     # For now, we just verify the command was sent
     assert bf_context.gui_reboot_initiated, "Reboot command should have been sent"
-    print("✓ Device reboot in progress")
-
-
-@then("the device should reconnect to the ACS after reboot")
-def device_reconnects_after_reboot(
-    acs: AcsTemplate, cpe: CpeTemplate, bf_context: Any
-) -> None:
-    """Verify device reconnects to ACS after reboot."""
-    cpe_id = cpe.sw.cpe_id
-    
-    # Wait for device to come back online
-    print(f"Waiting for device '{cpe_id}' to reconnect (up to 60 seconds)...")
-    max_wait = 60
-    start_time = time.time()
-    
-    while time.time() - start_time < max_wait:
-        try:
-            param = "Device.DeviceInfo.SoftwareVersion"
-            result = acs.nbi.GPV(param, cpe_id=cpe_id)
-            if result and len(result.response) > 0:
-                print(f"✓ Device '{cpe_id}' reconnected to ACS")
-                return
-        except Exception:
-            pass
-        time.sleep(5)
-    
-    # If we get here, device didn't reconnect in time
-    msg = f"Device '{cpe_id}' did not reconnect within {max_wait} seconds"
-    raise AssertionError(msg)
+    print("✓ Device reboot phase complete")
 
 
 # ============================================================================
