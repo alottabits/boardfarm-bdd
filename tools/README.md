@@ -1,173 +1,92 @@
 # Manual FSM Recording Tool
 
-This directory contains tools for recording UI workflows through interactive manual actions.
+Interactive tool for recording UI workflows through manual browser interactions, with intelligent deduplication.
 
 ## Purpose
 
 Automated UI discovery captures 60-70% of UI states (page-level navigation). This **interactive recording tool** captures the remaining 20-30% by letting YOU manually perform actions while the tool records states:
 
 - Dropdown menus and filter selections
-- Modal overlays and confirmation dialogs
+- Modal overlays and confirmation dialogs  
 - Multi-step compound actions
 - Dynamic UI elements that appear on interaction
+- Pop-ups and their appearance/disappearance
 - **ANY workflow you can manually perform**
 
-## Key Design Philosophy
+## Key Features
 
-🎯 **Workflow-Agnostic**: The tool doesn't prescribe specific workflows. YOU decide what to record by performing actions in the browser.
+### 🎯 Workflow-Agnostic Design
+- No hardcoded workflows - YOU decide what to record
+- No CPE IDs, usernames, or credentials needed
+- Start fresh or augment existing graphs
+- Works with any web application
 
-✅ **Interactive**: Type 's' in terminal to capture states (won't interfere with browser Enter key)  
-✅ **Flexible**: Start fresh or augment existing graphs  
-✅ **No hardcoding**: No CPE IDs, usernames, or specific workflows required  
-✅ **ARIA-based**: Captures accessibility tree snapshots automatically  
+### 🧬 Intelligent Deduplication
+- **Fingerprint-based matching** - Structural comparison, not just ID matching
+- Detects duplicate states using URL pattern + element structure
+- Automatically remaps transitions to existing states
+- Prevents graph pollution
+- Idempotent - safe to re-record same workflows
 
-## When to Use
+### 🎨 Rich State Capture
+- **ARIA snapshots** - Accessibility tree for robust element identification
+- **Actionable elements** - Buttons, links, inputs with role-based locators
+- **State types** - form, detail, overlay, interactive, dashboard
+- **URL patterns** - Normalized for matching
 
-Use manual recording when:
-1. Automated discovery misses critical interaction states
-2. You need to capture dropdown/overlay states
-3. Test code has direct Playwright locators (technical debt)
-4. UI changes require re-recording specific workflows
-5. You want to explore and document a new UI workflow
+### 🔄 Smart Transitions
+- **Action metadata** - What you did to reach each state
+- **Action types** - click, fill_and_submit, select, navigate, wait
+- **Element locators** - ARIA role-based (resilient to CSS changes)
+- **Automatic type inference** - From your action descriptions
 
-## What Gets Captured
+### 💻 Clean User Experience
+- **Interactive 's' key** - Capture states without interfering with browser
+- **Clear prompts** - Visual cues, examples, immediate feedback
+- **Race-free input** - Pure asyncio, no threading issues
+- **Clean output** - No exception noise
 
-### States (Nodes)
-For each state snapshot, the tool captures:
-- **URL** and **title**
-- **ARIA snapshot** (accessibility tree)
-- **Actionable elements** (buttons, links, inputs)
-- **Element locators** (role-based, resilient)
-- **State type** (form, list, detail, overlay, interactive)
+## Quick Start
 
-### Transitions (Edges)
-For each transition between states, the tool captures:
-- **Action type** (click, fill_and_submit, select, navigate, custom)
-- **Target element** (button name, link text, form description)
-- **Element locators** (how to find the element for automation)
-- **Action data** (form fields, dropdown options, URLs)
-- **Description** (human-readable action summary)
-
-**Example Transition**:
-```json
-{
-  "id": "T_LOGIN_TO_OVERVIEW",
-  "source": "V_STATE_001",
-  "target": "V_STATE_002",
-  "action_type": "fill_and_submit",
-  "description": "Fill and submit login form",
-  "trigger_locators": {},
-  "action_data": {
-    "fields": "username, password",
-    "submit_method": "button or Enter key"
-  }
-}
-```
-
-## Tool: `manual_fsm_augmentation.py`
-
-### How It Works
-
-1. **Browser opens** at your specified URL (visible mode)
-2. **You manually navigate** - login, click buttons, fill forms, etc.
-3. **Type 's' in terminal** after each significant state change (won't interfere with form submissions!)
-4. **Tool captures** current page state (ARIA snapshot, elements, URL)
-5. **Tool prompts** for action details (what you just did to reach this state)
-6. **Type 'q' in terminal** when done - tool saves all recorded states/transitions
-
-### Usage
+### Prerequisites
 
 ```bash
-# Activate virtual environment
 cd ~/projects/req-tst/boardfarm-bdd
 source .venv-3.12/bin/activate
+```
 
+### Basic Usage
+
+```bash
 # Start fresh recording
 python tools/manual_fsm_augmentation.py \
   --url http://localhost:3000 \
   --output bf_config/gui_artifacts/genieacs/fsm_graph.json
 
-# Augment existing graph
+# Augment existing graph (recommended)
 python tools/manual_fsm_augmentation.py \
   --url http://localhost:3000 \
   --input bf_config/gui_artifacts/genieacs/fsm_graph.json \
   --output bf_config/gui_artifacts/genieacs/fsm_graph_augmented.json
-
-# Or use the wrapper script
-./tools/augment_fsm.sh           # Augment existing
-./tools/augment_fsm.sh --fresh   # Start from scratch
 ```
 
-### Interactive Recording Session
+### Interactive Session
 
-Here's what a typical session looks like:
-
-```bash
-$ ./tools/augment_fsm.sh
-
-==========================================
-Manual FSM Recording (Interactive)
-==========================================
-Mode:        Augmentation
-URL:         http://localhost:3000
-Input:       bf_config/gui_artifacts/genieacs/fsm_graph.json
-Output:      bf_config/gui_artifacts/genieacs/fsm_graph_augmented.json
-==========================================
-
-The browser will open at http://localhost:3000
-You will manually perform actions in the browser.
-After each significant action, type 's' in the TERMINAL to capture the state.
-Type 'q' in the TERMINAL when you're done recording.
-
-Ready to start? (y/n) y
-
-Starting interactive recording session...
-
-Browser started and navigated to http://localhost:3000
-You can now manually interact with the page
-
-============================================================
+```
 INTERACTIVE RECORDING MODE
-============================================================
+======================================================================
 The browser is open. You can interact with it normally.
 Commands (type in this TERMINAL, not the browser):
 
   's' + [Enter]     - Capture/Snapshot current browser state
   'q' + [Enter]     - Quit recording and save
-============================================================
+======================================================================
 
-TIP: Use Enter freely in the browser (forms, etc.).
-     Only type 's' in THIS terminal to capture states.
-============================================================
+Command (s=snapshot, q=quit): s
 
-Command (s=snapshot, q=quit): 
-
-# You perform in BROWSER: Fill username, password, press Enter to login
-# Then type 's' in TERMINAL
-
-s
 Capturing current state...
-Capturing state: V_STATE_001
-  - Type: form
-  - URL: http://localhost:3000/#/login
-  - Elements: 1 buttons, 1 links, 2 inputs
-State captured: V_STATE_001
-Total states captured: 1
-
-Ready. Perform next action in browser, then type 's' here.
-
-Command (s=snapshot, q=quit): 
-
-# You in BROWSER: Navigate to devices page (click "Devices" link)
-# Then type 's' in THIS TERMINAL
-
-s
-Capturing current state...
-Capturing state: V_STATE_002
-  - Type: list
-  - URL: http://localhost:3000/#/devices
-  - Elements: 5 buttons, 12 links, 1 inputs
 State captured: V_STATE_002
+Total states captured: 2
 
 ======================================================================
 ⚠️  DESCRIBE THE ACTION YOU JUST PERFORMED
@@ -182,45 +101,70 @@ Examples:
 
 (Press Enter alone to skip and use generic description)
 ----------------------------------------------------------------------
-Your action → clicked the Devices link    ← TYPE YOUR DESCRIPTION HERE
+Your action → clicked the Devices link
 ======================================================================
 Transition created: V_STATE_001 → V_STATE_002
   Action: clicked the Devices link
-Total states captured: 2
 
 Ready. Perform next action in browser, then type 's' here.
 
-Command (s=snapshot, q=quit):    ← NOW you can type 's' again
-
-# ... continue until done ...
-
-Command (s=snapshot, q=quit): q
-
-Recording complete!
-Captured 5 states and 4 transitions
+Command (s=snapshot, q=quit):
 ```
 
-### Recording Strategy
+## What Gets Captured
 
-1. **Plan your workflow** - Decide what to record before starting
-2. **Significant states only** - Don't capture every hover/animation
-3. **After actions** - Type 's' AFTER each action completes and page settles
-4. **Describe actions accurately** - Provide correct button/link names for automation
-5. **Capture overlays** - Type 's' when overlays/dropdowns appear
-6. **Be patient** - Wait for page loads, then type 's' to capture
-7. **Use browser normally** - Press Enter in forms as usual (doesn't trigger capture)
+### States (Nodes)
+Each state snapshot includes:
+- **URL** and **title**
+- **ARIA snapshot** (accessibility tree)
+- **Actionable elements** (buttons, links, inputs)
+- **Element locators** (role-based, resilient: `getByRole('button', { name: 'Login' })`)
+- **State type** (form, detail, overlay, interactive)
+- **Discovery metadata** (timestamp, manually recorded flag)
 
-### Smart Deduplication
+### Transitions (Edges)
+Each transition between states includes:
+- **Action type** (click, fill_and_submit, select, navigate, wait, custom)
+- **Description** (human-readable: "clicked the Devices link")
+- **Element locators** (how to find the element for automation)
+- **Action data** (form fields, dropdown options, URLs)
+
+Example:
+```json
+{
+  "id": "T_V_STATE_001_TO_V_STATE_002",
+  "edge_type": "transition",
+  "source": "V_STATE_001",
+  "target": "V_STATE_002",
+  "action_type": "click_link",
+  "description": "clicked the Devices link",
+  "trigger_locators": {},
+  "action_data": {}
+}
+```
+
+## Intelligent Deduplication
 
 When merging with an existing graph, the tool uses **fingerprint-based duplicate detection**:
 
-**What happens:**
-- Computes a structural fingerprint for each state (URL pattern + element structure)
-- Compares manually recorded states against existing states
-- If match found, skips the duplicate and remaps transitions to existing state ID
-- Only adds genuinely new states
+### How It Works
 
-**Example output:**
+1. **Computes structural fingerprint** for each state:
+   - URL pattern (stripped of dynamic query params)
+   - State type
+   - Element structure (button/link/input counts)
+   - Non-data link names (ignores numeric values)
+
+2. **Compares manually recorded states** against existing states
+
+3. **Detects duplicates** and maps to existing state IDs
+
+4. **Remaps transitions** to use existing states where appropriate
+
+5. **Only adds genuinely new states**
+
+### Example Output
+
 ```
 MERGING WITH EXISTING GRAPH
 ============================================================
@@ -238,259 +182,258 @@ Duplicates found: 2 states, 1 transitions
 Actually added: 11 states, 11 transitions
 ```
 
-**Benefits:**
-- ✅ Clean graph with no duplicates
-- ✅ Can start recording from any existing state
-- ✅ Idempotent - safe to re-record the same workflow
-- ✅ Transitions correctly linked to existing states
+### Benefits
 
-See [FINGERPRINT_DEDUPLICATION.md](./FINGERPRINT_DEDUPLICATION.md) for technical details.
+- ✅ **Clean graph** - No duplicate states
+- ✅ **Start anywhere** - Can begin recording from any existing state
+- ✅ **Idempotent** - Safe to re-record the same workflow multiple times
+- ✅ **Correct connections** - Transitions automatically link to existing states
 
-### Action Detail Tips
+## Recording Strategy
 
-When prompted for action details:
-- **Button/Link names**: Use exact text from the UI (case-sensitive)
-- **Form fields**: List all fields filled (e.g., "username, password, email")
-- **Dropdown options**: Specify exact option text selected
-- **Skip if unsure**: Press Enter to create generic transition (can edit JSON later)
-- **Be specific**: Good locators = more reliable automation
+### Best Practices
+
+1. **Plan your workflow** - Decide what to record before starting
+2. **Significant states only** - Don't capture every hover/animation
+3. **After actions** - Type 's' AFTER each action completes and page settles
+4. **Describe accurately** - Provide correct button/link names for automation
+5. **Capture overlays** - Type 's' when overlays/dropdowns appear AND after they disappear
+6. **Be patient** - Wait for page loads, then type 's'
+7. **Use browser normally** - Press Enter in forms as usual (doesn't trigger capture)
+
+### When to Capture States
+
+**DO capture**:
+- After clicking a button/link (once page loads)
+- When a dropdown menu opens
+- When an overlay/modal appears
+- After submitting a form (once result page loads)
+- When a pop-up appears
+- When a pop-up disappears (leaving underlying page)
+
+**DON'T capture**:
+- During animations
+- While page is loading
+- On hover (unless it reveals persistent UI elements)
+- Temporary tooltips
+
+### Action Description Tips
+
+When prompted for action details, provide clear descriptions:
 
 **Good examples**:
-- Button: "Submit", "Login", "Reboot", "Commit"
-- Link: "Devices", "Overview", "Settings"
-- Form: "login form" with fields "username, password"
-- Dropdown: "Serial number" from "Filter by"
+- "clicked the Devices link"
+- "selected 'Serial number:' from the dropdown"
+- "entered CPE serial number and pressed Enter"
+- "pressed the Reboot button"
+- "waited for popup to disappear"
 
-## Output
+**Avoid**:
+- Generic: "clicked something"
+- Vague: "did stuff"
+- Technical: "executed JavaScript click event on element #btn_1"
 
-The tool produces an FSM graph with:
-- All manually recorded states (tagged with `"discovered_manually": true`)
-- Transitions between states (showing the order you navigated)
-- ARIA snapshots and actionable elements for each state
-- Complete metadata with timestamps
+The tool will infer action types from your description:
+- "clicked" → `click` or `click_button` or `click_link`
+- "filled", "entered" → `fill_and_submit`
+- "selected" → `select`
+- "waited" → `wait`
 
-### Example Output
+## Command Reference
+
+### Arguments
+
+```
+--url URL                Base URL to navigate to (default: http://localhost:3000)
+--input PATH             Path to existing fsm_graph.json (optional)
+--output PATH            Path to save the recorded/augmented graph (required)
+--headless               Run browser in headless mode (not recommended)
+```
+
+### Interactive Commands
+
+During recording session:
+
+| Command | Action |
+|---------|--------|
+| `s` | Capture current browser state |
+| `q` | Quit recording and save all captured data |
+| `Enter` (at action prompt) | Skip action description (uses generic) |
+
+## Output Format
+
+The tool generates/augments an FSM graph JSON file:
 
 ```json
 {
   "base_url": "http://localhost:3000",
   "graph_type": "fsm_mbt",
-  "discovery_method": "manual_interactive_recording",
+  "discovery_method": "playwright_state_machine_dfs",
   "nodes": [
     {
       "id": "V_STATE_001",
       "node_type": "state",
-      "state_type": "form",
+      "state_type": "interactive",
       "discovered_manually": true,
-      "discovery_timestamp": "2025-12-16T10:30:00Z",
       "fingerprint": {
-        "url": "http://localhost:3000/#/login",
-        "title": "Login - GenieACS",
-        "aria_snapshot": "- banner:\n  - link \"Log in\"\n...",
+        "url": "http://localhost:3000/#!/overview",
+        "aria_snapshot": "- navigation:\n  - link \"Overview\"\n  ...",
         "actionable_elements": {
-          "buttons": [
-            {
-              "role": "button",
-              "name": "Login",
-              "locator_strategy": "getByRole('button', { name: 'Login' })"
-            }
-          ],
-          "inputs": [
-            {
-              "role": "textbox",
-              "name": "username"
-            },
-            {
-              "role": "textbox",
-              "name": "password"
-            }
-          ],
-          "total_count": 3
+          "buttons": [...],
+          "links": [...],
+          "inputs": [...],
+          "total_count": 8
         }
       },
       "verification_logic": {
-        "url_pattern": "/login",
-        "title_contains": "Login - GenieACS"
-      }
-    },
-    {
-      "id": "V_STATE_002",
-      "node_type": "state",
-      "state_type": "list",
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-16T10:31:00Z",
-      "fingerprint": {
-        "url": "http://localhost:3000/#/devices",
-        "title": "Devices - GenieACS",
-        "actionable_elements": {
-          "buttons": [{"role": "button", "name": "Refresh"}],
-          "links": [{"role": "link", "name": "665A3B-SN665A3BA8824A"}],
-          "inputs": [{"role": "textbox"}],
-          "total_count": 14
-        }
+        "url_pattern": "overview",
+        "title_contains": "Overview"
       }
     }
   ],
   "edges": [
     {
       "id": "T_V_STATE_001_TO_V_STATE_002",
-      "edge_type": "transition",
       "source": "V_STATE_001",
       "target": "V_STATE_002",
-      "action_type": "click",
-      "description": "Click 'Devices' link",
-      "trigger_locators": {
-        "role": "link",
-        "name": "Devices",
-        "selector": "a:has-text('Devices')"
-      },
-      "action_data": {},
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-16T10:31:00Z"
+      "action_type": "click_link",
+      "description": "clicked the Devices link"
     }
   ],
   "statistics": {
-    "state_count": 2,
-    "transition_count": 1,
-    "manually_recorded": true,
-    "recording_timestamp": "2025-12-16T10:31:00Z"
+    "state_count": 21,
+    "transition_count": 69,
+    "manually_augmented": true,
+    "new_states_added": 11,
+    "duplicate_states_skipped": 2
   }
 }
 ```
 
-## Integration Workflow
+## Use Cases
 
-### Approach 1: Two-Step (Automated + Manual)
+### 1. Capture Dropdown Interactions
 
-**Step 1: Run Automated Discovery** (captures high-level pages)
-```bash
-cd ~/projects/req-tst/StateExplorer
-aria-discover \
-  --url http://localhost:3000 \
-  --username admin \
-  --password admin \
-  --max-states 20 \
-  --output ~/projects/req-tst/boardfarm-bdd/bf_config/gui_artifacts/genieacs/fsm_graph.json
-```
-**Result:** 10-12 high-level states (login, overview, devices, etc.)
+**Scenario**: Search filter has dropdown menu for field selection
 
-**Step 2: Run Manual Recording** (captures detailed interactions)
-```bash
-cd ~/projects/req-tst/boardfarm-bdd
-./tools/augment_fsm.sh
-```
+**Steps**:
+1. Navigate to search page → Type 's'
+2. Click in filter field → Type 's' (dropdown appears)
+3. Select "Serial number:" → Type 's' (dropdown closes)
+4. Enter serial number → Type 's' (results shown)
 
-**During recording:**
-1. Browser opens at login page
-2. You manually in BROWSER: Fill login form and press Enter to submit
-3. Type 's' in TERMINAL after: login complete
-4. You manually in BROWSER: Navigate to devices → Open dropdown → Select filter → Search (using Enter as normal)
-5. Type 's' in TERMINAL after each: devices page load, dropdown open, filter selected, results shown
-6. Type 'q' in TERMINAL when done
+**Result**: 4 states capturing dropdown lifecycle
 
-**Result:** 15-20 states (pages + dropdowns + overlays + search results)
+### 2. Record Overlay Workflows
 
-### Approach 2: Manual Only (Start Fresh)
+**Scenario**: Reboot button shows confirmation overlay
 
-For exploring new UI or when automated discovery isn't suitable:
+**Steps**:
+1. Navigate to device details → Type 's'
+2. Click "Reboot" button → Type 's' (overlay appears)
+3. Click "Commit" button → Type 's' (overlay shows pending)
+4. Wait for overlay to close → Type 's' (back to device details)
 
-```bash
-cd ~/projects/req-tst/boardfarm-bdd
-./tools/augment_fsm.sh --fresh
-```
+**Result**: 4 states capturing overlay lifecycle
 
-**Use case:** Recording a complete workflow from scratch, exploring new features, documenting edge cases
+### 3. Multi-Step Forms
 
-### 3. Review and Replace
-```bash
-# Review the augmented graph
-cat bf_config/gui_artifacts/genieacs/fsm_graph_augmented.json | jq '.statistics'
+**Scenario**: Form with dynamic fields based on selections
 
-# If satisfied, replace original
-cp bf_config/gui_artifacts/genieacs/fsm_graph.json \
-   bf_config/gui_artifacts/genieacs/fsm_graph_original.json.bak
-   
-cp bf_config/gui_artifacts/genieacs/fsm_graph_augmented.json \
-   bf_config/gui_artifacts/genieacs/fsm_graph.json
-```
+**Steps**:
+1. Initial form state → Type 's'
+2. Select option from dropdown → Type 's' (new fields appear)
+3. Fill new fields → Type 's'
+4. Submit form → Type 's' (result page)
 
-### 4. Update Device Implementation
-Update `boardfarm/boardfarm3/devices/genie_acs.py`:
-
-```python
-class GenieAcsGUI(BaseGui):
-    STATE_REGISTRY = {
-        # Existing states
-        "login_page": "V_LOGIN_FORM_EMPTY",
-        "home_page": "V_OVERVIEW_PAGE",
-        "devices_page": "V_DEVICES_PAGE",
-        
-        # New states from manual augmentation
-        "search_ready": "V_DEVICES_SEARCH_READY",
-        "search_filter_dropdown": "V_DEVICES_SEARCH_FILTER_DROPDOWN",
-        "search_serial_selected": "V_DEVICES_SEARCH_SERIAL_SELECTED",
-        "search_results": "V_DEVICES_SEARCH_RESULTS",
-        "device_details": "V_DEVICE_DETAILS",
-        "reboot_pending": "V_REBOOT_TASK_PENDING",
-        "reboot_committed": "V_REBOOT_TASK_COMMITTED",
-    }
-```
-
-### 5. Refactor Test Steps
-Replace direct Playwright locators with FSM transitions:
-
-```python
-# BEFORE (brittle, manual locators)
-async def operator_initiates_reboot_via_gui(bf_context):
-    acs = bf_context.board.get_device('acs')
-    await acs.gui.browser.page.click('button:has-text("Reboot")')
-    await acs.gui.browser.page.click('button:has-text("Commit")')
-
-# AFTER (resilient, FSM-driven)
-async def operator_initiates_reboot_via_gui(bf_context):
-    acs = bf_context.board.get_device('acs')
-    await acs.gui.reboot_device_via_gui_complete(bf_context.cpe_device_id)
-```
-
-## Maintenance
-
-When the UI changes:
-1. Re-run automated discovery to capture high-level changes
-2. Re-run manual augmentation to update interaction details
-3. Review diff to see what changed
-4. Update test steps if state IDs changed
-
-## Best Practices
-
-1. **Balance granularity**: Capture overlays/dropdowns, but not every hover state
-2. **Descriptive IDs**: Use clear state IDs like `V_REBOOT_TASK_PENDING`
-3. **Version control**: Keep both `fsm_graph.json` and `fsm_graph_augmented.json`
-4. **Document custom workflows**: Add comments when adding new recordings
-5. **Test incrementally**: Test each workflow after adding it
+**Result**: 4 states capturing form evolution
 
 ## Troubleshooting
 
-### Browser doesn't start
-- Check Playwright installation: `playwright install firefox`
-- Try visible mode to debug: remove `--headless` flag
+### Issue: Action descriptions interpreted as commands
 
-### States not captured correctly
-- Increase wait times in the script (`await asyncio.sleep(2)`)
-- Check element selectors in browser DevTools
-- Run in visible mode to observe
+**Symptom**: You see `→ Unknown command: 'clicked on Devices' tab'. Use 's' or 'q'`
 
-### Duplicate states added
-- The tool automatically deduplicates using **fingerprint-based detection**
-- Compares URL pattern, state type, and element structure (not just IDs)
-- If manually recording a state that already exists, it will:
-  - Skip adding the duplicate state
-  - Remap transitions to use the existing state ID
-  - Log: `"Duplicate detected: V_STATE_001 matches existing V_OVERVIEW_PAGE"`
-- Check merge output for deduplication summary showing what was skipped
+**Cause**: This was a threading race condition (fixed in current version)
 
-### Missing transitions
-- Ensure source and target states are captured before transitions
-- Check that element locators are correct
+**Solution**: Update to latest version of the tool. The issue is resolved through pure asyncio implementation.
+
+### Issue: Duplicate states added to graph
+
+**Symptom**: Graph size grows by exact number of states captured (no deduplication)
+
+**Cause**: Using old version without fingerprint-based deduplication
+
+**Solution**: 
+- Tool now uses **fingerprint-based deduplication** (not just ID matching)
+- Check merge output for "Duplicate detected" messages
+- Verify statistics show `duplicate_states_skipped` count
+
+### Issue: Browser doesn't open
+
+**Symptom**: Script runs but no browser appears
+
+**Cause**: Playwright not installed or wrong Python environment
+
+**Solution**:
+```bash
+source .venv-3.12/bin/activate
+pip install playwright
+python -m playwright install firefox
+```
+
+### Issue: States not captured correctly
+
+**Symptom**: States missing elements or ARIA snapshot incomplete
+
+**Solution**:
+- Wait for page to fully load before typing 's'
+- Ensure page has settled (no animations)
+- Check browser console for JavaScript errors
+- Try increasing wait time (future enhancement)
+
+### Issue: Can't distinguish similar states
+
+**Symptom**: Tool thinks two different states are duplicates
+
+**Cause**: States have same URL and similar element structure
+
+**Solution**: This is expected for states that differ only in data (e.g., different device counts). For structural differences (e.g., dropdown open vs closed), the tool should detect them. If not, file an issue with examples.
+
+## Technical Details
+
+### Architecture
+
+- **Pure asyncio** - No threading, no race conditions
+- **Non-blocking input** - Uses `loop.run_in_executor()` for stdin
+- **Playwright** - Firefox browser automation
+- **ARIA snapshots** - Accessibility tree capture
+- **Fingerprint algorithm** - MD5 hash of structural properties
+
+### Fingerprint Computation
+
+States are compared using:
+```python
+fingerprint = {
+    'url_base': normalized_url,
+    'state_type': 'form' | 'detail' | 'interactive' | ...,
+    'button_count': len(buttons),
+    'link_structure': [non-data link names],
+    'input_count': len(inputs)
+}
+hash = md5(json.dumps(fingerprint, sort_keys=True))
+```
+
+### Merge Algorithm
+
+1. Build fingerprint map of existing states
+2. For each manually recorded state:
+   - Compute fingerprint
+   - Check against existing fingerprints
+   - If match: map to existing ID (don't add)
+   - If new: add to graph
+3. Remap transitions to use mapped IDs
+4. Skip transitions that already exist
 
 ## Dependencies
 
@@ -498,8 +441,42 @@ Required packages (already in `.venv-3.12`):
 - `playwright>=1.40.0`
 - Python 3.10+
 
-## See Also
+## Files
 
-- [StateExplorer Documentation](../../StateExplorer/docs/)
-- [FSM Implementation Guide](../../StateExplorer/docs/guides/FSM_IMPLEMENTATION_GUIDE.md)
-- [UI Testing Guide](../docs/UI_Testing_Guide.md)
+- **`manual_fsm_augmentation.py`** - Interactive recording tool (756 lines)
+- **`README.md`** - This documentation
+
+## Next Steps After Recording
+
+1. **Review the augmented graph**:
+   ```bash
+   cat bf_config/gui_artifacts/genieacs/fsm_graph_augmented.json | jq '.statistics'
+   ```
+
+2. **Update STATE_REGISTRY**:
+   ```python
+   # In genie_acs.py
+   STATE_REGISTRY = {
+       "login": "V_LOGIN_FORM_EMPTY",
+       "overview": "V_OVERVIEW_PAGE",
+       "devices": "V_DEVICES",
+       "devices_dropdown_open": "V_STATE_003",  # New!
+       "device_details": "V_STATE_006",         # New!
+       # ...
+   }
+   ```
+
+3. **Refactor test steps** to use FSM transitions instead of direct Playwright locators
+
+4. **Test resilience** - Make minor UI changes and verify tests still pass
+
+## Support
+
+For issues, questions, or contributions:
+- Check troubleshooting section above
+- Review captured JSON for state/transition details
+- Consult FSM implementation guide in `../docs/`
+
+## License
+
+BSD-3-Clause (see LICENSE file in project root)
