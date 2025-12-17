@@ -277,8 +277,119 @@ class ManualFSMAugmenter:
         elif any(word in desc_lower for word in ['navigate', 'navigated', 'go to', 'went to']):
             action_data["action_type"] = "navigate"
         
+        # NEW: Prompt for guard conditions (conditional transitions)
+        await self._prompt_for_guard_condition(action_data)
+        
         print("="*70)
         return action_data
+    
+    async def _prompt_for_guard_condition(self, action_data: Dict[str, Any]) -> None:
+        """
+        Prompt user for guard condition if this is a conditional transition.
+        
+        Conditional transitions occur when the same action can lead to different
+        states based on system conditions (e.g., CPE online vs offline).
+        
+        Args:
+            action_data: Action metadata dictionary to update with guard info
+        """
+        print()
+        print("-"*70)
+        print("🔀 CONDITIONAL TRANSITION?")
+        print("-"*70)
+        print("Can this action lead to DIFFERENT states based on system conditions?")
+        print()
+        print("Examples:")
+        print("  • 'Summon CPE' → success if online, failure if offline")
+        print("  • 'Login' → dashboard if valid, error if invalid credentials")
+        print("  • 'Connect' → connected if network up, timeout if network down")
+        print()
+        
+        loop = asyncio.get_event_loop()
+        try:
+            has_condition = await loop.run_in_executor(
+                None,
+                input,
+                "Is this conditional? (y/n, default: n) → "
+            )
+            has_condition = has_condition.strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            has_condition = "n"
+        
+        if has_condition not in ['y', 'yes']:
+            return  # Not conditional
+        
+        # Prompt for guard details
+        print()
+        print("="*70)
+        print("📝 GUARD CONDITION DETAILS")
+        print("="*70)
+        
+        # Condition name
+        try:
+            condition = await loop.run_in_executor(
+                None,
+                input,
+                "Condition name (e.g., 'cpe_online', 'authenticated') → "
+            )
+            condition = condition.strip()
+        except (EOFError, KeyboardInterrupt):
+            condition = ""
+        
+        # Expected outcome
+        try:
+            outcome = await loop.run_in_executor(
+                None,
+                input,
+                "Expected outcome (e.g., 'success', 'failure', 'timeout') → "
+            )
+            outcome = outcome.strip()
+        except (EOFError, KeyboardInterrupt):
+            outcome = ""
+        
+        # Description
+        print()
+        print("Brief description of the condition:")
+        try:
+            guard_desc = await loop.run_in_executor(
+                None,
+                input,
+                "Description → "
+            )
+            guard_desc = guard_desc.strip()
+        except (EOFError, KeyboardInterrupt):
+            guard_desc = ""
+        
+        # Testbed requirements
+        print()
+        print("What must be true in the testbed for this path?")
+        print("(e.g., 'CPE powered on and connected', 'User logged in')")
+        try:
+            testbed_req = await loop.run_in_executor(
+                None,
+                input,
+                "Testbed requirement → "
+            )
+            testbed_req = testbed_req.strip()
+        except (EOFError, KeyboardInterrupt):
+            testbed_req = ""
+        
+        # Add guard to action metadata
+        if condition or outcome:
+            action_data["guard"] = {
+                "condition": condition if condition else "unknown",
+                "type": "precondition",  # Can be extended to postcondition/invariant
+                "description": guard_desc if guard_desc else f"Condition: {condition}",
+                "testbed_requirement": testbed_req if testbed_req else "Not specified",
+                "recorded_manually": True
+            }
+            if outcome:
+                action_data["expected_outcome"] = outcome
+            
+            print()
+            print(f"✓ Guard condition recorded: {condition} → {outcome}")
+        
+        print("="*70)
     
     async def create_transition(self, from_state_id: str, to_state_id: str, action_metadata: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -310,6 +421,20 @@ class ManualFSMAugmenter:
             "discovered_manually": True,
             "discovery_timestamp": datetime.now(timezone.utc).isoformat(),
         }
+        
+        # Add guard condition if present (for conditional transitions)
+        if "guard" in action_metadata:
+            transition["metadata"] = {
+                "guard": action_metadata["guard"]
+            }
+            
+            # Add expected outcome if specified
+            if "expected_outcome" in action_metadata:
+                transition["metadata"]["expected_outcome"] = action_metadata["expected_outcome"]
+            
+            logger.info("  Conditional transition: %s → %s",
+                       action_metadata["guard"].get("condition"),
+                       action_metadata.get("expected_outcome", "unspecified"))
         
         return transition
     
