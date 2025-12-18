@@ -11637,8 +11637,6 @@
       "id": "V_STATE_001",
       "node_type": "state",
       "state_type": "interactive",
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T14:59:34.585304+00:00",
       "fingerprint": {
         "url": "http://localhost:3000/#!/overview",
         "title": "Overview - GenieACS",
@@ -11702,14 +11700,14 @@
       "verification_logic": {
         "url_pattern": "!/overview",
         "title_contains": "Overview - GenieACS"
-      }
+      },
+      "element_descriptors": {},
+      "discovered_at": ""
     },
     {
       "id": "V_STATE_002",
       "node_type": "state",
       "state_type": "form",
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T14:59:46.737951+00:00",
       "fingerprint": {
         "url": "http://localhost:3000/#!/devices",
         "title": "Devices - GenieACS",
@@ -11977,14 +11975,14 @@
       "verification_logic": {
         "url_pattern": "!/devices",
         "title_contains": "Devices - GenieACS"
-      }
+      },
+      "element_descriptors": {},
+      "discovered_at": ""
     },
     {
       "id": "V_STATE_005",
       "node_type": "state",
       "state_type": "form",
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:03:16.839386+00:00",
       "fingerprint": {
         "url": "http://localhost:3000/#!/devices?filter=Q(%22Serial%20number%22%2C%20%22SNAA7B437ADA96%22)",
         "title": "Devices - GenieACS",
@@ -12104,14 +12102,14 @@
       "verification_logic": {
         "url_pattern": "!/devices",
         "title_contains": "Devices - GenieACS"
-      }
+      },
+      "element_descriptors": {},
+      "discovered_at": ""
     },
     {
       "id": "V_STATE_006",
       "node_type": "state",
       "state_type": "detail",
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:03:59.327224+00:00",
       "fingerprint": {
         "url": "http://localhost:3000/#!/devices/AA7B43-SNAA7B437ADA96",
         "title": "AA7B43-SNAA7B437ADA96 - Devices - GenieACS",
@@ -12194,14 +12192,14 @@
       "verification_logic": {
         "url_pattern": "!/devices/AA7B43-SNAA7B437ADA96",
         "title_contains": "AA7B43-SNAA7B437ADA96 - Devices - GenieACS"
-      }
+      },
+      "element_descriptors": {},
+      "discovered_at": ""
     },
     {
       "id": "V_STATE_009",
       "node_type": "state",
       "state_type": "detail",
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:07:12.586875+00:00",
       "fingerprint": {
         "url": "http://localhost:3000/#!/devices/AA7B43-SNAA7B437ADA96",
         "title": "AA7B43-SNAA7B437ADA96 - Devices - GenieACS",
@@ -12294,14 +12292,14 @@
       "verification_logic": {
         "url_pattern": "!/devices/AA7B43-SNAA7B437ADA96",
         "title_contains": "AA7B43-SNAA7B437ADA96 - Devices - GenieACS"
-      }
+      },
+      "element_descriptors": {},
+      "discovered_at": ""
     },
     {
       "id": "V_STATE_012",
       "node_type": "state",
       "state_type": "detail",
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:11:58.820248+00:00",
       "fingerprint": {
         "url": "http://localhost:3000/#!/devices/16B642-SN16B6425FE2F7",
         "title": "16B642-SN16B6425FE2F7 - Devices - GenieACS",
@@ -12384,7 +12382,9 @@
       "verification_logic": {
         "url_pattern": "!/devices/16B642-SN16B6425FE2F7",
         "title_contains": "16B642-SN16B6425FE2F7 - Devices - GenieACS"
-      }
+      },
+      "element_descriptors": {},
+      "discovered_at": ""
     }
   ],
   "edges": [
@@ -13434,195 +13434,172 @@
       "success_rate": 1.0
     },
     {
-      "id": "T_V_STATE_001_TO_V_STATE_002",
-      "edge_type": "transition",
       "source": "V_STATE_001",
       "target": "V_STATE_002",
+      "edge_type": "transition",
+      "transition_id": "",
       "action_type": "click",
-      "description": "clicked on `Devices` tab",
       "trigger_locators": {},
       "action_data": {},
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:00:14.080727+00:00"
+      "success_rate": 1.0
     },
     {
-      "id": "T_V_STATE_002_TO_V_STATE_002",
-      "edge_type": "transition",
       "source": "V_STATE_002",
       "target": "V_STATE_002",
+      "edge_type": "transition",
+      "transition_id": "",
       "action_type": "custom",
-      "description": "placed curson in `Filter text field`",
       "trigger_locators": {},
       "action_data": {},
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:02:26.849031+00:00"
+      "success_rate": 1.0
     },
     {
-      "id": "T_V_STATE_002_TO_V_STATE_005",
-      "edge_type": "transition",
       "source": "V_STATE_002",
       "target": "V_STATE_005",
+      "edge_type": "transition",
+      "transition_id": "",
       "action_type": "click",
-      "description": "entered cpe serial number in filter text and pressed Enter",
       "trigger_locators": {},
       "action_data": {},
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:03:48.552520+00:00"
+      "success_rate": 1.0
     },
     {
-      "id": "T_V_STATE_005_TO_V_STATE_006",
-      "edge_type": "transition",
       "source": "V_STATE_005",
       "target": "V_STATE_006",
+      "edge_type": "transition",
+      "transition_id": "",
       "action_type": "select",
-      "description": "selected cpe id from the filtered results table",
       "trigger_locators": {},
       "action_data": {},
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:04:17.776502+00:00"
+      "success_rate": 1.0
     },
     {
-      "id": "T_V_STATE_006_TO_V_STATE_006",
-      "edge_type": "transition",
       "source": "V_STATE_006",
       "target": "V_STATE_006",
+      "edge_type": "transition",
+      "transition_id": "",
       "action_type": "click_button",
-      "description": "pressed `Summon` button",
       "trigger_locators": {},
       "action_data": {},
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:06:25.799470+00:00",
-      "metadata": {
-        "guard": {
-          "condition": "cpe_online",
-          "type": "precondition",
-          "description": "cpe needs to be online",
-          "testbed_requirement": "CPE connected to the ACS",
-          "recorded_manually": true
-        },
-        "expected_outcome": "success"
-      }
+      "success_rate": 1.0
     },
     {
-      "id": "T_V_STATE_006_TO_V_STATE_009",
-      "edge_type": "transition",
       "source": "V_STATE_006",
       "target": "V_STATE_009",
+      "edge_type": "transition",
+      "transition_id": "",
       "action_type": "click_button",
-      "description": "clicked the `Reboot` button",
       "trigger_locators": {},
       "action_data": {},
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:07:32.903200+00:00"
+      "success_rate": 1.0
     },
     {
-      "id": "T_V_STATE_009_TO_V_STATE_006",
-      "edge_type": "transition",
       "source": "V_STATE_009",
       "target": "V_STATE_006",
+      "edge_type": "transition",
+      "transition_id": "",
       "action_type": "click_button",
-      "description": "pressed the `Commit` button",
       "trigger_locators": {},
       "action_data": {},
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:09:21.064664+00:00",
-      "metadata": {
-        "guard": {
-          "condition": "cpe_online",
-          "type": "precondition",
-          "description": "cpe needs to be online and connected to the acs",
-          "testbed_requirement": "cpe needs to be connected to the acs",
-          "recorded_manually": true
-        },
-        "expected_outcome": "success"
-      }
+      "success_rate": 1.0
     },
     {
-      "id": "T_V_STATE_006_TO_V_STATE_002",
-      "edge_type": "transition",
       "source": "V_STATE_006",
       "target": "V_STATE_002",
+      "edge_type": "transition",
+      "transition_id": "",
       "action_type": "click",
-      "description": "clicked on the 'Devices' tab",
       "trigger_locators": {},
       "action_data": {},
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:11:35.772589+00:00"
+      "success_rate": 1.0
     },
     {
-      "id": "T_V_STATE_002_TO_V_STATE_012",
-      "edge_type": "transition",
       "source": "V_STATE_002",
       "target": "V_STATE_012",
+      "edge_type": "transition",
+      "transition_id": "",
       "action_type": "click",
-      "description": "clicked on a cpe-id in the filtered overview",
       "trigger_locators": {},
       "action_data": {},
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:14:09.043513+00:00",
-      "metadata": {
-        "guard": {
-          "condition": "cpe_offline",
-          "type": "precondition",
-          "description": "the cpe is offline",
-          "testbed_requirement": "cpe offline and not connected to the acs",
-          "recorded_manually": true
-        },
-        "expected_outcome": "empty parameter values"
-      }
+      "success_rate": 1.0
     },
     {
-      "id": "T_V_STATE_012_TO_V_STATE_012",
-      "edge_type": "transition",
       "source": "V_STATE_012",
       "target": "V_STATE_012",
+      "edge_type": "transition",
+      "transition_id": "",
       "action_type": "click_button",
-      "description": "clicked on'Summon' button",
       "trigger_locators": {},
       "action_data": {},
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:15:39.941801+00:00",
-      "metadata": {
-        "guard": {
-          "condition": "cpe_offline",
-          "type": "precondition",
-          "description": "cpe is offline",
-          "testbed_requirement": "cpe is offline, acs cannot communicate with the cpe",
-          "recorded_manually": true
-        },
-        "expected_outcome": "failure"
-      }
+      "success_rate": 1.0
     },
     {
-      "id": "T_V_STATE_012_TO_V_STATE_001",
-      "edge_type": "transition",
       "source": "V_STATE_012",
       "target": "V_STATE_001",
+      "edge_type": "transition",
+      "transition_id": "",
       "action_type": "click",
-      "description": "clicked on the 'Overview' tab",
       "trigger_locators": {},
       "action_data": {},
-      "discovered_manually": true,
-      "discovery_timestamp": "2025-12-18T15:16:33.004452+00:00"
+      "success_rate": 1.0
+    },
+    {
+      "source": "V_LOGIN_FORM_EMPTY",
+      "target": "V_OVERVIEW_PAGE",
+      "edge_type": "transition",
+      "transition_id": "T_V_LOGIN_FORM_EMPTY_TO_V_OVERVIEW_PAGE_SUBMIT",
+      "action_type": "submit",
+      "trigger_locators": {
+        "element_type": "button",
+        "locators": {
+          "text": "Login"
+        },
+        "metadata": {},
+        "name": "Login"
+      },
+      "action_data": {
+        "requires_credentials": true
+      },
+      "success_rate": 1.0
     }
   ],
   "statistics": {
     "state_count": 16,
-    "transition_count": 69,
+    "transition_count": 70,
     "visited_states": 9,
     "state_types": {
-      "form": 1,
+      "form": 3,
       "dashboard": 1,
       "page": 2,
-      "admin": 6
-    },
-    "manually_augmented": true,
-    "augmentation_timestamp": "2025-12-18T15:16:40.984097+00:00",
-    "new_states_added": 6,
-    "new_transitions_added": 11,
-    "duplicate_states_skipped": 8,
-    "duplicate_transitions_skipped": 2,
-    "states_captured_manually": 14,
-    "transitions_captured_manually": 13
+      "admin": 6,
+      "interactive": 1,
+      "detail": 3
+    }
+  },
+  "seed_verification": {
+    "seeded_state_count": 16,
+    "verified_count": 1,
+    "unchanged_count": 1,
+    "modified_count": 0,
+    "removed_count": 15,
+    "unreachable_count": 0,
+    "state_status": {
+      "V_ADMIN_PRESETS": "removed",
+      "V_ADMIN_PERMISSIONS": "removed",
+      "V_LOGIN_FORM_EMPTY": "removed",
+      "V_FAULTS": "removed",
+      "V_DEVICES": "removed",
+      "V_ADMIN_FILES": "removed",
+      "V_STATE_009": "removed",
+      "V_ADMIN_CONFIG": "removed",
+      "V_ADMIN_VIRTUALPARAMETERS": "removed",
+      "V_STATE_001": "removed",
+      "V_STATE_005": "removed",
+      "V_STATE_006": "removed",
+      "V_STATE_002": "removed",
+      "V_STATE_012": "removed",
+      "V_ADMIN_PROVISIONS": "removed",
+      "V_OVERVIEW_PAGE": "unchanged"
+    }
   }
 }

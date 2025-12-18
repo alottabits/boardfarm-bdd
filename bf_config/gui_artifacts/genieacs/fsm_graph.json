@@ -159,7 +159,7 @@
           "locator_strategy": "getByRole('textbox')"
         }
       ],
-      "discovered_at": 1765719435.0315447
+      "discovered_at": 1766069118.9220674
     },
     {
       "id": "V_OVERVIEW_PAGE",
@@ -167,11 +167,11 @@
       "state_type": "dashboard",
       "fingerprint": {
         "accessibility_tree": {
-          "structure_hash": "77fef861",
+          "structure_hash": "3503332d",
           "landmark_roles": [
             "navigation"
           ],
-          "interactive_count": 9,
+          "interactive_count": 10,
           "heading_hierarchy": [
             "h2: Online status"
           ],
@@ -259,7 +259,21 @@
             },
             {
               "role": "link",
-              "name": "100.00%",
+              "name": "6.25%",
+              "href": "#!/devices/?filter=Events.Inform%20%3E%20NOW()%20-%2086700000%20AND%20Events.Inform%20%3C%20NOW()%20-%20300000",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: '6.25%' })"
+            },
+            {
+              "role": "link",
+              "name": "93.75%",
               "href": "#!/devices/?filter=Events.Inform%20%3C%20NOW()%20-%2086700000",
               "aria_states": {
                 "expanded": null,
@@ -269,7 +283,7 @@
                 "pressed": null,
                 "current": null
               },
-              "locator_strategy": "getByRole('link', { name: '100.00%' })"
+              "locator_strategy": "getByRole('link', { name: '93.75%' })"
             },
             {
               "role": "link",
@@ -287,7 +301,7 @@
             },
             {
               "role": "link",
-              "name": "0",
+              "name": "1",
               "href": "#!/devices/?filter=Events.Inform%20%3E%20NOW()%20-%2086700000%20AND%20Events.Inform%20%3C%20NOW()%20-%20300000",
               "aria_states": {
                 "expanded": null,
@@ -297,11 +311,11 @@
                 "pressed": null,
                 "current": null
               },
-              "locator_strategy": "getByRole('link', { name: '0' })"
+              "locator_strategy": "getByRole('link', { name: '1' })"
             },
             {
               "role": "link",
-              "name": "11",
+              "name": "15",
               "href": "#!/devices/?filter=Events.Inform%20%3C%20NOW()%20-%2086700000",
               "aria_states": {
                 "expanded": null,
@@ -311,11 +325,11 @@
                 "pressed": null,
                 "current": null
               },
-              "locator_strategy": "getByRole('link', { name: '11' })"
+              "locator_strategy": "getByRole('link', { name: '15' })"
             }
           ],
           "inputs": [],
-          "total_count": 9
+          "total_count": 10
         },
         "url_pattern": "overview",
         "route_params": {},
@@ -327,8 +341,8 @@
         "required_landmarks": [
           "navigation"
         ],
-        "min_interactive_count": 9,
-        "structure_hash": "77fef861",
+        "min_interactive_count": 10,
+        "structure_hash": "3503332d",
         "title": "Overview - GenieACS"
       },
       "element_descriptors": [
@@ -403,7 +417,21 @@
         },
         {
           "role": "link",
-          "name": "100.00%",
+          "name": "6.25%",
+          "href": "#!/devices/?filter=Events.Inform%20%3E%20NOW()%20-%2086700000%20AND%20Events.Inform%20%3C%20NOW()%20-%20300000",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: '6.25%' })"
+        },
+        {
+          "role": "link",
+          "name": "93.75%",
           "href": "#!/devices/?filter=Events.Inform%20%3C%20NOW()%20-%2086700000",
           "aria_states": {
             "expanded": null,
@@ -413,7 +441,7 @@
             "pressed": null,
             "current": null
           },
-          "locator_strategy": "getByRole('link', { name: '100.00%' })"
+          "locator_strategy": "getByRole('link', { name: '93.75%' })"
         },
         {
           "role": "link",
@@ -431,7 +459,7 @@
         },
         {
           "role": "link",
-          "name": "0",
+          "name": "1",
           "href": "#!/devices/?filter=Events.Inform%20%3E%20NOW()%20-%2086700000%20AND%20Events.Inform%20%3C%20NOW()%20-%20300000",
           "aria_states": {
             "expanded": null,
@@ -441,11 +469,11 @@
             "pressed": null,
             "current": null
           },
-          "locator_strategy": "getByRole('link', { name: '0' })"
+          "locator_strategy": "getByRole('link', { name: '1' })"
         },
         {
           "role": "link",
-          "name": "11",
+          "name": "15",
           "href": "#!/devices/?filter=Events.Inform%20%3C%20NOW()%20-%2086700000",
           "aria_states": {
             "expanded": null,
@@ -455,10 +483,10 @@
             "pressed": null,
             "current": null
           },
-          "locator_strategy": "getByRole('link', { name: '11' })"
+          "locator_strategy": "getByRole('link', { name: '15' })"
         }
       ],
-      "discovered_at": 1765719437.392108
+      "discovered_at": 1766069121.3080556
     },
     {
       "id": "V_DEVICES",
@@ -466,11 +494,11 @@
       "state_type": "page",
       "fingerprint": {
         "accessibility_tree": {
-          "structure_hash": "67c4d414",
+          "structure_hash": "9fa79058",
           "landmark_roles": [
             "navigation"
           ],
-          "interactive_count": 21,
+          "interactive_count": 51,
           "heading_hierarchy": [
             "h1: Listing devices"
           ],
@@ -727,6 +755,286 @@
             },
             {
               "role": "link",
+              "name": "SN16B6425FE2F7",
+              "href": "#!/devices/16B642-SN16B6425FE2F7",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'SN16B6425FE2F7' })"
+            },
+            {
+              "role": "link",
+              "name": "Show",
+              "href": "#!/devices/16B642-SN16B6425FE2F7",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'Show' })"
+            },
+            {
+              "role": "link",
+              "name": "SN4232395B8BC0",
+              "href": "#!/devices/423239-SN4232395B8BC0",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'SN4232395B8BC0' })"
+            },
+            {
+              "role": "link",
+              "name": "Show",
+              "href": "#!/devices/423239-SN4232395B8BC0",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'Show' })"
+            },
+            {
+              "role": "link",
+              "name": "SN4AF1B6EBA367",
+              "href": "#!/devices/4AF1B6-SN4AF1B6EBA367",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'SN4AF1B6EBA367' })"
+            },
+            {
+              "role": "link",
+              "name": "Show",
+              "href": "#!/devices/4AF1B6-SN4AF1B6EBA367",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'Show' })"
+            },
+            {
+              "role": "link",
+              "name": "SN665A3BA8824A",
+              "href": "#!/devices/665A3B-SN665A3BA8824A",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'SN665A3BA8824A' })"
+            },
+            {
+              "role": "link",
+              "name": "Show",
+              "href": "#!/devices/665A3B-SN665A3BA8824A",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'Show' })"
+            },
+            {
+              "role": "link",
+              "name": "SN6E987540799F",
+              "href": "#!/devices/6E9875-SN6E987540799F",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'SN6E987540799F' })"
+            },
+            {
+              "role": "link",
+              "name": "Show",
+              "href": "#!/devices/6E9875-SN6E987540799F",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'Show' })"
+            },
+            {
+              "role": "link",
+              "name": "SN7AB8BBF666EB",
+              "href": "#!/devices/7AB8BB-SN7AB8BBF666EB",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'SN7AB8BBF666EB' })"
+            },
+            {
+              "role": "link",
+              "name": "Show",
+              "href": "#!/devices/7AB8BB-SN7AB8BBF666EB",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'Show' })"
+            },
+            {
+              "role": "link",
+              "name": "SN7EC3CC42269D",
+              "href": "#!/devices/7EC3CC-SN7EC3CC42269D",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'SN7EC3CC42269D' })"
+            },
+            {
+              "role": "link",
+              "name": "Show",
+              "href": "#!/devices/7EC3CC-SN7EC3CC42269D",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'Show' })"
+            },
+            {
+              "role": "link",
+              "name": "SN8E3B9B3FCBD4",
+              "href": "#!/devices/8E3B9B-SN8E3B9B3FCBD4",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'SN8E3B9B3FCBD4' })"
+            },
+            {
+              "role": "link",
+              "name": "Show",
+              "href": "#!/devices/8E3B9B-SN8E3B9B3FCBD4",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'Show' })"
+            },
+            {
+              "role": "link",
+              "name": "SN96FD63696B99",
+              "href": "#!/devices/96FD63-SN96FD63696B99",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'SN96FD63696B99' })"
+            },
+            {
+              "role": "link",
+              "name": "Show",
+              "href": "#!/devices/96FD63-SN96FD63696B99",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'Show' })"
+            },
+            {
+              "role": "link",
+              "name": "SNAA7B437ADA96",
+              "href": "#!/devices/AA7B43-SNAA7B437ADA96",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'SNAA7B437ADA96' })"
+            },
+            {
+              "role": "link",
+              "name": "Show",
+              "href": "#!/devices/AA7B43-SNAA7B437ADA96",
+              "aria_states": {
+                "expanded": null,
+                "selected": null,
+                "checked": null,
+                "disabled": null,
+                "pressed": null,
+                "current": null
+              },
+              "locator_strategy": "getByRole('link', { name: 'Show' })"
+            },
+            {
+              "role": "link",
               "name": "Download",
               "href": null,
               "aria_states": {
@@ -755,7 +1063,7 @@
               "locator_strategy": "getByRole('textbox')"
             }
           ],
-          "total_count": 20
+          "total_count": 40
         },
         "url_pattern": "devices",
         "route_params": {},
@@ -767,8 +1075,8 @@
         "required_landmarks": [
           "navigation"
         ],
-        "min_interactive_count": 21,
-        "structure_hash": "67c4d414",
+        "min_interactive_count": 51,
+        "structure_hash": "9fa79058",
         "title": "Devices - GenieACS"
       },
       "element_descriptors": [
@@ -1012,6 +1320,286 @@
         },
         {
           "role": "link",
+          "name": "SN16B6425FE2F7",
+          "href": "#!/devices/16B642-SN16B6425FE2F7",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'SN16B6425FE2F7' })"
+        },
+        {
+          "role": "link",
+          "name": "Show",
+          "href": "#!/devices/16B642-SN16B6425FE2F7",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'Show' })"
+        },
+        {
+          "role": "link",
+          "name": "SN4232395B8BC0",
+          "href": "#!/devices/423239-SN4232395B8BC0",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'SN4232395B8BC0' })"
+        },
+        {
+          "role": "link",
+          "name": "Show",
+          "href": "#!/devices/423239-SN4232395B8BC0",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'Show' })"
+        },
+        {
+          "role": "link",
+          "name": "SN4AF1B6EBA367",
+          "href": "#!/devices/4AF1B6-SN4AF1B6EBA367",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'SN4AF1B6EBA367' })"
+        },
+        {
+          "role": "link",
+          "name": "Show",
+          "href": "#!/devices/4AF1B6-SN4AF1B6EBA367",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'Show' })"
+        },
+        {
+          "role": "link",
+          "name": "SN665A3BA8824A",
+          "href": "#!/devices/665A3B-SN665A3BA8824A",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'SN665A3BA8824A' })"
+        },
+        {
+          "role": "link",
+          "name": "Show",
+          "href": "#!/devices/665A3B-SN665A3BA8824A",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'Show' })"
+        },
+        {
+          "role": "link",
+          "name": "SN6E987540799F",
+          "href": "#!/devices/6E9875-SN6E987540799F",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'SN6E987540799F' })"
+        },
+        {
+          "role": "link",
+          "name": "Show",
+          "href": "#!/devices/6E9875-SN6E987540799F",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'Show' })"
+        },
+        {
+          "role": "link",
+          "name": "SN7AB8BBF666EB",
+          "href": "#!/devices/7AB8BB-SN7AB8BBF666EB",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'SN7AB8BBF666EB' })"
+        },
+        {
+          "role": "link",
+          "name": "Show",
+          "href": "#!/devices/7AB8BB-SN7AB8BBF666EB",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'Show' })"
+        },
+        {
+          "role": "link",
+          "name": "SN7EC3CC42269D",
+          "href": "#!/devices/7EC3CC-SN7EC3CC42269D",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'SN7EC3CC42269D' })"
+        },
+        {
+          "role": "link",
+          "name": "Show",
+          "href": "#!/devices/7EC3CC-SN7EC3CC42269D",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'Show' })"
+        },
+        {
+          "role": "link",
+          "name": "SN8E3B9B3FCBD4",
+          "href": "#!/devices/8E3B9B-SN8E3B9B3FCBD4",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'SN8E3B9B3FCBD4' })"
+        },
+        {
+          "role": "link",
+          "name": "Show",
+          "href": "#!/devices/8E3B9B-SN8E3B9B3FCBD4",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'Show' })"
+        },
+        {
+          "role": "link",
+          "name": "SN96FD63696B99",
+          "href": "#!/devices/96FD63-SN96FD63696B99",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'SN96FD63696B99' })"
+        },
+        {
+          "role": "link",
+          "name": "Show",
+          "href": "#!/devices/96FD63-SN96FD63696B99",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'Show' })"
+        },
+        {
+          "role": "link",
+          "name": "SNAA7B437ADA96",
+          "href": "#!/devices/AA7B43-SNAA7B437ADA96",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'SNAA7B437ADA96' })"
+        },
+        {
+          "role": "link",
+          "name": "Show",
+          "href": "#!/devices/AA7B43-SNAA7B437ADA96",
+          "aria_states": {
+            "expanded": null,
+            "selected": null,
+            "checked": null,
+            "disabled": null,
+            "pressed": null,
+            "current": null
+          },
+          "locator_strategy": "getByRole('link', { name: 'Show' })"
+        },
+        {
+          "role": "link",
           "name": "Download",
           "href": null,
           "aria_states": {
@@ -1038,7 +1626,7 @@
           "locator_strategy": "getByRole('textbox')"
         }
       ],
-      "discovered_at": 1765719438.7693253
+      "discovered_at": 1766069122.8006618
     },
     {
       "id": "V_FAULTS",
@@ -1488,7 +2076,7 @@
           "locator_strategy": "getByRole('textbox')"
         }
       ],
-      "discovered_at": 1765719440.9362214
+      "discovered_at": 1766069124.9911478
     },
     {
       "id": "V_ADMIN_PRESETS",
@@ -2278,7 +2866,7 @@
           "locator_strategy": "getByRole('textbox')"
         }
       ],
-      "discovered_at": 1765719443.8388486
+      "discovered_at": 1766069127.9353776
     },
     {
       "id": "V_ADMIN_PROVISIONS",
@@ -2861,7 +3449,7 @@
           "locator_strategy": "getByRole('button', { name: 'Save' })"
         }
       ],
-      "discovered_at": 1765719448.554755
+      "discovered_at": 1766069132.6020787
     },
     {
       "id": "V_ADMIN_VIRTUALPARAMETERS",
@@ -3444,7 +4032,7 @@
           "locator_strategy": "getByRole('button', { name: 'Save' })"
         }
       ],
-      "discovered_at": 1765719454.5295346
+      "discovered_at": 1766069138.52051
     },
     {
       "id": "V_ADMIN_FILES",
@@ -4120,7 +4708,7 @@
           "locator_strategy": "getByRole('textbox')"
         }
       ],
-      "discovered_at": 1765719461.4361534
+      "discovered_at": 1766069145.3811996
     },
     {
       "id": "V_ADMIN_CONFIG",
@@ -10200,7 +10788,7 @@
           "locator_strategy": "getByLabel('Search config')"
         }
       ],
-      "discovered_at": 1765719469.6414392
+      "discovered_at": 1766069153.4340887
     },
     {
       "id": "V_ADMIN_PERMISSIONS",
@@ -11043,7 +11631,7 @@
           "locator_strategy": "getByRole('button', { name: 'Save' })"
         }
       ],
-      "discovered_at": 1765719479.5517583
+      "discovered_at": 1766069163.154997
     }
   ],
   "edges": [

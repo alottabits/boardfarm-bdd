@@ -470,12 +470,25 @@ Required packages (already in `.venv-3.12`):
 
 4. **Test resilience** - Make minor UI changes and verify tests still pass
 
+## Complete Workflow Guide
+
+For the **full end-to-end workflow** (Fresh Discovery → Manual Recording → Incremental Discovery), see:
+
+📖 **[Complete Workflow Guide](../../StateExplorer/COMPLETE_WORKFLOW_GUIDE.md)**
+
+This comprehensive guide includes:
+- All three stages with detailed steps
+- Verification commands
+- Troubleshooting
+- Next steps and integration
+
 ## Support
 
 For issues, questions, or contributions:
 - Check troubleshooting section above
 - Review captured JSON for state/transition details
 - Consult FSM implementation guide in `../docs/`
+- See complete workflow guide (link above)
 
 ## License
 
