@@ -112,7 +112,7 @@
                 "port": 4503,
                 "type": "bf_acs",
                 "username": "root",
-                "gui_fsm_graph_file": "bf_config/gui_artifacts/genieacs/fsm_graph.json",
+                "gui_fsm_graph_file": "bf_config/gui_artifacts/genieacs/fsm_graph_expanded.json",
                 "gui_headless": true,
                 "gui_default_timeout": 30,
                 "gui_state_match_threshold": 0.75,
