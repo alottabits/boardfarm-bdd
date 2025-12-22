@@ -1,4 +1,15 @@
-"""Step definitions for ACS GUI operations."""
+"""Step definitions for ACS GUI operations.
+
+These step definitions leverage the FSM-based GUI testing architecture with
+an expanded UI representation including:
+- Login/logout flows
+- Device search and navigation  
+- Device details with task overlays (reboot, reset, etc.)
+
+The underlying GenieAcsGUI implementation uses FSM states from the expanded
+graph (fsm_graph_expanded.json) which includes manually captured states for
+complex interactions like dropdown menus and task commit overlays.
+"""
 
 import time
 from datetime import datetime, timedelta, timezone
