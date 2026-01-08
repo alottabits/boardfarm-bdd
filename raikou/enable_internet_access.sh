@@ -33,6 +33,25 @@ if [ "$(cat /proc/sys/net/ipv4/ip_forward)" != "1" ]; then
     sudo sysctl -w net.ipv4.ip_forward=1
 fi
 
+# Add FORWARD rules to allow traffic from rtr-uplink to internet interface
+# Check if FORWARD rule already exists
+if iptables -C FORWARD -i rtr-uplink -o "$INTERNET_IFACE" -j ACCEPT 2>/dev/null; then
+    echo "FORWARD rule already exists, skipping."
+else
+    echo "Adding FORWARD rule for rtr-uplink → $INTERNET_IFACE..."
+    sudo iptables -A FORWARD -i rtr-uplink -o "$INTERNET_IFACE" -j ACCEPT
+    echo "FORWARD rule added."
+fi
+
+# Add reverse FORWARD rule for return traffic
+if iptables -C FORWARD -i "$INTERNET_IFACE" -o rtr-uplink -j ACCEPT 2>/dev/null; then
+    echo "Reverse FORWARD rule already exists, skipping."
+else
+    echo "Adding reverse FORWARD rule for $INTERNET_IFACE → rtr-uplink..."
+    sudo iptables -A FORWARD -i "$INTERNET_IFACE" -o rtr-uplink -j ACCEPT
+    echo "Reverse FORWARD rule added."
+fi
+
 echo ""
 echo "Internet access enabled. Test with:"
 echo "  docker exec router ping -c 2 8.8.8.8"

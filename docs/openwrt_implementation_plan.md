@@ -1,9 +1,13 @@
 # OpenWrt Raspberry Pi Gateway Implementation Plan
 
-**Document Version**: 1.5  
+**Document Version**: 1.6  
 **Created**: January 7, 2026  
 **Last Updated**: January 7, 2026  
-**Status**: ✅ Phase 4 Complete - Network Connectivity Verified
+**Status**: ⚠️ Phase 4 Complete - Network Connectivity Verified (Topology Correction Required)
+
+**⚠️ IMPORTANT**: This document describes the current implementation which uses an **incorrect topology**. The Router container was incorrectly assumed to be part of the home gateway, when it actually represents the **ISP Edge Router** sitting between the CPE and cloud-based ISP services.
+
+**For the corrected topology and migration plan, see**: [`openwrt_topology_correction_migration.md`](./openwrt_topology_correction_migration.md)
 
 ---
 
@@ -51,65 +55,84 @@ This document outlines the plan to integrate a physical Raspberry Pi running Ope
 - Access via `docker exec -it cpe ash`
 - Uses PrplOS firmware with TR-181 data model
 
-### Target Architecture (Physical RPi OpenWrt) ✅ IMPLEMENTED
+### Target Architecture (Physical RPi OpenWrt) ⏳ TO BE CORRECTED
 
-```text
-                              Internet
-                                  │
-                                  ▼ (Host NAT)
-                        ┌─────────────────┐
-                        │   rtr-uplink    │ (172.25.2.x)
-                        │   Host: .254    │
-                        └────────┬────────┘
-                                 │ aux0 (.1)
-                        ┌────────┴────────┐
-                        │     Router      │ ← Simplified: routing + NAT only
-                        │   Container     │   (FRR_AUTO_CONF=no)
-                        └────────┬────────┘
-                                 │ eth1 (.1)
-┌────────────────────────────────┼────────────────────────────────────────┐
-│                         rtr-wan (172.25.1.x)                            │
-│                                                                          │
-│    ┌────────┐  ┌────────┐  ┌────────┐                 ┌────────────┐    │
-│    │  DHCP  │  │  ACS   │  │  WAN   │                 │  OpenWrt   │    │
-│    │  .20   │  │  .40   │  │  .2    │                 │    RPi     │    │
-│    └────────┘  └────────┘  └────────┘                 │  .100+     │    │
-│                                                        └─────┬──────┘    │
-└──────────────────────────────────────────────────────────────┼──────────┘
-                                                               │
-                                                    [USB Dongle: enx00e04c5b7570]
-                                                               │ eth1 (WAN)
-                                                    ┌──────────┴──────────┐
-                                                    │   Raspberry Pi      │
-                                                    │     (OpenWrt)       │
-                                                    └──────────┬──────────┘
-                                                               │ eth0 (LAN)
-                                                    [USB Dongle: enx00e04c327b58]
-                                                               │
-                                                    ┌──────────┴──────────┐
-                                                    │      lan-cpe        │
-                                                    └──────────┬──────────┘
-                                                               │
-                                                    ┌──────────┴──────────┐
-                                                    │  LAN Phone, etc.    │
-                                                    └─────────────────────┘
+```mermaid
+graph TB
+    subgraph "Raikou OVS Bridges"
+        BRIDGE_CPE_RTR[cpe-rtr bridge]
+        BRIDGE_LAN_CPE[lan-cpe bridge]
+        BRIDGE_RTR_WAN[rtr-wan bridge]
+        BRIDGE_RTR_UPLINK[rtr-uplink bridge]
+    end
+
+    subgraph "Home Gateway Components"
+        OPENWRT[OpenWrt RPi<br/>Physical Device<br/>eth1: 10.1.1.x/24 WAN<br/>eth0: Connected to br-lan LAN<br/>br-lan: 192.168.10.1/24]
+    end
+
+    subgraph "ISP Infrastructure"
+        ROUTER[Router Container<br/>ISP Edge Router<br/>cpe: 10.1.1.1/24<br/>eth1: 172.25.1.1/24<br/>aux0: 172.25.2.1/24]
+        WAN[WAN Container<br/>Network Services<br/>eth1: 172.25.1.2/24<br/>HTTP/TFTP/FTP/DNS/Testing]
+        ACS[ACS Container<br/>TR-069 Management<br/>eth1: 172.25.1.40/24]
+        DHCP[DHCP Container<br/>Network Provisioning<br/>eth1: 172.25.1.20/24]
+        SIP[SIP Center<br/>Voice Services<br/>eth1: 172.25.1.5/24]
+    end
+
+    subgraph "Client Devices"
+        LAN_PHONE[LAN Phone<br/>Number: 1000<br/>eth1: Connected to br-lan]
+        WAN_PHONE[WAN Phone<br/>Number: 2000<br/>eth1: 172.25.1.3/24]
+        WAN_PHONE2[WAN Phone 2<br/>Number: 3000<br/>eth1: 172.25.1.4/24]
+    end
+
+    %% Raikou Bridge Connections
+    OPENWRT <-->|eth1| BRIDGE_CPE_RTR
+    ROUTER <-->|cpe| BRIDGE_CPE_RTR
+
+    OPENWRT <-->|eth0| BRIDGE_LAN_CPE
+    LAN_PHONE <-->|eth1| BRIDGE_LAN_CPE
+
+    ROUTER <-->|eth1| BRIDGE_RTR_WAN
+    WAN <-->|eth1| BRIDGE_RTR_WAN
+    ACS <-->|eth1| BRIDGE_RTR_WAN
+    DHCP <-->|eth1| BRIDGE_RTR_WAN
+    SIP <-->|eth1| BRIDGE_RTR_WAN
+    WAN_PHONE <-->|eth1| BRIDGE_RTR_WAN
+    WAN_PHONE2 <-->|eth1| BRIDGE_RTR_WAN
+
+    ROUTER <-->|aux0| BRIDGE_RTR_UPLINK
+
+    %% Styling - Using default theme for automatic light/dark mode support
+    classDef gateway stroke-width:2px
+    classDef infrastructure stroke-width:2px
+    classDef client stroke-width:2px
+    classDef bridge stroke-width:2px
+
+    class OPENWRT gateway
+    class WAN,ACS,DHCP,SIP,ROUTER infrastructure
+    class LAN_PHONE,WAN_PHONE,WAN_PHONE2 client
+    class BRIDGE_CPE_RTR,BRIDGE_LAN_CPE,BRIDGE_RTR_WAN,BRIDGE_RTR_UPLINK bridge
 ```
 
 **Key Architecture Changes from Containerized Setup**:
 
-- **OpenWrt replaces 3 containers**: CPE + Router + LAN gateway functions
-- **OpenWrt WAN connects directly to rtr-wan** (172.25.1.x), NOT cpe-rtr
-- **OpenWrt gets IP from DHCP container** (172.25.1.100+)
-- **Router container simplified**: Only provides internet gateway (eth1 ↔ aux0)
-- **No cpe-rtr bridge**: Not needed in this architecture
+- **OpenWrt replaces CPE container**: Physical RPi provides home gateway functionality
+- **OpenWrt provides LAN gateway**: br-lan at 192.168.10.1 (replaces CPE container's LAN gateway function)
+- **LAN Container remains**: As a client device (test tool), not part of the gateway
+- **Router container is ISP Edge Router**: Sits between CPE and ISP services (WAN, ACS, DHCP)
+- **OpenWrt WAN connects to cpe-rtr bridge** (10.1.1.x), NOT directly to rtr-wan
+- **OpenWrt gets IP from Router DHCP relay** (10.1.1.100+), not directly from DHCP container
+- **Router container provides full gateway**: Routes between cpe-rtr (10.1.1.x) and rtr-wan (172.25.1.x)
+- **cpe-rtr bridge required**: Router's cpe interface (10.1.1.1) provides gateway for CPE network
 
 **Characteristics**:
 
-- CPE is a physical Raspberry Pi with OpenWrt
-- WAN via USB-Ethernet dongle (DHCP client, gets 172.25.1.x from DHCP container)
-- LAN via native Ethernet (br-lan, 192.168.10.1)
-- Access via SSH over LAN interface or serial console
-- Internet access via double NAT (Router → Host)
+- CPE is a physical Raspberry Pi with OpenWrt (replaces CPE container)
+- WAN via USB-Ethernet dongle (DHCP client, gets 10.1.1.x from Router DHCP relay)
+- LAN gateway via native Ethernet (br-lan, 192.168.10.1) - provides DHCP server for LAN clients
+- Access via serial console only (LAN network is isolated on `lan-cpe` bridge, not accessible from host)
+- LAN Container is a test client device (DHCP client, HTTP proxy) - connects to `lan-cpe` bridge
+- Router container is ISP Edge Router: Routes CPE traffic to ISP services (WAN, ACS, DHCP)
+- Internet access via Router → rtr-uplink → Host NAT
 
 ---
 
@@ -132,14 +155,14 @@ Based on verification performed on January 7, 2026:
 | WiFi AP         | phy0-ap0 | `88:a2:9e:69:ee:1e` | (bridged)           | LAN (part of br-lan) |
 | LAN Bridge      | br-lan   | `88:a2:9e:69:ee:1d` | **192.168.10.1/24** | LAN Gateway          |
 
-*Currently from home network DHCP; will be 10.1.1.x from testbed
+*Currently from home network DHCP; will be 10.1.1.x from Router DHCP relay on cpe-rtr bridge
 
 ### Docker Host USB Dongles
 
 | Interface         | MAC Address         | Driver | Purpose (Planned)            |
 | ----------------- | ------------------- | ------ | ---------------------------- |
-| `enx00e04c5b7570` | `00:e0:4c:5b:75:70` | r8152  | **cpe-rtr bridge** → RPi WAN |
-| `enx00e04c327b58` | `00:e0:4c:32:7b:58` | r8152  | **lan-cpe bridge** → RPi LAN |
+| `enx00e04c5b7570` | `00:e0:4c:5b:75:70` | r8152  | **cpe-rtr bridge** → RPi WAN (10.1.1.x network) |
+| `enx00e04c327b58` | `00:e0:4c:32:7b:58` | r8152  | **lan-cpe bridge** → RPi LAN (192.168.10.x network) |
 
 ### ✅ Issue Fixed: UCI Parse Error
 
@@ -275,10 +298,12 @@ uci commit easycwmp
 
 **Tasks**:
 
-- [x] Confirm OpenWrt is installed and accessible via SSH
+- [x] Confirm OpenWrt is installed and accessible via serial console
 - [x] Verify interface configuration (WAN on USB dongle, LAN on native ethernet)
-- [x] Test SSH connectivity from host to RPi (192.168.10.1)
+- [x] Test serial console connectivity to RPi (picocom -b 115200 /dev/ttyUSB0)
 - [x] Note the WAN device name from UCI → **`eth1`**
+
+**Note**: The LAN network (192.168.10.x) is isolated on the `lan-cpe` bridge and not accessible from the Docker host. Access to OpenWrt RPi is via serial console only.
 
 **Verification Commands (on RPi)**:
 
@@ -525,8 +550,8 @@ rjvisser@alottabytes:~$ cat /sys/class/net/enx00e04c327b58/carrier
 **Key Changes**:
 
 - Replace `bf_cpe` device with `bf_openwrt_cpe`
-- Change connection from `docker exec` to `authenticated_ssh`
-- Add RPi-specific configuration (IP, credentials, interface names)
+- Change connection from `docker exec` to `local_cmd` (serial console)
+- Add RPi-specific configuration (serial port, interface names)
 
 **Template** (with discovered values):
 
@@ -535,16 +560,15 @@ rjvisser@alottabytes:~$ cat /sys/class/net/enx00e04c327b58/carrier
     "openwrt-rpi-1": {
         "devices": [
             {
-                "connection_type": "authenticated_ssh",
-                "ipaddr": "192.168.10.1",
-                "port": 22,
-                "username": "root",
-                "password": "YOUR_PASSWORD",
+                "conn_cmd": [
+                    "picocom -b 115200 /dev/ttyUSB0"
+                ],
+                "connection_type": "local_cmd",
+                "lan_iface": "br-lan",
                 "name": "board",
                 "type": "bf_openwrt_cpe",
-                "mac": "00:e0:4c:1f:65:b8",
-                "wan_iface": "wan",
-                "lan_iface": "br-lan"
+                "wan_iface": "eth1",
+                "wan_mac": "00:e0:4c:1f:65:b8"
             },
             // ... other devices unchanged
         ]
@@ -552,7 +576,7 @@ rjvisser@alottabytes:~$ cat /sys/class/net/enx00e04c327b58/carrier
 }
 ```
 
-**Note**: The `ipaddr` is the br-lan IP (`192.168.10.1`), which is how we SSH to the RPi from the LAN container.
+**Note**: The LAN network (192.168.10.x) is isolated on the `lan-cpe` bridge and not accessible from the Docker host. Access to OpenWrt RPi is via serial console (`/dev/ttyUSB0` at 115200 baud) only.
 
 ---
 
@@ -574,8 +598,8 @@ rjvisser@alottabytes:~$ cat /sys/class/net/enx00e04c327b58/carrier
 
 ```python
 # OpenWrtHW
-- connect_to_consoles()    # SSH connection
-- power_cycle()            # Soft reboot via SSH
+- connect_to_consoles()    # Serial console connection
+- power_cycle()            # Soft reboot via serial console
 - mac_address              # From WAN interface
 - serial_number            # From RPi CPU info
 
@@ -602,7 +626,7 @@ Ensure the device class is discoverable by boardfarm:
 
 ---
 
-### Phase 4: Integration Testing (Day 3-4) ✅ COMPLETE
+### Phase 4: Integration Testing (Day 3-4) ⚠️ **NEEDS TOPOLOGY CORRECTION**
 
 #### 4.1 Start Testbed ✅
 
@@ -622,32 +646,43 @@ sleep 15
 docker exec orchestrator ovs-vsctl show
 ```
 
-#### 4.2 Network Connectivity Verified ✅
+#### 4.2 Network Connectivity Verified ⚠️ **NEEDS CORRECTION**
 
-| Test | Result | Details |
-|------|--------|---------|
-| OpenWrt WAN IP | ✅ | 172.25.1.100 from DHCP container |
-| OpenWrt IPv6 | ✅ | 2001:dead:beef:2::100 from DHCPv6 |
-| Gateway reachable | ✅ | ping 172.25.1.1 (Router) |
-| Internet (IPv4) | ✅ | ping 8.8.8.8 |
-| DNS resolution | ✅ | ping -4 downloads.openwrt.org |
-| Package downloads | ✅ | opkg update |
+**Note**: Current implementation uses incorrect topology. After correction, OpenWrt should connect to `cpe-rtr` bridge, not directly to `rtr-wan`.
 
-**Verification from OpenWrt:**
+| Test | Current (Incorrect) | Target (Correct) |
+|------|---------------------|------------------|
+| OpenWrt WAN IP | 172.25.1.100 (rtr-wan) | 10.1.1.100+ (cpe-rtr) |
+| OpenWrt IPv6 | 2001:dead:beef:2::100 | 2001:dead:cafe:1::100+ |
+| Gateway | 172.25.1.1 (Router eth1) | 10.1.1.1 (Router cpe) |
+| Internet (IPv4) | ✅ Working | ✅ Should work |
+| DNS resolution | ✅ Working | ✅ Should work |
+| Package downloads | ✅ Working | ✅ Should work |
+
+**Current Verification (Incorrect Topology):**
 
 ```bash
 root@OpenWrt:~# ip addr show eth1
 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 state UP qlen 1000
-    inet 172.25.1.100/24 brd 172.25.1.255 scope global eth1
-    inet6 2001:dead:beef:2::100/128 scope global dynamic
+    inet 172.25.1.100/24 brd 172.25.1.255 scope global eth1  # ❌ Wrong network
+    inet6 2001:dead:beef:2::100/128 scope global dynamic      # ❌ Wrong network
 
 root@OpenWrt:~# ip route show
-default via 172.25.1.1 dev eth1  src 172.25.1.100 
-172.25.1.0/24 dev eth1 scope link  src 172.25.1.100 
+default via 172.25.1.1 dev eth1  src 172.25.1.100  # ❌ Wrong gateway
+172.25.1.0/24 dev eth1 scope link  src 172.25.1.100
+```
 
-root@OpenWrt:~# ping -c 2 8.8.8.8
-PING 8.8.8.8 (8.8.8.8): 56 data bytes
-64 bytes from 8.8.8.8: seq=0 ttl=115 time=28.073 ms
+**Target Verification (After Correction):**
+
+```bash
+root@OpenWrt:~# ip addr show eth1
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 state UP qlen 1000
+    inet 10.1.1.100/24 brd 10.1.1.255 scope global eth1  # ✅ Correct network
+    inet6 2001:dead:cafe:1::100/128 scope global dynamic  # ✅ Correct network
+
+root@OpenWrt:~# ip route show
+default via 10.1.1.1 dev eth1  src 10.1.1.100  # ✅ Correct gateway (Router cpe)
+10.1.1.0/24 dev eth1 scope link  src 10.1.1.100
 ```
 
 #### 4.3 OpenWrt Configuration Applied ✅
@@ -829,10 +864,14 @@ router:
         - ./config/staticd.conf:/etc/frr/staticd.conf
 ```
 
-#### DHCP Config Changes
+#### DHCP Config Changes ⚠️ **NEEDS CORRECTION**
 
-- **DHCPv4**: Changed subnet from `10.1.1.0/24` to `172.25.1.0/24`, pool `172.25.1.100-200`
-- **DHCPv6**: Changed subnet from `2001:dead:cafe:1::/64` to `2001:dead:beef:2::/64`
+**Note**: Current implementation incorrectly changed DHCP to serve rtr-wan network. After correction, DHCP should serve cpe-rtr network via Router relay.
+
+- **DHCPv4 (Current - Incorrect)**: Changed subnet from `10.1.1.0/24` to `172.25.1.0/24`, pool `172.25.1.100-200`
+- **DHCPv4 (Target - Correct)**: Should serve `10.1.1.0/24` subnet, pool `10.1.1.100-200` (via Router DHCP relay)
+- **DHCPv6 (Current - Incorrect)**: Changed subnet from `2001:dead:cafe:1::/64` to `2001:dead:beef:2::/64`
+- **DHCPv6 (Target - Correct)**: Should serve `2001:dead:cafe:1::/64` subnet (via Router DHCP relay)
 
 ### Files to Update
 
@@ -881,7 +920,7 @@ Both configurations can coexist - simply use the appropriate compose file and in
 
 ### Phase 1 Complete ✅
 
-- [x] RPi accessible via SSH from Docker host
+- [x] RPi accessible via serial console (LAN network isolated, not accessible from Docker host)
 - [x] Host USB dongles identified and documented
 - [x] Fix UCI parse error on RPi (`wan6` interface)
 - [x] Physical cabling complete with link status verified
@@ -896,14 +935,15 @@ Both configurations can coexist - simply use the appropriate compose file and in
 - [x] Device class implemented
 - [x] Device class registered with boardfarm
 
-### Phase 4 Complete ✅
+### Phase 4 Complete ⚠️ **NEEDS TOPOLOGY CORRECTION**
 
 - [x] Testbed starts successfully
-- [x] RPi obtains WAN IP via DHCP (172.25.1.100)
-- [x] RPi obtains IPv6 via DHCPv6 (2001:dead:beef:2::100)
+- [x] RPi obtains WAN IP via DHCP (172.25.1.100) ⚠️ **Incorrect - should be 10.1.1.100+**
+- [x] RPi obtains IPv6 via DHCPv6 (2001:dead:beef:2::100) ⚠️ **Incorrect - should be 2001:dead:cafe:1::100+**
 - [x] Internet connectivity working (IPv4)
 - [x] Package downloads working (`opkg update`)
-- [ ] Boardfarm can connect and execute commands (next session)
+- [ ] **Topology correction required** - See `openwrt_topology_correction_migration.md`
+- [ ] Boardfarm can connect and execute commands (after correction)
 
 ### Phase 5 Pending
 
@@ -942,17 +982,37 @@ docker exec router ping -c 2 8.8.8.8
 docker exec wan ping -c 2 8.8.8.8
 ```
 
-### Verify OpenWrt Connectivity
+### Verify OpenWrt Connectivity ⚠️ **NEEDS CORRECTION**
 
-From serial console or SSH to OpenWrt:
+Access OpenWrt RPi via serial console (LAN network is isolated, not accessible from host):
 
 ```bash
+# Connect via serial console
+picocom -b 115200 /dev/ttyUSB0
+```
+
+**Current (Incorrect):**
+```bash
 # Check WAN IP
-ip addr show eth1  # Should be 172.25.1.100+
+ip addr show eth1  # Currently shows 172.25.1.100+ (wrong network)
+```
+
+**Target (After Correction):**
+```bash
+# Check WAN IP
+ip addr show eth1  # Should be 10.1.1.100+ (cpe-rtr network)
+
+# Check gateway
+ip route show      # Should show default via 10.1.1.1 (Router cpe interface)
 
 # Check internet
 ping -c 2 8.8.8.8
 ping -c 2 -4 downloads.openwrt.org
+```
+
+**Note**: If OpenWrt still shows the old IP (172.25.1.100+), restart the network service:
+```bash
+/etc/init.d/network restart
 ```
 
 ### Next Steps
@@ -1008,18 +1068,24 @@ udhcpc -i eth1  # or wan device name
 docker exec router cat /var/log/messages | grep -i dhcp
 ```
 
-### SSH Connection Fails
+### Serial Console Access Issues
 
 ```bash
-# Test basic connectivity (from LAN container)
-docker exec lan ping 192.168.10.1
+# Access OpenWrt RPi via serial console
+picocom -b 115200 /dev/ttyUSB0
 
-# Try with verbose SSH
-ssh -vvv root@192.168.10.1
+# If serial console doesn't connect, check:
+# 1. USB-to-serial adapter is connected
+# 2. Correct device path (/dev/ttyUSB0 or /dev/ttyUSB1, etc.)
+# 3. Permissions: sudo chmod 666 /dev/ttyUSB0
+# 4. User is in dialout group: sudo usermod -aG dialout $USER
 
-# Check if dropbear is running on RPi
-# (access via serial if SSH fails completely)
+# Once connected, verify network configuration
+ip addr show eth1  # WAN interface
+ip addr show br-lan  # LAN interface
 ```
+
+**Note**: The LAN network (192.168.10.x) is isolated on the `lan-cpe` bridge and not accessible from the Docker host. SSH access from host to OpenWrt RPi is not possible - use serial console only.
 
 ### UCI Parse Error
 

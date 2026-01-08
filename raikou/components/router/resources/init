@@ -120,8 +120,15 @@ update-alternatives --set iptables /usr/sbin/iptables-legacy
 update-alternatives --set ip6tables /usr/sbin/ip6tables-nft
 
 if [ -n "$ENABLE_NAT_ON" ]; then
-    iptables -t nat -A POSTROUTING -o "$ENABLE_NAT_ON" -j MASQUERADE
-    ip6tables -t nat -A POSTROUTING -o "$ENABLE_NAT_ON" -j MASQUERADE
+    # Handle comma-separated list of interfaces for NAT
+    IFS=',' read -ra NAT_IFACES <<< "$ENABLE_NAT_ON"
+    for IFACE in "${NAT_IFACES[@]}"; do
+        IFACE=$(echo "$IFACE" | xargs)  # Trim whitespace
+        echo "Enabling NAT on interface: $IFACE"
+        iptables -t nat -A POSTROUTING -o "$IFACE" -j MASQUERADE
+        ip6tables -t nat -A POSTROUTING -o "$IFACE" -j MASQUERADE
+    done
+    unset IFS
 fi
 
 # Start TR-069 MITM Proxy

@@ -1,5 +1,10 @@
 {
     "bridge": {
+        "cpe-rtr": {
+            "parents": [
+                {"iface": "enx00e04c5b7570"}
+            ]
+        },
         "lan-cpe": {
             "parents": [
                 {"iface": "enx00e04c327b58"}
@@ -9,11 +14,7 @@
             "iprange": "172.25.2.0/24",
             "ipaddress": "172.25.2.254/24"
         },
-        "rtr-wan": {
-            "parents": [
-                {"iface": "enx00e04c5b7570"}
-            ]
-        }
+        "rtr-wan": {}
     },
     "container": {
         "acs": [
@@ -49,6 +50,10 @@
             }
         ],
         "router": [
+            {
+                "bridge": "cpe-rtr",
+                "iface": "cpe"
+            },
             {
                 "bridge": "rtr-wan",
                 "iface": "eth1"

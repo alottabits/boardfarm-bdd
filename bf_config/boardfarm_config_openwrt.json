@@ -11,6 +11,7 @@
                 "type": "bf_openwrt_cpe",
                 "wan_iface": "eth1",
                 "wan_mac": "00:e0:4c:1f:65:b8"
+                // Note: WAN IP will be 10.1.1.100+ (from Router DHCP relay on cpe-rtr bridge)
             },
             {
                 "color": "cyan",

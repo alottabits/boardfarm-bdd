@@ -5,13 +5,14 @@ name: boardfarm-bdd-openwrt
 # instead of the containerized PrplOS CPE.
 #
 # Architecture:
-#   - OpenWrt RPi WAN connects directly to rtr-wan network (172.25.1.x)
-#   - OpenWrt gets its WAN IP from DHCP container (172.25.1.20)
-#   - Router container acts as gateway to internet (eth1 on rtr-wan, aux0 on rtr-uplink)
-#   - LAN containers connect to OpenWrt's LAN side
+#   - OpenWrt RPi WAN connects to cpe-rtr bridge (10.1.1.x)
+#   - Router container (ISP Edge Router) provides gateway between CPE and WAN services
+#   - Router has: cpe interface (10.1.1.1) on cpe-rtr, eth1 (172.25.1.1) on rtr-wan
+#   - Router provides NAT and routing between CPE network and ISP services
+#   - LAN container (client device) connects to OpenWrt's LAN side via lan-cpe bridge
 #
 # USB-Ethernet dongles on host:
-#   - enx00e04c5b7570 -> rtr-wan bridge (RPi WAN side, same network as DHCP/ACS)
+#   - enx00e04c5b7570 -> cpe-rtr bridge (RPi WAN side, 10.1.1.x network)
 #   - enx00e04c327b58 -> lan-cpe bridge (RPi LAN side)
 
 services:
@@ -26,17 +27,18 @@ services:
         ports:
             - 4000:22
         environment:
-            - ENABLE_NAT_ON=aux0
-            - FRR_AUTO_CONF=no
+            - ENABLE_NAT_ON=eth1,aux0
+            - FRR_AUTO_CONF=yes
             - TRIPLE_PLAY=no
+            - CPE_DATA_IFACE=cpe
+            - CPE_DATA_BUNDLE=10.1.1.1/24,2001:dead:cafe:1::1/64
+            - DHCP_RELAY=eth1,172.25.1.20,2001:dead:beef:2::20
         build:
             context: ./components/router
             tags:
                 - router:v1.2.0
         privileged: true
         hostname: router
-        volumes:
-            - ./config/staticd.conf:/etc/frr/staticd.conf
         depends_on:
             - ssh_service
 
