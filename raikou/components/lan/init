@@ -13,10 +13,35 @@ for _i in $(seq 1 $count); do
     break
 done
 
+# Start DHCP client on eth1 to get IP from RPi's dnsmasq
+dhclient -v eth1
+
+# Wait for eth1 to get an IP address
+count=0
+while [ $count -lt 30 ]; do
+    if ip addr show eth1 | grep -q "inet "; then
+        echo "eth1 has IP address"
+        break
+    fi
+    echo "Waiting for eth1 to get IP address..."
+    sleep 1
+    count=$((count + 1))
+done
+
+# Get eth1 IP address for Dante external binding
+ETH1_IP=$(ip addr show eth1 | grep "inet " | awk '{print $2}' | cut -d/ -f1)
+if [ -z "$ETH1_IP" ]; then
+    echo "Warning: eth1 has no IP address, using interface name"
+    EXTERNAL="eth1"
+else
+    echo "Using eth1 IP address: $ETH1_IP"
+    EXTERNAL="$ETH1_IP"
+fi
+
 cat > /etc/danted.conf << EOF
 logoutput: stderr
 internal: 0.0.0.0 port = 8080
-external: eth1
+external: $EXTERNAL
 clientmethod: none
 socksmethod: username none #rfc931
 user.privileged: root
