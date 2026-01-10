@@ -494,6 +494,55 @@ acs.Reboot(CommandKey="test-reboot")
 
 **Note**: Configuration is identical to OpenWrt setup.
 
+#### 5.3 Router Container FRR Configuration
+
+**Important**: The Router container uses FRR (Free Range Routing) for routing. The default route configuration is in `components/router/resources/staticd.conf`:
+
+```
+ip route 0.0.0.0/0 172.25.2.254
+```
+
+**Configuration Management**:
+
+1. **After modifying FRR config files**, rebuild the Router container:
+   ```bash
+   cd ~/projects/req-tst/boardfarm-bdd/raikou
+   docker compose -f docker-compose-openwrt.yaml build --no-cache router
+   docker compose -f docker-compose-openwrt.yaml up -d router
+   ```
+
+2. **If Router loses internet access**, check for saved FRR configuration:
+   ```bash
+   # Check if saved config exists and contains incorrect routes
+   docker exec router cat /etc/frr/frr.conf.sav | grep "ip route"
+   
+   # If incorrect route found (e.g., 8.8.8.8/32 via wrong gateway), remove saved config
+   docker exec router rm -f /etc/frr/frr.conf.sav
+   docker exec router service frr restart
+   ```
+
+3. **Saved configurations are preserved**: The init scripts do not automatically remove `/etc/frr/frr.conf.sav`. If someone manually saves a configuration (via `vtysh` → `write memory`), it will persist across container restarts. This is intentional - manual configurations are respected.
+
+**Troubleshooting Router Internet Access**:
+
+```bash
+# Verify default route
+docker exec router ip route show default
+# Should show: default via 172.25.2.254 dev aux0
+
+# Verify FRR routing table
+docker exec router vtysh -c "show ip route" | grep "0.0.0.0/0"
+# Should show: S>* 0.0.0.0/0 [1/0] via 172.25.2.254, aux0
+
+# Test connectivity
+docker exec router ping -c 2 172.25.2.254  # Host gateway
+docker exec router ping -c 2 8.8.8.8       # Internet
+
+# If failing, check for saved config with incorrect routes
+docker exec router ls -la /etc/frr/frr.conf.sav
+docker exec router cat /etc/frr/frr.conf.sav | grep -E "ip route|8.8.8.8"
+```
+
 ---
 
 ### Phase 6: Testing and Validation (Day 6-7)
@@ -651,6 +700,29 @@ CPE (Template)
 5. **Serial Console Access**: LAN network (192.168.10.x) is isolated on `lan-cpe` bridge and not accessible from Docker host. Access to prplOS RPi is via serial console only.
 
 6. **Internet Access**: Requires host NAT configuration (same as OpenWrt setup). Run `./enable_internet_access.sh eno1` after starting containers.
+
+7. **FRR Configuration Management**: The Router container uses FRR (Free Range Routing) for routing. FRR can save its running configuration to `/etc/frr/frr.conf.sav`. If a saved configuration exists, FRR will load it on startup, which can override the intended configuration from `frr.conf` + `staticd.conf`. 
+   
+   **Key Points**:
+   - **Saved configurations are intentional**: If someone manually saves a configuration (via `vtysh` → `write memory`), it's done for a specific reason and should be respected.
+   - **Manual cleanup when needed**: If a saved configuration causes issues (e.g., incorrect routes), remove it manually: `docker exec router rm -f /etc/frr/frr.conf.sav`
+   - **Rebuild containers after config changes**: When updating `staticd.conf` or other FRR configuration files, rebuild containers with `--no-cache` to ensure changes are picked up: `docker compose -f docker-compose-openwrt.yaml build --no-cache router`
+   - **No automatic cleanup**: The init scripts do not automatically remove saved configurations - they respect user intent and allow manual configuration persistence.
+
+   **Example Issue**: If Router container loses internet access, check for incorrect routes:
+   ```bash
+   # Check for problematic saved configuration
+   docker exec router cat /etc/frr/frr.conf.sav | grep "8.8.8.8"
+   
+   # If incorrect route found, remove saved config
+   docker exec router rm -f /etc/frr/frr.conf.sav
+   
+   # Restart FRR or container to reload from source files
+   docker exec router service frr restart
+   # Or rebuild container if source files were updated
+   docker compose -f docker-compose-openwrt.yaml build --no-cache router
+   docker compose -f docker-compose-openwrt.yaml up -d router
+   ```
 
 ---
 
