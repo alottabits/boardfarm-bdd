@@ -1,9 +1,9 @@
 # prplOS RPi4 Build Guide - Phase 1
 
-**Document Version**: 1.1  
+**Document Version**: 1.2  
 **Created**: January 7, 2026  
-**Last Updated**: January 9, 2026  
-**Status**: ✅ **Complete**
+**Last Updated**: January 11, 2026  
+**Status**: ✅ **Complete** (including TR-069/USP packages)
 
 ---
 
@@ -150,7 +150,19 @@ Navigate through the menu and set:
      - `r8152-firmware` - Firmware for Realtek RTL8152/RTL8153 devices
      - Navigate to: `Firmware → r8152-firmware` → Enable
    
-   **Note**: prplOS includes TR-069 client (`obuspa`), network stack, serial console, and container runtime (`lxc`) by default via the prpl profile. The packages listed above are additional requirements for the testbed setup.
+   - **TR-069/USP Management** (required for ACS integration):
+     - `icwmp` - TR-069 CWMP client daemon (connects to ACS)
+     - Navigate to: `Utilities → icwmp` → Enable
+     - `obuspa` - USP (TR-369) agent (for future USP support)
+     - Navigate to: `Utilities → obuspa` → Enable
+     - `bbfdmd` - BBF Data Model daemon (provides TR-181 parameters)
+     - Navigate to: `Utilities → bbfdmd` → Enable
+     
+     **Note**: When enabling `bbfdmd`, you must also set the vendor prefix:
+     - In menuconfig: Search for `BBF_VENDOR_PREFIX` and set to `X_PRPL_`
+     - Or add to `.config`: `CONFIG_BBF_VENDOR_PREFIX="X_PRPL_"`
+   
+   **Note**: The TR-069/USP packages are from the `iopsys` feed (included in prplOS feeds.conf.default). These are essential for ACS-based device management.
    
    **Alternative**: Enable packages via `.config` file:
    
@@ -160,6 +172,12 @@ Navigate through the menu and set:
    CONFIG_PACKAGE_luci=y
    CONFIG_PACKAGE_kmod-usb-net-rtl8152=y
    CONFIG_PACKAGE_r8152-firmware=y
+   
+   # TR-069/USP packages (required for ACS integration)
+   CONFIG_PACKAGE_icwmp=y
+   CONFIG_PACKAGE_obuspa=y
+   CONFIG_PACKAGE_bbfdmd=y
+   CONFIG_BBF_VENDOR_PREFIX="X_PRPL_"
    ```
    
    **Version-Specific Notes**:
@@ -407,15 +425,49 @@ done
 
 ## Step 8: Verify Required Components
 
-### 8.1 Check TR-069 Client
+### 8.1 Check TR-069/USP Components
 
 ```bash
-# Check if TR-069 client is running
-ps aux | grep -i "tr069\|cwmp\|acs"
+# Check if icwmpd (TR-069 client) is running
+ps | grep icwmpd
 
-# Check TR-069 configuration (if accessible)
-# prplOS uses TR-181 data model
-# Check Device.ManagementServer parameters
+# Check if obuspa (USP agent) is running
+ps | grep obuspa
+
+# Check if bbfdmd (data model daemon) is running
+ps | grep bbfdmd
+
+# Check if sysmngr (system manager) is running
+ps | grep sysmngr
+
+# Check available ubus services
+ubus list | grep -E "bbf|cwmp|usp"
+# Expected output:
+# bbf.config
+# bbf.secure
+# bbfdm
+# bbfdm.core
+# bbfdm.icwmp
+# bbfdm.obuspa
+# bbfdm.sysmngr
+
+# Verify bbfdm is accessible
+ubus call bbfdm get '{"path": "Device.DeviceInfo.Manufacturer"}'
+# Expected: {"Manufacturer": "prpl Foundation"}
+
+# Check TR-181 data model access
+ubus call bbfdm get '{"path": "Device.DeviceInfo."}'
+```
+
+**Note**: If `bbfdm` or `icwmpd` are not running, check the init scripts:
+```bash
+# Enable and start services
+/etc/init.d/bbfdmd enable
+/etc/init.d/bbfdmd start
+/etc/init.d/sysmngr enable
+/etc/init.d/sysmngr start
+/etc/init.d/icwmpd enable
+/etc/init.d/icwmpd start
 ```
 
 ### 8.2 Check Network Stack
@@ -502,6 +554,19 @@ make -j4
 - Update feeds: `./scripts/feeds update -a && ./scripts/feeds install -a`
 - Check if package exists in feeds: `./scripts/feeds list | grep <package-name>`
 - Verify you're using a compatible prplOS version (check GitLab tags/branches)
+
+**Issue**: Build fails with bbfdm errors ("Datamodel Input file ... dm-service not available")
+- This occurs when `bbfdmd` dependencies are not properly configured
+- **Solution**: Ensure `CONFIG_PACKAGE_bbfdmd=y` is set in `.config`
+- **Solution**: Set the vendor prefix: `CONFIG_BBF_VENDOR_PREFIX="X_PRPL_"`
+- The `dm-service` target in bbfdm requires the vendor prefix to generate extension files
+- If the vendor prefix is empty, the build script fails silently and doesn't create required files
+
+```bash
+# Add to .config to fix bbfdm build issues
+CONFIG_PACKAGE_bbfdmd=y
+CONFIG_BBF_VENDOR_PREFIX="X_PRPL_"
+```
 
 ---
 

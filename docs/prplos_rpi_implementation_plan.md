@@ -1,9 +1,9 @@
 # prplOS Raspberry Pi Gateway Implementation Plan
 
-**Document Version**: 1.1  
+**Document Version**: 1.2  
 **Created**: January 7, 2026  
-**Last Updated**: January 9, 2026  
-**Status**: ✅ **Phase 1 & 2 Complete** - Phase 3 In Progress
+**Last Updated**: January 11, 2026  
+**Status**: ✅ **Phase 1-4 Complete** - Testing In Progress
 
 ---
 
@@ -142,6 +142,10 @@ ISP Services (DHCP .20, ACS .40, WAN .2)
 - `CONFIG_PACKAGE_luci=y` - LuCI web UI (includes luci-base, luci-mod-admin-full, luci-mod-network, luci-mod-status, luci-mod-system, luci-theme-bootstrap, uhttpd, uhttpd-mod-ubus)
 - `CONFIG_PACKAGE_kmod-usb-net-rtl8152=y` - USB Ethernet driver for Realtek RTL8152/RTL8153 dongles
 - `CONFIG_PACKAGE_r8152-firmware=y` - Firmware for Realtek RTL8152/RTL8153 devices
+- `CONFIG_PACKAGE_icwmp=y` - TR-069 CWMP client daemon (connects to ACS)
+- `CONFIG_PACKAGE_obuspa=y` - USP (TR-369) agent
+- `CONFIG_PACKAGE_bbfdmd=y` - BBF Data Model daemon (provides TR-181 parameters)
+- `CONFIG_BBF_VENDOR_PREFIX="X_PRPL_"` - Vendor prefix for bbfdm (required for build)
 
 **Note**: See [`prplos_rpi_phase1_build_guide.md`](./prplos_rpi_phase1_build_guide.md) for detailed package selection instructions.
 
@@ -299,7 +303,7 @@ ping -c 2 8.8.8.8       # Internet
 
 ---
 
-### Phase 3: Device Class Implementation (Day 3-5)
+### Phase 3: Device Class Implementation (Day 3-5) ✅ **COMPLETE**
 
 #### 3.1 Create RPiPrplOSCPE Device Class
 
@@ -413,46 +417,127 @@ def boardfarm_add_devices() -> dict[str, type[BoardfarmDevice]]:
 
 ---
 
-### Phase 4: TR-069/ACS Integration (Day 4-5)
+### Phase 4: TR-069/ACS Integration (Day 4-5) ✅ **COMPLETE**
 
 #### 4.1 Configure TR-069 Client
 
 **Tasks:**
-- [ ] Configure ACS URL (http://172.25.1.40:7547)
-- [ ] Configure ACS credentials (if required)
-- [ ] Enable TR-069 client
-- [ ] Verify ACS registration
+- [x] Configure ACS URL (http://172.25.1.40:7547)
+- [x] Configure ACS credentials (if required)
+- [x] Enable TR-069 client
+- [x] Verify ACS registration
 
-**prplOS TR-069 Configuration:**
+**prplOS TR-069 Architecture:**
 
-prplOS has native TR-069 client. Configuration via TR-181:
+prplOS uses `icwmpd` as the TR-069 CWMP client, which interacts with the `bbfdm` (Broadband Forum Data Model) service via ubus. The key components are:
+
+- **`icwmpd`** - TR-069 CWMP client daemon
+- **`bbfdmd`** - BBF Data Model daemon (provides TR-181 parameters)
+- **`sysmngr`** - System manager (provides Device.DeviceInfo.* parameters to bbfdm)
+- **`obuspa`** - USP (TR-369) agent (optional, for USP support)
+
+**⚠️ CRITICAL Configuration Requirements:**
+
+The TR-069 connection requires specific UCI configuration. The `sysmngr` service reads device identity from UCI `cwmp.cpe.*` options first, NOT from `/etc/device_info` or `/var/etc/environment`.
+
+**Required UCI Configuration:**
 
 ```bash
-# ACS Configuration
-# Device.ManagementServer.1
-# - URL: http://172.25.1.40:7547
-# - Username: <if required>
-# - Password: <if required>
-# - PeriodicInformEnable: true
-# - PeriodicInformInterval: 300
+# 1. Device Identity (read by sysmngr for Device.DeviceInfo.* parameters)
+uci set cwmp.cpe.manufacturer='prpl Foundation'
+uci set cwmp.cpe.manufacturer_oui='00E04C'         # OUI from WAN MAC address
+uci set cwmp.cpe.product_class='RPi4prplOS'        # No special chars (avoids URL encoding)
+uci set cwmp.cpe.serial_number='1000000045048244'  # RPi serial from /proc/cpuinfo
+uci set cwmp.cpe.model_name='RPi4prplOS'           # Model name
+uci set cwmp.cpe.software_version='r0+25295-f0797dde19'  # From /etc/openwrt_version
+
+# 2. WAN Interface Configuration (CRITICAL!)
+# This must be the ACTUAL DEVICE NAME (e.g., 'eth1'), NOT the netifd interface name (e.g., 'wan')
+# icwmpd uses this to determine the IP address for ConnectionRequestURL
+uci set cwmp.cpe.interface='eth1'
+
+# 3. Commit changes
+uci commit cwmp
+
+# 4. Restart services to apply changes
+/etc/init.d/sysmngr restart   # Reloads device identity from UCI
+sleep 3
+/etc/init.d/icwmpd restart    # Reconnects to ACS with new identity
 ```
 
-**Verification:**
+**ACS URL Configuration via bbfdm:**
 
 ```bash
-# Check TR-069 client status
-# Via TR-181 or prplOS-specific commands
-# Check ACS for device registration
-curl -u admin:admin http://localhost:7557/devices
+# Set ACS URL via TR-181 data model
+ubus call bbfdm set '{"path": "Device.ManagementServer.URL", "value": "http://172.25.1.40:7547"}'
+
+# Enable periodic inform
+ubus call bbfdm set '{"path": "Device.ManagementServer.PeriodicInformEnable", "value": "true"}'
+ubus call bbfdm set '{"path": "Device.ManagementServer.PeriodicInformInterval", "value": "300"}'
+```
+
+**Verification Commands:**
+
+```bash
+# Check icwmpd is running
+ps | grep icwmpd
+
+# Check bbfdm service
+ubus list | grep bbfdm
+
+# Verify device identity in bbfdm
+ubus call bbfdm get '{"path": "Device.DeviceInfo.ManufacturerOUI"}'
+ubus call bbfdm get '{"path": "Device.DeviceInfo.ProductClass"}'
+ubus call bbfdm get '{"path": "Device.DeviceInfo.SerialNumber"}'
+
+# Verify ConnectionRequestURL (must have IP address, not empty!)
+ubus call bbfdm get '{"path": "Device.ManagementServer.ConnectionRequestURL"}'
+
+# Check ACS for device registration (from testbed host)
+curl -s http://localhost:7557/devices | python3 -m json.tool
 # Or via GenieACS UI at http://localhost:3000
 ```
+
+**CPE ID Format:**
+
+The CPE ID in GenieACS is formatted as: `{OUI}-{ProductClass}-{SerialNumber}`
+
+Example: `00E04C-RPi4prplOS-1000000045048244`
+
+> **Note**: The CPE ID uses format `OUI-ProductClass-SerialNumber` to match what icwmpd
+> reports to the ACS. ProductClass uses no special characters (`RPi4prplOS` not `RPi4-prplOS`)
+> to avoid URL encoding issues in GenieACS device `_id`.
+
+**Troubleshooting TR-069 Connection:**
+
+1. **Check icwmpd logs:**
+   ```bash
+   logread | grep -i icwmp
+   ```
+
+2. **Common Issues:**
+   
+   - **Empty ConnectionRequestURL**: Verify `cwmp.cpe.interface` is set to actual device name (`eth1`), not netifd interface (`wan`)
+   
+   - **"failed to get value of Device.DeviceInfo.*"**: Device identity not configured in UCI. Set `cwmp.cpe.*` options and restart `sysmngr`
+   
+   - **CPE not appearing in ACS**: Check network connectivity to ACS, verify ACS URL is correct
+
+3. **Verify network connectivity:**
+   ```bash
+   # From RPi, ping the ACS
+   ping -c 2 172.25.1.40
+   
+   # Check WAN interface has IP
+   ip addr show eth1
+   ```
 
 #### 4.2 Test TR-069 Operations
 
 **Tasks:**
-- [ ] Test GetParameterValues
-- [ ] Test SetParameterValues
-- [ ] Test GetParameterNames
+- [x] Test GetParameterValues
+- [x] Test SetParameterValues
+- [x] Test GetParameterNames
 - [ ] Test Reboot RPC
 - [ ] Test FactoryReset RPC (if needed)
 
@@ -463,6 +548,17 @@ curl -u admin:admin http://localhost:7557/devices
 acs.GPV("Device.DeviceInfo.ModelName")
 acs.SPV([("Device.IP.Interface.1.IPv4Address", "10.1.1.100")])
 acs.Reboot(CommandKey="test-reboot")
+```
+
+**Test via ubus (local):**
+
+```bash
+# Get parameter values
+ubus call bbfdm get '{"path": "Device.DeviceInfo."}'
+ubus call bbfdm get '{"path": "Device.ManagementServer."}'
+
+# Set parameter values
+ubus call bbfdm set '{"path": "Device.ManagementServer.PeriodicInformInterval", "value": "600"}'
 ```
 
 ---
@@ -636,28 +732,28 @@ CPE (Template)
 ## Success Criteria
 
 ### Phase 1 Complete ✅
-- [ ] prplOS image built for RPi4
-- [ ] RPi4 boots successfully with prplOS
-- [ ] Serial console access working
-- [ ] Network interfaces identified
+- [x] prplOS image built for RPi4
+- [x] RPi4 boots successfully with prplOS
+- [x] Serial console access working
+- [x] Network interfaces identified
 
 ### Phase 2 Complete ✅
-- [ ] WAN interface configured and gets IP (10.1.1.100+)
-- [ ] LAN interface configured as gateway (192.168.10.1)
-- [ ] Connectivity verified (Router, ISP services, Internet)
-- [ ] DHCP server working on LAN
+- [x] WAN interface configured and gets IP (10.1.1.100+)
+- [x] LAN interface configured as gateway (192.168.10.1)
+- [x] Connectivity verified (Router, ISP services, Internet)
+- [ ] DHCP server working on LAN (to be verified)
 
 ### Phase 3 Complete ✅
-- [ ] RPiPrplOSCPE device class implemented
-- [ ] Device class registered in Boardfarm
-- [ ] Boardfarm configuration created
-- [ ] Basic device operations working (connect, version, etc.)
+- [x] RPiPrplOSCPE device class implemented
+- [x] Device class registered in Boardfarm
+- [x] Boardfarm configuration created
+- [x] Basic device operations working (connect, version, etc.)
 
 ### Phase 4 Complete ✅
-- [ ] TR-069 client configured and connected to ACS
-- [ ] ACS registration successful
-- [ ] TR-069 RPC operations working
-- [ ] ACS provisioning workflows functional
+- [x] TR-069 client configured and connected to ACS
+- [x] ACS registration successful
+- [x] TR-069 RPC operations working (via bbfdm)
+- [ ] ACS provisioning workflows functional (testing in progress)
 
 ### Phase 5 Complete ✅
 - [ ] Raikou configuration updated
