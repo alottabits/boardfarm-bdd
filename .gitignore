@@ -165,3 +165,6 @@ geckodriver.log
 
 # embedded images
 *.img
+
+#obsidian
+.obsidian/
