@@ -11,10 +11,9 @@ from boardfarm3.templates.acs import ACS as AcsTemplate
 import pexpect
 from boardfarm3.templates.cpe.cpe import CPE as CpeTemplate
 from boardfarm3.templates.wan import WAN as WanTemplate
+from boardfarm3.use_cases import acs as acs_use_cases
 from pytest_bdd import given, parsers, then, when
 from pytest_boardfarm3.boardfarm_fixtures import devices
-
-from tests.step_defs.helpers import gpv_value
 
 # Auto-discover and import all step definition modules
 # This ensures pytest-bdd can find them even if re-registration has issues
@@ -428,7 +427,7 @@ def cleanup_cpe_config_after_scenario(
                                 try:
                                     # Try to verify password was reset by checking
                                     # if we can still access it (this is a basic check)
-                                    current_password = gpv_value(
+                                    current_password = acs_use_cases.get_parameter_value(
                                         acs, cpe, gpv_param
                                     )
                                     print(

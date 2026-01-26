@@ -1,4 +1,8 @@
-"""SIP phone step definitions for BDD tests."""
+"""SIP phone step definitions for BDD tests.
+
+This module provides step definitions for SIP phone operations in pytest-bdd.
+Core call operations are delegated to boardfarm3.use_cases.voice for portability.
+"""
 
 import time
 import pexpect
@@ -6,6 +10,7 @@ from typing import Any
 
 from boardfarm3.templates.sip_phone import SIPPhone
 from boardfarm3.templates.sip_server import SIPServer
+from boardfarm3.use_cases import voice as voice_use_cases
 from pytest_bdd import given, then, when
 
 
@@ -711,18 +716,16 @@ def phone_off_hook(phone_role: str, bf_context: Any) -> None:
 
 @when('the {caller_role} dials the {callee_role}\'s number')
 def phone_dials_number(caller_role: str, callee_role: str, bf_context: Any) -> None:
-    """Dial the callee's number."""
+    """Dial the callee's number - delegates to voice use_case."""
     caller = get_phone_by_role(bf_context, caller_role)
     callee = get_phone_by_role(bf_context, callee_role)
     
-    callee_number = callee.number
-    print(f"Phone {caller.name} dialing {callee_number}...")
+    print(f"Phone {caller.name} dialing {callee.number}...")
     
-    caller.dial(callee_number)
+    # Use voice use_case for the call operation
+    voice_use_cases.call_a_phone(caller, callee)
     
     # Check if a disconnect message appeared immediately after dialing
-    # This happens when the callee is busy or unavailable
-    # We check the console buffer that was just filled by dial()
     if hasattr(caller, "_console") and hasattr(caller._console, "before"):
         before_text = str(caller._console.before)
         if "DISCONNECTED [reason=486 (Busy Here)]" in before_text:
@@ -731,7 +734,7 @@ def phone_dials_number(caller_role: str, callee_role: str, bf_context: Any) -> N
         else:
             bf_context.call_immediately_disconnected = False
     
-    print(f"✓ Phone {caller.name} dialed {callee_number}")
+    print(f"✓ Phone {caller.name} dialed {callee.number}")
 
 
 @when("the caller calls the callee")
@@ -785,11 +788,13 @@ def phone_dials_invalid_number(phone_role: str, bf_context: Any) -> None:
 
 @when("the {phone_role} answers the call")
 def phone_answers_call(phone_role: str, bf_context: Any) -> None:
-    """Answer incoming call."""
+    """Answer incoming call - delegates to voice use_case."""
     phone = get_phone_by_role(bf_context, phone_role)
     
     print(f"Phone {phone.name} answering call...")
-    success = phone.answer()
+    
+    # Use voice use_case for the answer operation
+    success = voice_use_cases.answer_a_call(phone)
     
     assert success, f"Phone {phone.name} failed to answer call"
     print(f"✓ Phone {phone.name} answered call")
@@ -797,7 +802,7 @@ def phone_answers_call(phone_role: str, bf_context: Any) -> None:
 
 @when('"{callee_name}" answers the call')
 def named_phone_answers_call(callee_name: str, bf_context: Any) -> None:
-    """Answer call by phone name."""
+    """Answer call by phone name - delegates to voice use_case."""
     callee = get_phone_by_name(bf_context, callee_name)
     
     # Store callee reference if not already set
@@ -805,7 +810,9 @@ def named_phone_answers_call(callee_name: str, bf_context: Any) -> None:
         bf_context.callee = callee
     
     print(f"Phone {callee.name} answering call...")
-    success = callee.answer()
+    
+    # Use voice use_case for the answer operation
+    success = voice_use_cases.answer_a_call(callee)
     
     assert success, f"Phone {callee.name} failed to answer call"
     print(f"✓ Phone {callee.name} answered call")
@@ -845,9 +852,9 @@ def phone_timeout(phone_role: str, bf_context: Any) -> None:
 
 
 def _hangup_phone(phone: Any) -> None:
-    """Helper to hang up a phone (shared logic)."""
+    """Helper to hang up a phone - delegates to voice use_case."""
     print(f"Phone {phone.name} hanging up...")
-    phone.hangup()
+    voice_use_cases.disconnect_the_call(phone)
     print(f"✓ Phone {phone.name} hung up")
 
 
@@ -867,12 +874,12 @@ def named_phone_hangs_up(phone_name: str, bf_context: Any) -> None:
 
 @when("either party hangs up due to communication failure")
 def either_party_hangs_up(bf_context: Any) -> None:
-    """Hang up either caller or callee due to failure."""
+    """Hang up either caller or callee due to failure - delegates to use_case."""
     # Hang up caller (arbitrary choice)
     if hasattr(bf_context, "caller"):
         phone = bf_context.caller
         print(f"Phone {phone.name} hanging up due to failure...")
-        phone.hangup()
+        voice_use_cases.disconnect_the_call(phone)
         print(f"✓ Phone {phone.name} hung up")
 
 

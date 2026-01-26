@@ -254,13 +254,19 @@ def test_phone_answers_call_success(bf_context: MockContext, lan_phone: MockSIPP
 def test_phone_answers_call_failure_not_ringing(
     bf_context: MockContext, lan_phone: MockSIPPhone
 ):
-    """Test 'phone_answers_call' when the phone is not ringing."""
+    """Test 'phone_answers_call' when the phone is not ringing.
+    
+    Note: After refactoring to use voice_use_cases, VoiceError is raised
+    instead of AssertionError when the phone is not ringing.
+    """
+    from boardfarm3.exceptions import VoiceError
+    
     # Arrange: Set the phone as the callee but keep its state as 'idle'
     bf_context.callee = lan_phone
     lan_phone._state = "idle"
 
-    # Act & Assert: Verify that an AssertionError is raised
-    with pytest.raises(AssertionError, match="Phone lan_phone failed to answer call"):
+    # Act & Assert: Verify that a VoiceError is raised
+    with pytest.raises(VoiceError, match="not ringing"):
         phone_answers_call("callee", bf_context)
 
 
