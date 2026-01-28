@@ -81,6 +81,14 @@ class MockSIPPhone(SIPPhone):
     def is_ringing(self) -> bool:
         """Check if phone is ringing."""
         return self._state == "ringing"
+
+    def has_incoming_call(self) -> bool:
+        """Check if there's an incoming call waiting to be answered.
+        
+        This is more reliable than is_ringing() for real devices as it
+        checks the current call state rather than a transient console message.
+        """
+        return self._state == "ringing"
     
     def is_connected(self) -> bool:
         """Check if phone is connected."""
