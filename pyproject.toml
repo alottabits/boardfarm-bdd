@@ -1,0 +1,133 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=61.0"]
+
+[project]
+name = "boardfarm-bdd"
+version = "0.1.0"
+description = "BDD test suite for Boardfarm testbed - supports pytest-bdd and Robot Framework"
+authors = [
+    { name = "Various", email = "t&iconnectivityboardfarm@libertyglobal.com" },
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Pytest",
+    "Framework :: Robot Framework",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Telecommunications Industry",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Testing :: BDD",
+]
+
+# Core dependencies - required for both frameworks
+dependencies = [
+    "boardfarm3>=1.0.0",
+]
+
+[project.optional-dependencies]
+# pytest-bdd framework dependencies
+pytest = [
+    "pytest>=7.0",
+    "pytest-bdd>=6.0",
+    "pytest-boardfarm3",
+    "pytest-html",
+    "pytest-cov",
+]
+
+# Robot Framework dependencies
+robot = [
+    "robotframework>=6.0",
+    "robotframework-boardfarm>=0.1.0",
+]
+
+# Install both frameworks (for development/CI)
+all = [
+    "boardfarm-bdd[pytest,robot]",
+]
+
+# Development dependencies
+dev = [
+    "boardfarm-bdd[all]",
+    "ruff>=0.4.0",
+    "mypy",
+    "pre-commit",
+]
+
+# Documentation dependencies
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+]
+
+[project.urls]
+Source = "https://github.com/lgirdk/boardfarm-bdd"
+Documentation = "https://github.com/lgirdk/boardfarm-bdd#readme"
+
+# =============================================================================
+# Tool Configuration
+# =============================================================================
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+bdd_features_base_dir = "tests/features"
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+exclude = [
+    ".git",
+    ".venv",
+    ".venv-*",
+    "__pycache__",
+    "raikou",  # Docker components, not Python packages
+]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/step_defs/*" = [
+    "F811",   # redefinition of unused name (pytest-bdd step reuse)
+]
+"tests/unit/*" = [
+    "S101",   # assert in tests
+]
+
+[tool.setuptools]
+# This is a test project, not a library - no packages to install
+packages = []
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = [
+    "raikou",
+    ".venv",
+]
+

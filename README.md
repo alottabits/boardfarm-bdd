@@ -1,11 +1,40 @@
 # Project Brief
 
-With this project, we aim to create a consistent set of system requirements as use cases and their corresponding automated test cases. The automated tests leverage `pytest-bdd` in combination with `boardfarm`.
+With this project, we aim to create a consistent set of system requirements as use cases and their corresponding automated test cases. The automated tests leverage **both pytest-bdd and Robot Framework** in combination with `boardfarm3`.
 
 Capturing requirements in Markdown formatted use cases allows the organization to use Git as the version control system of the requirements, enabling us to treat documentation, test cases and reports with the same collaborative processes as code.
-With the standardization of the test interface by Boardfarm, LLMs have a clear reference to translate BDD scenario steps into python code for execution. Pytest-bdd provides a powerful execution and reporting engine in this setup. 
+With the standardization of the test interface by Boardfarm, LLMs have a clear reference to translate BDD scenario steps into code for execution.
 
-To proof the concept of the proposed workflow, all the bdd scenarios are generated with the help of LLM's based on the use cases The step definitions collected in the `./tests/step_defs/` folder are generated using LLM's based on the BDD scenarios and the Boardfarm API specification.
+## Dual Framework Support
+
+This project supports two test automation frameworks:
+
+| Framework | Directory | Integration | Best For |
+|-----------|-----------|-------------|----------|
+| **pytest-bdd** | `tests/` | `pytest-boardfarm3` | Teams familiar with pytest, Python-centric workflows |
+| **Robot Framework** | `robot/` | `robotframework-boardfarm` | Keyword-driven testing, non-programmer test authors |
+
+Both frameworks:
+- Use the same `boardfarm3.use_cases` for test operations (single source of truth)
+- Share the same use case specifications in `requirements/`
+- Connect to the same boardfarm testbed infrastructure
+
+### Quick Start
+
+```bash
+# Install for pytest-bdd
+pip install -e ".[pytest]"
+
+# Install for Robot Framework
+pip install -e ".[robot]"
+
+# Install both (development)
+pip install -e ".[dev]"
+```
+
+See framework-specific guides:
+- [pytest-bdd Getting Started](docs/tests/getting_started.md)
+- [Robot Framework Getting Started](docs/robot/getting_started.md)
 
 ![Process Flow](./docs/Requirements_and_Test_framework.excalidraw.png)
 
@@ -21,7 +50,7 @@ To ensure consistency and portability, this project adheres to the following sta
 
 -   **Requirements Use Cases:** All use cases are written following the structure defined in the `requirements/template/Use Case Template (reflect the goal).md`.
 
--   **Step Definition Collection:** All step definitions (the code representing the test step) are collected in one [folder](./tests/step_defs/). This allows all scenarios to leverage the same test step definitions. The objective is to achieve maximum re-use of the test steps.
+-   **Step Definition Collection:** All pytest-bdd step definitions are collected in [`tests/step_defs/`](./tests/step_defs/). Robot Framework tests are in [`robot/tests/`](./robot/tests/). Both leverage the same `boardfarm3.use_cases` for maximum code reuse.
 
 -   **Step Definition Type Hinting:** All step definitions and fixtures that interact with testbed devices must use Python type hints. These hints should leverage the specific device templates (Abstract Base Classes) provided by `boardfarm`. These templates can be found in the `boardfarm/boardfarm3/templates/` directory and help ensure code quality and maintainability.
 
@@ -94,11 +123,13 @@ Before running a full system test, it's crucial to validate the logic of the ste
 
 For a detailed guide on how to write and run these unit tests, please see the [Unit Testing for Step Definitions README](./tests/unit/test_step_defs/README.md).
 
-## pytest-bdd Test Execution
+## Test Execution
 
-This section provides practical examples for running pytest-bdd tests with boardfarm testbed integration.
+This section provides practical examples for running tests with boardfarm testbed integration.
 
-### Required Boardfarm Options
+### pytest-bdd Tests
+
+#### Required Boardfarm Options
 
 When running tests with the boardfarm testbed, you must include these options:
 
@@ -108,23 +139,23 @@ When running tests with the boardfarm testbed, you must include these options:
 - `--legacy`: Use legacy boardfarm mode
 - `--save-console-logs`: Directory to save console logs
 
-### Basic Test Execution
+#### Basic Test Execution
 
 ```bash
-# Run all tests with boardfarm testbed
-pytest --board-name prplos-docker-1 \
+# Run all pytest-bdd tests with boardfarm testbed
+pytest tests/features/ --board-name prplos-docker-1 \
   --env-config ./bf_config/boardfarm_env_example.json \
   --inventory-config ./bf_config/boardfarm_config_example.json \
   --legacy \
   --save-console-logs ./logs/
 
 # Run tests from a specific feature file
-pytest --board-name prplos-docker-1 \
+pytest tests/features/Remote\ CPE\ Reboot.feature \
+  --board-name prplos-docker-1 \
   --env-config ./bf_config/boardfarm_env_example.json \
   --inventory-config ./bf_config/boardfarm_config_example.json \
   --legacy \
-  --save-console-logs ./logs/ \
-  tests/features/Remote\ CPE\ Reboot.feature
+  --save-console-logs ./logs/
 
 # Run tests with verbose output and show print statements
 pytest --board-name prplos-docker-1 \
@@ -288,7 +319,7 @@ pytest --durations=10 \
   -v -s
 ```
 
-### Complete Example
+#### Complete Example
 
 Here's a complete example command that includes all common options:
 
@@ -305,3 +336,60 @@ pytest --log-level=DEBUG \
   -k "UC123473a" \
   -v -s
 ```
+
+---
+
+### Robot Framework Tests
+
+The `bfrobot` command provides a consistent CLI experience matching `boardfarm` and `pytest`:
+
+#### Basic Execution
+
+```bash
+# Run all Robot Framework tests
+bfrobot --board-name prplos-docker-1 \
+  --env-config bf_config/boardfarm_env_example.json \
+  --inventory-config bf_config/boardfarm_config_example.json \
+  --outputdir results \
+  robot/tests/
+
+# Run a specific test suite
+bfrobot --board-name prplos-docker-1 \
+  --env-config bf_config/boardfarm_env_example.json \
+  --inventory-config bf_config/boardfarm_config_example.json \
+  robot/tests/hello.robot
+
+# With skip-boot for faster iteration
+bfrobot --board-name prplos-docker-1 \
+  --env-config bf_config/boardfarm_env_example.json \
+  --inventory-config bf_config/boardfarm_config_example.json \
+  --skip-boot \
+  robot/tests/hello.robot
+```
+
+#### Filtering Tests
+
+```bash
+# Run by tag
+bfrobot --board-name prplos-docker-1 \
+  --env-config bf_config/boardfarm_env_example.json \
+  --inventory-config bf_config/boardfarm_config_example.json \
+  --include smoke \
+  robot/tests/
+
+# Run by test name pattern
+bfrobot --board-name prplos-docker-1 \
+  --env-config bf_config/boardfarm_env_example.json \
+  --inventory-config bf_config/boardfarm_config_example.json \
+  --test "*Reboot*" \
+  robot/tests/
+
+# Exclude tests
+bfrobot --board-name prplos-docker-1 \
+  --env-config bf_config/boardfarm_env_example.json \
+  --inventory-config bf_config/boardfarm_config_example.json \
+  --exclude slow \
+  robot/tests/
+```
+
+For detailed Robot Framework documentation, see [Robot Framework Getting Started](docs/robot/getting_started.md) and [Keyword Reference](docs/robot/keyword_reference.md).

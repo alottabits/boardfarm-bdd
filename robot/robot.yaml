@@ -1,0 +1,117 @@
+# Robot Framework Configuration
+# =============================
+# Configuration file for Robot Framework test execution.
+# Used by robot command and pabot for parallel execution.
+
+# =============================================================================
+# Execution Settings
+# =============================================================================
+
+# Output directory for reports and logs
+outputdir: results
+
+# Report files
+log: log.html
+report: report.html
+output: output.xml
+
+# Console output
+console: verbose
+
+# =============================================================================
+# Parallel Execution (pabot)
+# =============================================================================
+
+# Number of parallel processes
+processes: 2
+
+# Process-level isolation
+# Each process gets its own testbed session
+ordering: --ordering test
+
+# =============================================================================
+# Listener Configuration
+# =============================================================================
+
+# Default Boardfarm listener
+# Uncomment and configure for your testbed:
+#
+# listener: >-
+#   robotframework_boardfarm.BoardfarmListener:
+#   board_name=prplos-docker-1:
+#   env_config=bf_config/boardfarm_env_example.json:
+#   inventory_config=bf_config/boardfarm_config_example.json
+
+# =============================================================================
+# Variable Files
+# =============================================================================
+
+# Load shared variables
+# variablefile:
+#   - robot/resources/variables.resource
+
+# =============================================================================
+# Tag Filtering
+# =============================================================================
+
+# Include/exclude tags for test selection
+# include:
+#   - smoke
+# exclude:
+#   - skip
+#   - wip
+
+# =============================================================================
+# Timeout Settings
+# =============================================================================
+
+# Default test timeout
+# timeout: 10 minutes
+
+# =============================================================================
+# Library Search Paths
+# =============================================================================
+
+# Additional library paths
+# pythonpath:
+#   - robot/libraries
+#   - shared
+
+# =============================================================================
+# Pre/Post Run Scripts
+# =============================================================================
+
+# Pre-run script (setup)
+# prerunmodifier: scripts/setup_testbed.py
+
+# Post-run script (cleanup)
+# prerebotmodifier: scripts/cleanup_testbed.py
+
+# =============================================================================
+# Rebot Settings (for combining results)
+# =============================================================================
+
+# Rebot configuration for combining parallel results
+# rebot:
+#   merge: true
+#   log: combined_log.html
+#   report: combined_report.html
+
+# =============================================================================
+# Example Commands
+# =============================================================================
+
+# Run all tests:
+#   robot --listener "robotframework_boardfarm.BoardfarmListener:board_name=prplos-docker-1" robot/tests/
+#
+# Run smoke tests only:
+#   robot --include smoke robot/tests/
+#
+# Run with pabot (parallel):
+#   pabot --processes 2 robot/tests/
+#
+# Run specific test suite:
+#   robot robot/tests/hello.robot
+#
+# Run with custom variables:
+#   robot --variable TEST_PASSWORD:mypassword robot/tests/
