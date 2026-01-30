@@ -390,7 +390,7 @@ def device_reboots_successfully(cpe: CpeTemplate, bf_context: Any) -> None:
     # Try to check current uptime via console
     # Note: Console access may be lost during reboot
     try:
-        from tests.step_defs.helpers import get_console_uptime_seconds
+        from boardfarm3.use_cases.cpe import get_console_uptime_seconds
         current_uptime = get_console_uptime_seconds(cpe)
         print(f"⚠ Current uptime: {current_uptime}s")
         

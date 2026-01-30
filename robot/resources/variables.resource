@@ -70,11 +70,11 @@ ${LAN_SUBNET}                   192.168.1.0/24
 ${WAN_SUBNET}                   10.0.0.0/24
 
 # =============================================================================
-# Test Data Paths
+# Test Configuration
 # =============================================================================
-${SHARED_DATA_DIR}              ${CURDIR}/../../shared/test_data
-${CPE_PARAMS_FILE}              ${SHARED_DATA_DIR}/cpe_parameters.yaml
-${SIP_CONFIG_FILE}              ${SHARED_DATA_DIR}/sip_configs.yaml
+# Note: Test data is provided dynamically by the Boardfarm testbed configuration.
+# Device-specific parameters are accessed via ACS/use_cases, not static files.
+# This follows the 4-layer architecture principle.
 
 # =============================================================================
 # Test Tags

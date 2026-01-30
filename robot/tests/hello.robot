@@ -1,15 +1,17 @@
 *** Settings ***
 Documentation    Basic smoke test to verify testbed connectivity.
-...              Corresponds to pytest/features/hello.feature
+...              Corresponds to tests/features/hello.feature
 
 Library    robotframework_boardfarm.BoardfarmLibrary
-Library    robotframework_boardfarm.UseCaseLibrary
+Library    ../libraries/boardfarm_keywords.py
+Library    ../libraries/acs_keywords.py
+Library    ../libraries/hello_keywords.py
 
 *** Test Cases ***
 Say Hello - Verify Basic Connectivity
     [Documentation]    Basic test to verify testbed connectivity
     [Tags]    smoke    hello
-    Log    Hello from Robot Framework!
+    Say Hello
     ${acs}=    Get Device By Type    ACS
     ${cpe}=    Get Device By Type    CPE
     Should Not Be Equal    ${acs}    ${None}    ACS device should exist
@@ -22,5 +24,4 @@ Verify CPE Is Online
     [Tags]    smoke    cpe    online
     ${acs}=    Get Device By Type    ACS
     ${cpe}=    Get Device By Type    CPE
-    ${online}=    Acs Is Cpe Online    ${acs}    ${cpe}
-    Should Be True    ${online}    CPE should be online
+    The CPE Is Online Via ACS    ${acs}    ${cpe}

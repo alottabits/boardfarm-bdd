@@ -38,39 +38,35 @@ boardfarm-bdd/
 └── requirements/            # Use case specifications
 ```
 
+For detailed directory structure documentation, see [tests/README.md](../../tests/README.md).
+
 ## Running Tests
 
 ### Basic Execution
 
 ```bash
 # Run all tests with boardfarm testbed
-pytest tests/features/ \
-    --board-name=prplos-docker-1 \
-    --env-config=bf_config/boardfarm_env_example.json \
-    --inventory-config=bf_config/boardfarm_config_example.json \
+pytest --board-name prplos-docker-1 \
+    --env-config bf_config/boardfarm_env_example.json \
+    --inventory-config bf_config/boardfarm_config_example.json \
     --legacy \
-    --save-console-logs=./logs/
+    --save-console-logs ./logs/
 
-# Run from project root (uses pytest.ini settings)
-pytest --board-name=prplos-docker-1 \
-    --env-config=bf_config/boardfarm_env_example.json \
-    --inventory-config=bf_config/boardfarm_config_example.json
-```
-
-### Running Specific Features
-
-```bash
-# Run a specific feature file
+# Run tests from a specific feature file
 pytest tests/features/Remote\ CPE\ Reboot.feature \
-    --board-name=prplos-docker-1 \
-    --env-config=bf_config/boardfarm_env_example.json \
-    --inventory-config=bf_config/boardfarm_config_example.json
+    --board-name prplos-docker-1 \
+    --env-config bf_config/boardfarm_env_example.json \
+    --inventory-config bf_config/boardfarm_config_example.json \
+    --legacy \
+    --save-console-logs ./logs/
 
-# Run by scenario name pattern
-pytest -k "UC12347Main" \
-    --board-name=prplos-docker-1 \
-    --env-config=bf_config/boardfarm_env_example.json \
-    --inventory-config=bf_config/boardfarm_config_example.json
+# Run with verbose output
+pytest --board-name prplos-docker-1 \
+    --env-config bf_config/boardfarm_env_example.json \
+    --inventory-config bf_config/boardfarm_config_example.json \
+    --legacy \
+    --save-console-logs ./logs/ \
+    -v -s
 ```
 
 ### Required Boardfarm Options
@@ -82,6 +78,97 @@ pytest -k "UC12347Main" \
 | `--inventory-config` | Inventory config JSON | `bf_config/boardfarm_config_example.json` |
 | `--legacy` | Use legacy boardfarm mode | (flag) |
 | `--save-console-logs` | Directory for console logs | `./logs/` |
+| `--skip-boot` | Skip device booting | (flag) |
+
+### Filtering Tests with `-k` Option
+
+The `-k` option allows you to filter tests by matching against test names, scenario names, and tags.
+
+> **Note on Scenario Names**: Scenario names are condensed by removing hyphens and dots:
+> - `Scenario: UC-12347-Main: Successful Remote Reboot` → Filter: `UC12347Main`
+> - `Scenario: UC-12347-3.a: CPE Not Connected` → Filter: `UC123473a`
+
+```bash
+# Run only the main scenario
+pytest --board-name prplos-docker-1 \
+    --env-config bf_config/boardfarm_env_example.json \
+    --inventory-config bf_config/boardfarm_config_example.json \
+    --legacy \
+    --save-console-logs ./logs/ \
+    -k "UC12347Main" -v -s
+
+# Run all UC-12347 scenarios
+pytest --board-name prplos-docker-1 \
+    --env-config bf_config/boardfarm_env_example.json \
+    --inventory-config bf_config/boardfarm_config_example.json \
+    --legacy \
+    --save-console-logs ./logs/ \
+    -k "UC12347" -v -s
+
+# Boolean operators: OR, AND, NOT
+pytest ... -k "UC12347Main or UC123473a"   # Either scenario
+pytest ... -k "UC12347 and Main"           # Both patterns
+pytest ... -k "UC12347 and not UC123473a"  # Exclude specific
+```
+
+### Logging and Debugging
+
+```bash
+# Enable DEBUG logging
+pytest --log-level=DEBUG \
+    --log-cli-level=DEBUG \
+    --board-name prplos-docker-1 \
+    --env-config bf_config/boardfarm_env_example.json \
+    --inventory-config bf_config/boardfarm_config_example.json \
+    --legacy \
+    --save-console-logs ./logs/ \
+    -k "UC123473a" -v -s
+```
+
+### Reporting
+
+```bash
+# Generate HTML report
+pytest --html=report.html \
+    --self-contained-html \
+    --board-name prplos-docker-1 \
+    --env-config bf_config/boardfarm_env_example.json \
+    --inventory-config bf_config/boardfarm_config_example.json \
+    --legacy \
+    --save-console-logs ./logs/
+
+# Generate JUnit XML report (for CI/CD)
+pytest --junitxml=test-results.xml \
+    --board-name prplos-docker-1 \
+    --env-config bf_config/boardfarm_env_example.json \
+    --inventory-config bf_config/boardfarm_config_example.json \
+    --legacy \
+    --save-console-logs ./logs/
+
+# Show test durations
+pytest --durations=10 \
+    --board-name prplos-docker-1 \
+    --env-config bf_config/boardfarm_env_example.json \
+    --inventory-config bf_config/boardfarm_config_example.json \
+    --legacy \
+    --save-console-logs ./logs/
+```
+
+### Complete Example
+
+```bash
+pytest --log-level=DEBUG \
+    --log-cli-level=DEBUG \
+    --html=report.html \
+    --self-contained-html \
+    --board-name prplos-docker-1 \
+    --env-config bf_config/boardfarm_env_example.json \
+    --inventory-config bf_config/boardfarm_config_example.json \
+    --legacy \
+    --save-console-logs ./logs/ \
+    -k "UC123473a" \
+    -v -s
+```
 
 ## Writing Tests
 

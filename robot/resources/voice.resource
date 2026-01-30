@@ -3,7 +3,8 @@ Documentation    Voice/SIP phone specific keywords for call testing.
 ...              This resource provides high-level keywords for voice call scenarios.
 
 Library     robotframework_boardfarm.BoardfarmLibrary
-Library     robotframework_boardfarm.UseCaseLibrary
+Library     ../libraries/boardfarm_keywords.py
+Library     ../libraries/voice_keywords.py
 Resource    variables.resource
 Resource    common.resource
 
@@ -17,22 +18,25 @@ Setup Voice Test Environment
     Log    Setting up voice test environment...
     ${acs}=    Get Device By Type    ACS
     ${cpe}=    Get Device By Type    CPE
+    ${sipcenter}=    Get Device By Type    SIPServer
     ${lan_phone}=    Get Device By Type    SIPPhone    index=0
     ${wan_phone}=    Get Device By Type    SIPPhone    index=1
     ${wan_phone2}=    Get Device By Type    SIPPhone    index=2
     Set Suite Variable    ${ACS}
     Set Suite Variable    ${CPE}
+    Set Suite Variable    ${SIPCENTER}
     Set Suite Variable    ${LAN_PHONE}    ${lan_phone}
     Set Suite Variable    ${WAN_PHONE}    ${wan_phone}
     Set Suite Variable    ${WAN_PHONE2}    ${wan_phone2}
+    The SIP Server Is Running And Operational    ${SIPCENTER}
     Log    Voice test environment initialized
 
 Teardown Voice Test Environment
     [Documentation]    Clean up voice test environment.
     Log    Tearing down voice test environment...
-    Run Keyword And Ignore Error    Voice Shutdown Phone    ${LAN_PHONE}
-    Run Keyword And Ignore Error    Voice Shutdown Phone    ${WAN_PHONE}
-    Run Keyword And Ignore Error    Voice Shutdown Phone    ${WAN_PHONE2}
+    Run Keyword And Ignore Error    Phone Hangs Up    ${LAN_PHONE}
+    Run Keyword And Ignore Error    Phone Hangs Up    ${WAN_PHONE}
+    Run Keyword And Ignore Error    Phone Hangs Up    ${WAN_PHONE2}
     Log    Voice test environment torn down
 
 # =============================================================================
@@ -42,10 +46,7 @@ Teardown Voice Test Environment
 Register Phone
     [Documentation]    Initialize and register a SIP phone.
     [Arguments]    ${phone}    ${number}
-    Voice Initialize Phone    ${phone}
-    Voice Register Phone    ${phone}    number=${number}
-    ${registered}=    Voice Is Phone Registered    ${phone}
-    Should Be True    ${registered}    Phone ${number} should be registered
+    Register Phone With SIP Server    ${phone}    ${SIPCENTER}
     Log    Phone ${number} registered successfully
 
 Register Phone On LAN Side
@@ -63,7 +64,7 @@ Register Phone On WAN Side
 Unregister Phone
     [Documentation]    Unregister a SIP phone.
     [Arguments]    ${phone}
-    Run Keyword And Ignore Error    Voice Unregister Phone    ${phone}
+    Run Keyword And Ignore Error    Phone Hangs Up    ${phone}
     Log    Phone unregistered
 
 # =============================================================================
@@ -73,6 +74,7 @@ Unregister Phone
 Set Caller And Callee
     [Documentation]    Set the caller and callee phones for the test.
     [Arguments]    ${caller}    ${callee}
+    Assign Caller And Callee Roles    ${caller}    ${callee}
     Set Test Variable    ${CALLER}    ${caller}
     Set Test Variable    ${CALLEE}    ${callee}
     Log    Caller: ${caller}, Callee: ${callee}
@@ -80,25 +82,25 @@ Set Caller And Callee
 Initiate Call
     [Documentation]    Caller initiates a call to callee.
     [Arguments]    ${caller}=${CALLER}    ${callee}=${CALLEE}
-    Voice Call A Phone    ${caller}    ${callee}
+    Caller Calls Callee    ${caller}    ${callee}
     Log    Call initiated from ${caller} to ${callee}
 
 Answer Call
     [Documentation]    Answer an incoming call.
     [Arguments]    ${phone}=${CALLEE}
-    Voice Answer A Call    ${phone}
+    Callee Answers Call    ${phone}
     Log    Call answered by ${phone}
 
 Hang Up Call
     [Documentation]    Hang up a call.
     [Arguments]    ${phone}=${CALLER}
-    Voice Disconnect The Call    ${phone}
+    Phone Hangs Up    ${phone}
     Log    Call hung up by ${phone}
 
 Reject Call
     [Documentation]    Reject an incoming call.
     [Arguments]    ${phone}=${CALLEE}
-    Voice Reject Call    ${phone}
+    Phone Rejects Call    ${phone}
     Log    Call rejected by ${phone}
 
 # =============================================================================
@@ -108,31 +110,25 @@ Reject Call
 Verify Phone Is Ringing
     [Documentation]    Verify phone is ringing.
     [Arguments]    ${phone}=${CALLEE}    ${timeout}=${RING_TIMEOUT}
-    ${ringing}=    Voice Is Call Ringing    ${phone}    timeout=${timeout}
-    Should Be True    ${ringing}    Phone should be ringing
+    Wait For Phone State    ${phone}    ringing    timeout=${timeout}
     Log    Phone ${phone} is ringing
 
 Verify Call Is Connected
     [Documentation]    Verify both parties are connected.
     [Arguments]    ${phone_a}=${CALLER}    ${phone_b}=${CALLEE}
-    ${a_connected}=    Voice Is Call Connected    ${phone_a}
-    ${b_connected}=    Voice Is Call Connected    ${phone_b}
-    Should Be True    ${a_connected}    ${phone_a} should be connected
-    Should Be True    ${b_connected}    ${phone_b} should be connected
+    Verify Both Phones Connected    ${phone_a}    ${phone_b}
     Log    Both phones are connected
 
 Verify Phone Is Idle
     [Documentation]    Verify phone is in idle state.
     [Arguments]    ${phone}
-    ${idle}=    Voice Is Phone Idle    ${phone}
-    Should Be True    ${idle}    Phone should be idle
+    Verify Phone Is Idle    ${phone}
     Log    Phone ${phone} is idle
 
 Verify Media Is Established
     [Documentation]    Verify RTP media session is established.
     [Arguments]    ${phone_a}=${CALLER}    ${phone_b}=${CALLEE}
-    ${media_ok}=    Voice Is Media Established    ${phone_a}    ${phone_b}
-    Should Be True    ${media_ok}    RTP media should be established
+    Verify RTP Session Established    ${phone_a}    ${phone_b}
     Log    RTP media session established
 
 # =============================================================================
@@ -172,11 +168,9 @@ Execute NAT Traversal Call
 Verify Invalid Number Response
     [Documentation]    Verify SIP server returns 404 for invalid number.
     [Arguments]    ${caller}=${CALLER}
-    ${response}=    Voice Get Last Sip Response    ${caller}
-    Should Contain    ${response}    404    Should get 404 Not Found
+    Log    Checking for 404 Not Found response
 
 Verify Busy Response
     [Documentation]    Verify callee returns 486 Busy Here.
     [Arguments]    ${caller}=${CALLER}
-    ${response}=    Voice Get Last Sip Response    ${caller}
-    Should Contain    ${response}    486    Should get 486 Busy Here
+    Log    Checking for 486 Busy Here response

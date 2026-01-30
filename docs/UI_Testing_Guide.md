@@ -4,6 +4,39 @@
 
 This guide explains how to use Boardfarm's automated UI discovery tools to develop BDD scenarios, feature files, and step definitions.
 
+## Prerequisites
+
+### Installation
+
+GUI testing requires the StateExplorer packages for state-machine-based UI testing:
+
+```bash
+# 1. Install StateExplorer packages (from the req-tst workspace)
+pip install -e ../StateExplorer/packages/model-resilience-core
+pip install -e ../StateExplorer/packages/aria-state-mapper
+
+# 2. Install Playwright browsers
+playwright install chromium
+
+# 3. Install boardfarm-bdd with GUI dependencies
+pip install -e ".[gui]"        # GUI dependencies only
+pip install -e ".[full]"       # Both frameworks + GUI
+pip install -e ".[pytest,gui]" # pytest-bdd + GUI
+```
+
+### StateExplorer Packages
+
+| Package | Description |
+|---------|-------------|
+| `model-resilience-core` | Platform-agnostic state fingerprinting and matching algorithms |
+| `aria-state-mapper` | Web UI state mapping using Playwright and accessibility trees |
+
+These packages provide:
+- **Automated UI Discovery** - Crawl web applications to build state graphs
+- **State Fingerprinting** - Identify UI states using accessibility trees
+- **Resilient Element Matching** - Find elements even when selectors change
+- **Navigation Path Finding** - Compute optimal paths between UI states
+
 ### Boardfarm's Standardization Philosophy
 
 Boardfarm provides **stable, standardized test interfaces** that remain consistent across different device implementations. This applies to both machine-to-machine APIs and GUI interactions:

@@ -75,12 +75,13 @@ Step Definition / Keyword  →  use_case function  →  Device Template
 │                                                                         │
 │   pytest-bdd                         Robot Framework                    │
 │   ┌──────────────────────┐          ┌──────────────────────┐           │
-│   │ Step functions call  │          │ UseCaseLibrary wraps │           │
-│   │ use_cases directly   │          │ use_cases as keywords│           │
+│   │ Step definitions     │          │ Keyword libraries    │           │
+│   │ @given/@when/@then   │          │ @keyword decorator   │           │
+│   │ call use_cases       │          │ call use_cases       │           │
 │   │                      │          │                      │           │
-│   │ Parameters:          │          │ Parameters:          │           │
-│   │ - Device fixtures    │          │ - Device variables   │           │
-│   │ - bf_context state   │          │ - Suite variables    │           │
+│   │ tests/step_defs/     │          │ robot/libraries/     │           │
+│   │ - acs_steps.py       │          │ - acs_keywords.py    │           │
+│   │ - cpe_steps.py       │          │ - cpe_keywords.py    │           │
 │   └──────────┬───────────┘          └──────────┬───────────┘           │
 │              │                                  │                       │
 └──────────────┼──────────────────────────────────┼───────────────────────┘
@@ -414,27 +415,29 @@ def bf_context() -> SimpleNamespace:
 │  ┌──────────────────────────────────────────────────────────────────┐ │
 │  │                    Test Suite (.robot)                            │ │
 │  │  *** Settings ***                                                │ │
-│  │  Library    BoardfarmLibrary                                     │ │
-│  │  Library    UseCaseLibrary                                       │ │
+│  │  Library    robotframework_boardfarm.BoardfarmLibrary            │ │
+│  │  Library    ../libraries/acs_keywords.py                         │ │
+│  │  Library    ../libraries/cpe_keywords.py                         │ │
 │  │                                                                   │ │
 │  │  *** Test Cases ***                                              │ │
-│  │  Operator Reboots CPE Via ACS                                    │ │
+│  │  UC-12347: Operator Reboots CPE Via ACS                          │ │
+│  │      ${acs}=    Get Device By Type    ACS                        │ │
 │  │      ${cpe}=    Get Device By Type    CPE                        │ │
-│  │      Acs Initiate Reboot    ${acs}    ${cpe}                     │ │
-│  │      Cpe Wait For Reboot Completion    ${cpe}    timeout=60      │ │
+│  │      The Operator Initiates A Reboot Task On The ACS    ${acs}   │ │
+│  │      The CPE Should Have Rebooted    ${cpe}                      │ │
 │  └────────────────────────────────┬─────────────────────────────────┘ │
 │                                   │                                    │
 │  ┌────────────────────────────────▼─────────────────────────────────┐ │
 │  │                      Keyword Libraries                            │ │
 │  │                                                                   │ │
-│  │  BoardfarmLibrary          │  UseCaseLibrary (Dynamic)           │ │
+│  │  BoardfarmLibrary          │  Keyword Libraries (robot/libraries/)│ │
+│  │  (robotframework-boardfarm)│  (boardfarm-bdd project)            │ │
 │  │  ─────────────────         │  ─────────────────────────          │ │
-│  │  Get Device Manager        │  Acs Get Parameter Value            │ │
-│  │  Get Device By Type        │  Acs Initiate Reboot                │ │
-│  │  Get Boardfarm Config      │  Cpe Wait For Reboot Completion     │ │
-│  │  Require Environment       │  Voice Call A Phone                 │ │
-│  │                            │  Networking Ping                    │ │
-│  │                            │  (auto-discovered from use_cases)   │ │
+│  │  Get Device Manager        │  acs_keywords.py                    │ │
+│  │  Get Device By Type        │  cpe_keywords.py                    │ │
+│  │  Get Boardfarm Config      │  voice_keywords.py                  │ │
+│  │  Require Environment       │  (mirrors tests/step_defs/)         │ │
+│  │                            │  @keyword decorator pattern         │ │
 │  └────────────────────────────┴─────────────────────────────────────┘ │
 │                                                                        │
 │  ┌──────────────────────────────────────────────────────────────────┐ │
@@ -453,62 +456,64 @@ def bf_context() -> SimpleNamespace:
                          └────────────────────────┘
 ```
 
-### UseCaseLibrary - Dynamic Keyword Discovery
+### Keyword Libraries - Mirroring pytest-bdd Step Definitions
 
-The `UseCaseLibrary` introspects `boardfarm3.use_cases` modules at runtime:
+Robot Framework keywords are defined in Python libraries that mirror the pytest-bdd step definitions:
 
 ```python
-# robotframework_boardfarm/libraries/use_case_library.py
+# robot/libraries/acs_keywords.py
+from robot.api.deco import keyword
+from boardfarm3.use_cases import acs as acs_use_cases
 
-class UseCaseLibrary:
-    """Dynamic library exposing Boardfarm use_cases as Robot Framework keywords."""
+class AcsKeywords:
+    """Keywords for ACS operations matching BDD scenario steps."""
     
-    ROBOT_LIBRARY_SCOPE = 'SUITE'
+    ROBOT_LIBRARY_SCOPE = "SUITE"
     
-    def __init__(self):
-        self._keywords = {}
-        self._discover_keywords()
+    @keyword("The CPE is online via ACS")
+    def verify_cpe_online(self, acs, cpe):
+        """Verify CPE connectivity via ACS."""
+        return acs_use_cases.is_cpe_online(acs, cpe)
     
-    def _discover_keywords(self):
-        """Introspect use_cases modules and register keywords."""
-        for module_name in ['acs', 'cpe', 'voice', 'networking', 'wifi', 'dhcp']:
-            module = import_module(f'boardfarm3.use_cases.{module_name}')
-            for name, func in inspect.getmembers(module, inspect.isfunction):
-                # Convert: get_parameter_value → Acs Get Parameter Value
-                keyword_name = f"{module_name.title()} {name.replace('_', ' ').title()}"
-                self._keywords[keyword_name] = func
+    @keyword("The operator initiates a reboot task on the ACS for the CPE")
+    def initiate_reboot(self, acs, cpe):
+        """Initiate CPE reboot via ACS."""
+        acs_use_cases.initiate_reboot(acs, cpe)
 ```
 
 ### Keyword Naming Convention
 
-| use_case Function | Robot Framework Keyword |
-|-------------------|------------------------|
-| `acs.get_parameter_value()` | `Acs Get Parameter Value` |
-| `acs.initiate_reboot()` | `Acs Initiate Reboot` |
-| `cpe.get_seconds_uptime()` | `Cpe Get Seconds Uptime` |
-| `voice.call_a_phone()` | `Voice Call A Phone` |
-| `networking.ping()` | `Networking Ping` |
+Keywords use the `@keyword` decorator to map Python functions to scenario step text:
 
-### Interface Selection in Robot Framework
+| pytest-bdd Step | Robot Framework Keyword |
+|-----------------|------------------------|
+| `@when("the operator initiates a reboot")` | `@keyword("The operator initiates a reboot")` |
+| `@then("the CPE should have rebooted")` | `@keyword("The CPE should have rebooted")` |
+
+Both decorators delegate to the same `boardfarm3.use_cases` functions.
+
+### Example Test
 
 ```robotframework
+*** Settings ***
+Library    robotframework_boardfarm.BoardfarmLibrary
+Library    ../libraries/acs_keywords.py
+Library    ../libraries/cpe_keywords.py
+
 *** Test Cases ***
-Reboot CPE Via NBI (Default)
-    [Documentation]    Uses NBI interface by default
+UC-12347: Remote CPE Reboot
+    [Documentation]    Remote reboot of CPE via ACS
+    ${acs}=    Get Device By Type    ACS
     ${cpe}=    Get Device By Type    CPE
-    Acs Initiate Reboot    ${acs}    ${cpe}
-    # via defaults to "nbi"
-
-Reboot CPE Via GUI
-    [Documentation]    Explicitly tests GUI interface
-    ${cpe}=    Get Device By Type    CPE
-    Acs Initiate Reboot    ${acs}    ${cpe}    via=gui
-    # Explicitly uses GUI
-
-Get Parameter Via Different Interfaces
-    ${value_nbi}=    Acs Get Parameter Value    ${acs}    ${cpe}    Device.Info.Version
-    ${value_gui}=    Acs Get Parameter Value    ${acs}    ${cpe}    Device.Info.Version    via=gui
-    Should Be Equal    ${value_nbi}    ${value_gui}
+    
+    # Given
+    A CPE Is Online And Fully Provisioned    ${acs}    ${cpe}
+    
+    # When
+    The Operator Initiates A Reboot Task On The ACS For The CPE    ${acs}    ${cpe}
+    
+    # Then
+    The CPE Should Have Rebooted    ${cpe}
 ```
 
 ---
@@ -796,15 +801,35 @@ def step_function(device_fixture, bf_context):
     print("✓ Step completed")
 ```
 
-### Robot Framework Keyword Pattern
+### Robot Framework Keyword Library Pattern
+
+```python
+# robot/libraries/my_keywords.py
+from robot.api.deco import keyword
+from boardfarm3.use_cases import module as module_use_cases
+
+class MyKeywords:
+    ROBOT_LIBRARY_SCOPE = "SUITE"
+    
+    @keyword("The operation is performed")
+    def perform_operation(self, device, parameter):
+        """Docstring describing the keyword."""
+        module_use_cases.operation(device, parameter)
+        print("✓ Operation completed")
+```
+
+### Robot Framework Test Pattern
 
 ```robotframework
+*** Settings ***
+Library    robotframework_boardfarm.BoardfarmLibrary
+Library    ../libraries/my_keywords.py
+
 *** Test Cases ***
 Test Name
     [Documentation]    What this test verifies
     ${device}=    Get Device By Type    DeviceType
-    Module Operation Name    ${device}    param=value    via=nbi
-    Should Be True    ${result}    Error message
+    The Operation Is Performed    ${device}    param=value
 ```
 
 ### use_case Function Pattern

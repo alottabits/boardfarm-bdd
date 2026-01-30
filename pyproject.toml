@@ -49,14 +49,31 @@ robot = [
     "robotframework-boardfarm>=0.1.0",
 ]
 
+# GUI testing dependencies (StateExplorer packages for ACS GUI testing)
+# Note: StateExplorer packages must be installed first (they are local packages):
+#   pip install -e ../StateExplorer/packages/model-resilience-core
+#   pip install -e ../StateExplorer/packages/aria-state-mapper
+#   playwright install chromium
+gui = [
+    "aria-state-mapper>=0.2.0",
+    "model-resilience-core>=0.1.0",
+    "playwright>=1.40.0",
+    "pytest-playwright>=0.4.0",
+]
+
 # Install both frameworks (for development/CI)
 all = [
     "boardfarm-bdd[pytest,robot]",
 ]
 
+# Install everything including GUI testing
+full = [
+    "boardfarm-bdd[pytest,robot,gui]",
+]
+
 # Development dependencies
 dev = [
-    "boardfarm-bdd[all]",
+    "boardfarm-bdd[full]",
     "ruff>=0.4.0",
     "mypy",
     "pre-commit",

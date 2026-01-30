@@ -2,7 +2,7 @@
 
 This directory contains the Behavior-Driven Development (BDD) test suite using `pytest-bdd` and `boardfarm`. The structure is designed to be modular, maintainable, and scalable.
 
-**Note: this is still very much work in progress. The test step definitions are placeholders and need to be updated**
+**Note: this is work in progress. The test step definitions are placeholders and may well need to be updated**
 
 ## Directory Structure
 
@@ -13,7 +13,6 @@ tests/
 │   └── hello.feature
 ├── step_defs/                  # Step definition modules (actor-based organization)
 │   ├── __init__.py
-│   ├── helpers.py             # Shared helper functions
 │   ├── background_steps.py    # Background/setup steps
 │   ├── acs_steps.py           # ACS (Auto Configuration Server) actor steps
 │   ├── cpe_steps.py           # CPE (Customer Premises Equipment) actor steps
@@ -29,12 +28,14 @@ tests/
 ### 1. Feature Files (`features/`)
 
 Feature files contain BDD scenarios written in Gherkin syntax. Each `.feature` file corresponds to a use case and contains:
+
 - **Feature**: High-level description of the feature being tested
 - **Background**: Steps that run before each scenario
 - **Scenarios**: Individual test cases with `Given`, `When`, `Then` steps
 - **Scenario Names**: Include use case IDs in scenario names for organization (e.g., `UC-12345-Main: Successful Firmware Upgrade`)
 
 Example:
+
 ```gherkin
 Feature: CPE Firmware Upgrade
   Background:
@@ -52,6 +53,7 @@ Feature: CPE Firmware Upgrade
 Step definitions are organized into modules by **actor** - the entity performing the action. Each module contains Python functions decorated with `@given`, `@when`, or `@then` that implement the steps from feature files.
 
 **Actor-Based Organization:**
+
 - **`acs_steps.py`**: Steps where the ACS (Auto Configuration Server) is the actor performing actions
   - Examples: ACS sends connection request, ACS issues Reboot RPC, ACS queues tasks
 - **`cpe_steps.py`**: Steps where the CPE (Customer Premises Equipment) is the actor performing actions
@@ -62,20 +64,34 @@ Step definitions are organized into modules by **actor** - the entity performing
   - Examples: CPE is online and provisioned, user sets GUI password
 - **`hello_steps.py`**: Simple example step for illustration purposes
 
-**Shared Helpers (`helpers.py`):**
-- Contains utility functions used across multiple step definitions
-- Functions like `gpv_value()`, `get_console_uptime_seconds()`, `install_file_on_tftp()`
-- Import from `tests.step_defs.helpers` in step definition modules
+**Using Boardfarm Use Cases:**
+
+Step definitions should be thin wrappers around `boardfarm3.use_cases` functions, which provide the single source of truth for test operations:
+
+- `boardfarm3.use_cases.acs` - ACS/TR-069 operations
+- `boardfarm3.use_cases.cpe` - CPE device operations
+- `boardfarm3.use_cases.voice` - SIP/Voice operations
+- `boardfarm3.use_cases.networking` - Network operations
 
 Example step definition:
-```python
-from pytest_bdd import given, parsers
-from tests.step_defs.helpers import install_file_on_tftp
 
-@given(parsers.parse('the operator installs a new signed firmware file "{filename}" on the image server'))
-def operator_installs_firmware(tftp_server: WanTemplate, filename: str) -> None:
-    """Copy a signed firmware file from the local test suite to the TFTP server."""
-    install_file_on_tftp(tftp_server, filename)
+```python
+from pytest_bdd import given, when, then
+from boardfarm3.use_cases import acs as acs_use_cases
+from boardfarm3.use_cases import cpe as cpe_use_cases
+from boardfarm3.templates.acs import ACS
+from boardfarm3.templates.cpe import CPE
+
+@when("the ACS initiates a remote reboot of the CPE")
+def acs_initiates_reboot(acs: ACS, cpe: CPE) -> None:
+    """Initiate CPE reboot via ACS."""
+    acs_use_cases.initiate_reboot(acs, cpe)
+
+@then("the CPE uptime should be less than before the reboot")
+def verify_uptime_reset(cpe: CPE, bf_context) -> None:
+    """Verify CPE rebooted by checking uptime."""
+    current_uptime = cpe_use_cases.get_seconds_uptime(cpe)
+    assert current_uptime < bf_context.initial_uptime
 ```
 
 ### 3. Root `conftest.py` - Auto-Discovery System
@@ -83,18 +99,21 @@ def operator_installs_firmware(tftp_server: WanTemplate, filename: str) -> None:
 Located at the project root (`boardfarm-bdd/conftest.py`), this file uses **AST-based auto-discovery** to automatically find and register all step definitions.
 
 **Key Features:**
+
 - **Automatic Module Import**: Auto-discovers and imports all `*_steps.py` files in `tests/step_defs/`
 - **AST Parsing**: Uses Abstract Syntax Tree parsing to find `@given`, `@when`, and `@then` decorators
 - **Dynamic Registration**: Automatically re-registers all step definitions so pytest-bdd can discover them
 - **Zero Maintenance**: No manual imports needed - just add new `*_steps.py` files and they're automatically discovered!
 
 **How It Works:**
-1. Auto-imports all `.py` files in `tests/step_defs/` (excluding `__init__.py` and `helpers.py`)
+
+1. Auto-imports all `*_steps.py` files in `tests/step_defs/`
 2. Scans imported modules using AST to extract step decorator information
 3. Gets function objects from the imported modules
 4. Dynamically re-registers all step definitions at module level using `exec()`
 
 **Important Notes:**
+
 - **pytest-bdd 8.1.0 Limitation**: Due to how pytest-bdd 8.1.0 works, step definitions imported from modules are not automatically discoverable at runtime. The auto-discovery system works around this by re-registering steps directly in `conftest.py`.
 - **No Manual Imports Required**: Test files do NOT need to import step definitions - `conftest.py` handles everything automatically.
 - **Scalable**: Adding new step definition files automatically registers them - no code changes needed!
@@ -102,6 +121,7 @@ Located at the project root (`boardfarm-bdd/conftest.py`), this file uses **AST-
 ### 4. Test Execution Files
 
 **`test_all_scenarios.py`**:
+
 - Discovers all `.feature` files in the `features/` directory
 - Loads scenarios using pytest-bdd's `scenarios()` function
 - Creates individual pytest test functions for each scenario
@@ -109,12 +129,14 @@ Located at the project root (`boardfarm-bdd/conftest.py`), this file uses **AST-
 - Uses underscore naming (`test_*.py`) to match pytest's auto-discovery pattern
 
 **`test_hello.py`**:
+
 - Example test file showing how to run a single feature file
 - Demonstrates the minimal setup needed
 
 ## Running Tests
 
 ### Run All Scenarios
+
 ```bash
 # From project root - discovers all test files automatically
 pytest
@@ -124,6 +146,7 @@ pytest tests/test_all_scenarios.py
 ```
 
 ### Run with Verbose Output
+
 ```bash
 pytest -v
 # or
@@ -131,6 +154,7 @@ pytest tests/test_all_scenarios.py -v
 ```
 
 ### Run Specific Scenarios by Name
+
 ```bash
 # Run scenarios matching UC-12345 (all scenarios with this prefix)
 # Note: pytest-bdd converts scenario names to lowercase and removes hyphens
@@ -148,6 +172,7 @@ pytest -k "uc123458a"  # UC-12345-8.a
 ```
 
 ### Run a Single Feature File
+
 ```bash
 pytest tests/test_hello.py
 # or use keyword matching
@@ -155,6 +180,7 @@ pytest -k "say_hello"
 ```
 
 ### Run with Shorter Traceback
+
 ```bash
 pytest --tb=short
 # or
@@ -166,6 +192,7 @@ pytest tests/test_all_scenarios.py --tb=short
 ### 1. Identify the Appropriate Module
 
 Choose the module based on **which actor is performing the action**:
+
 - ACS performs action → `acs_steps.py`
 - CPE performs action → `cpe_steps.py`
 - Operator performs action → `operator_steps.py`
@@ -186,16 +213,23 @@ def cpe_has_firmware_version(cpe: CpeTemplate, version: str) -> None:
     pass
 ```
 
-### 3. Use Shared Helpers
+### 3. Use Boardfarm Use Cases
 
-Import helper functions from `helpers.py` when needed:
+Import and use functions from `boardfarm3.use_cases`:
+
 ```python
-from tests.step_defs.helpers import gpv_value, get_console_uptime_seconds
+from boardfarm3.use_cases import acs as acs_use_cases
+from boardfarm3.use_cases import cpe as cpe_use_cases
+
+# In your step definition
+uptime = cpe_use_cases.get_seconds_uptime(cpe)
+is_online = acs_use_cases.is_cpe_online(acs, cpe)
 ```
 
 ### 4. Create a New Actor Module (if needed)
 
 If you need a new actor category:
+
 1. Create a new file in `step_defs/` following the naming pattern `<actor>_steps.py` (e.g., `wan_steps.py`, `http_server_steps.py`)
 2. **That's it!** The auto-discovery system in `conftest.py` will automatically import and register it.
 3. No manual imports or configuration needed in `conftest.py` - it's completely automatic!
@@ -222,11 +256,11 @@ If you need a new actor category:
 4. **Clear Step Names**: Use clear, business-readable step names
 5. **No Tags Needed**: Use consistent naming patterns instead of `@` tags to avoid marker registration and warnings
 
-### Shared Helpers
+### Using Boardfarm Use Cases
 
-1. **Common Utilities**: Place functions used by multiple step definitions in `helpers.py`
-2. **No Side Effects**: Helper functions should be pure functions when possible
-3. **Clear Names**: Use descriptive function names without underscores (e.g., `gpv_value` not `_gpv_value`)
+1. **Single Source of Truth**: Use `boardfarm3.use_cases` for all test operations
+2. **Thin Wrappers**: Step definitions should have minimal logic - delegate to use_cases
+3. **Portability**: Using use_cases ensures tests work with both pytest-bdd and Robot Framework
 
 ## Workflow: Adding a New Test
 
@@ -244,7 +278,7 @@ If you need a new actor category:
 
 - **Check Step Text Match**: Ensure the step text in the feature file exactly matches the decorator pattern (including quotes, case, and whitespace)
 - **Verify File Location**: Ensure the step definition file is in the `step_defs/` directory
-- **Check File Naming**: Step definition files should be `.py` files (not `__init__.py` or `helpers.py`)
+- **Check File Naming**: Step definition files should follow the pattern `*_steps.py`
 - **Run Discovery**: Check the pytest output - `conftest.py` prints which steps it discovers and registers
 
 ### CPE Initialization Issues
@@ -260,6 +294,7 @@ If you need a new actor category:
 **Note**: GUI credentials are **not** used for Boardfarm initialization - the CPE connects via `docker exec` (local_cmd), not SSH. The issue is caused by config restoration interfering with network initialization, not by credential authentication.
 
 **Verification**: Check if `/boot/sysupgrade.tgz` exists in the container:
+
 ```bash
 docker exec cpe ls -la /boot/sysupgrade.tgz
 ```
@@ -268,9 +303,9 @@ If it exists during normal boot (no upgrade), it should be automatically removed
 
 ### Import Errors
 
-- Use absolute imports: `from tests.step_defs.helpers import ...`
+- Use absolute imports for use_cases: `from boardfarm3.use_cases import acs as acs_use_cases`
 - Ensure `__init__.py` exists in `step_defs/` directory
-- Check that helper functions are imported correctly
+- Check that boardfarm3 is properly installed in your environment
 
 ### Feature File Not Discovered
 
@@ -294,6 +329,7 @@ If it exists during normal boot (no upgrade), it should be automatically removed
 **Solution**: The auto-discovery system in `conftest.py` uses AST parsing to find all step definitions and dynamically re-registers them at module level. This ensures pytest-bdd can discover them properly.
 
 **Key Points**:
+
 - Step definitions must be registered in `conftest.py` for pytest-bdd to find them
 - Simply importing modules is not sufficient
 - The auto-discovery system handles this automatically - no manual work needed
@@ -312,14 +348,39 @@ If it exists during normal boot (no upgrade), it should be automatically removed
 **Solution**: Use consistent naming patterns in scenario names (e.g., `UC-12345-Main: Successful Firmware Upgrade`) instead of tags. Filter scenarios using pytest's `-k` option with keyword matching.
 
 **Key Points**:
+
 - Scenario names are converted to test function names: hyphens/special chars removed, lowercased, spaces become underscores
 - Example: `UC-12345-Main: Successful Firmware Upgrade` → `test_uc12345main_successful_firmware_upgrade`
 - Filter using: `pytest -k "uc12345main"` or `pytest -k "successful_firmware"`
 - No marker registration needed - eliminates warnings and maintenance overhead
 - Still provides organization and filtering capabilities through consistent naming
 
+## Running Tests with Boardfarm Testbed
+
+For detailed test execution instructions including filtering, logging, and reporting options, see the [Getting Started Guide](../docs/tests/getting_started.md).
+
+### Quick Start
+
+```bash
+# Run all tests
+pytest --board-name prplos-docker-1 \
+    --env-config bf_config/boardfarm_env_example.json \
+    --inventory-config bf_config/boardfarm_config_example.json \
+    --legacy \
+    --save-console-logs ./logs/
+
+# Run specific scenario by name
+pytest -k "UC12347Main" \
+    --board-name prplos-docker-1 \
+    --env-config bf_config/boardfarm_env_example.json \
+    --inventory-config bf_config/boardfarm_config_example.json \
+    --legacy -v -s
+```
+
 ## Related Documentation
 
 - [Project README](../README.md) - Overall project documentation
+- [Getting Started Guide](../docs/tests/getting_started.md) - Detailed guide with examples
 - [Use Case Template](../docs/Use%20Case%20Template%20(reflect%20the%20goal).md) - Use case structure
+- [Use Case Architecture](../docs/use_case_architecture.md) - Architecture overview
 - [pytest-bdd Documentation](https://pytest-bdd.readthedocs.io/) - pytest-bdd framework docs

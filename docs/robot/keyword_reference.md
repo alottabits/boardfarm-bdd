@@ -6,21 +6,28 @@ This document provides a reference for keywords available in boardfarm-bdd Robot
 
 | Library | Purpose | Import |
 |---------|---------|--------|
-| `BoardfarmLibrary` | Device access, configuration | `Library    BoardfarmLibrary` |
-| `UseCaseLibrary` | High-level test operations | `Library    UseCaseLibrary` |
+| `BoardfarmLibrary` | Device access, configuration | `Library    robotframework_boardfarm.BoardfarmLibrary` |
+| `acs_keywords.py` | ACS operations | `Library    ../libraries/acs_keywords.py` |
+| `cpe_keywords.py` | CPE operations | `Library    ../libraries/cpe_keywords.py` |
+| `voice_keywords.py` | Voice/SIP operations | `Library    ../libraries/voice_keywords.py` |
+| `background_keywords.py` | Background/setup operations | `Library    ../libraries/background_keywords.py` |
+| `operator_keywords.py` | Operator actions | `Library    ../libraries/operator_keywords.py` |
 
-**Recommendation**: Use `UseCaseLibrary` for test operations. It provides the same functionality as `boardfarm3.use_cases`, ensuring consistency with pytest-bdd tests.
+**Architecture**: All keyword libraries delegate to `boardfarm3.use_cases`, ensuring consistency with pytest-bdd tests.
 
 ---
 
 ## BoardfarmLibrary Keywords
+
+Provided by `robotframework-boardfarm`, these keywords handle device access and testbed configuration.
 
 ### Device Access
 
 | Keyword | Arguments | Description |
 |---------|-----------|-------------|
 | `Get Device By Type` | `device_type`, `index=0` | Get device instance by type |
-| `Get All Devices` | | Get all devices in testbed |
+| `Get Devices By Type` | `device_type` | Get all devices of a type |
+| `Get Device Manager` | | Get DeviceManager instance |
 | `Get Boardfarm Config` | | Get testbed configuration |
 
 #### Examples
@@ -32,45 +39,35 @@ ${cpe}=    Get Device By Type    CPE
 # Get second SIP phone (index 1)
 ${phone}=    Get Device By Type    SIPPhone    index=1
 
-# Get all devices
-${devices}=    Get All Devices
+# Get ACS device
+${acs}=    Get Device By Type    ACS
 ```
 
-### Logging
+### Test Utilities
 
 | Keyword | Arguments | Description |
 |---------|-----------|-------------|
 | `Log Step` | `message` | Log a test step |
-| `Log Info` | `message` | Log informational message |
+| `Set Test Context` | `key`, `value` | Store value in context |
+| `Get Test Context` | `key`, `default=None` | Retrieve value from context |
+| `Require Environment` | `requirement` | Assert environment requirement |
 
 ---
 
-## UseCaseLibrary Keywords
+## Keyword Libraries (robot/libraries/)
 
-UseCaseLibrary dynamically exposes `boardfarm3.use_cases` functions as Robot keywords.
+These Python keyword libraries mirror the pytest-bdd step definitions and delegate to `boardfarm3.use_cases`.
 
-### Naming Convention
-
-| Use Case Module | Function | Robot Keyword |
-|-----------------|----------|---------------|
-| `acs` | `get_parameter_value()` | `Acs Get Parameter Value` |
-| `cpe` | `get_cpu_usage()` | `Cpe Get Cpu Usage` |
-| `voice` | `call_a_phone()` | `Voice Call A Phone` |
-
-### ACS Keywords
+### acs_keywords.py - ACS Operations
 
 | Keyword | Arguments | Description |
 |---------|-----------|-------------|
-| `Acs Get Parameter Value` | `acs`, `cpe`, `parameter` | Get TR-069 parameter value |
-| `Acs Set Parameter Value` | `acs`, `cpe`, `parameter`, `value` | Set TR-069 parameter value |
-| `Acs Get Multiple Parameters` | `acs`, `cpe`, `parameters` | Get multiple parameters |
-| `Acs Is Cpe Online` | `acs`, `cpe` | Check if CPE is online |
-| `Acs Is Cpe Registered` | `acs`, `cpe`, `timeout=60` | Check if CPE is registered |
-| `Acs Initiate Reboot` | `acs`, `cpe` | Initiate CPE reboot via ACS |
-| `Acs Wait For Inform Message` | `acs`, `cpe`, `since`, `timeout=120` | Wait for Inform message |
-| `Acs Wait For Reboot Rpc` | `acs`, `cpe`, `since`, `timeout=90` | Wait for Reboot RPC |
-| `Acs Wait For Boot Inform` | `acs`, `cpe`, `since`, `timeout=240` | Wait for boot Inform |
-| `Acs Get Device Id` | `acs`, `cpe` | Get device identifier |
+| `The CPE is online via ACS` | `acs`, `cpe` | Verify CPE is online via ACS |
+| `The ACS initiates a remote reboot of the CPE` | `acs`, `cpe` | Initiate CPE reboot via ACS |
+| `Get ACS Parameter Value` | `acs`, `cpe`, `parameter` | Get TR-069 parameter value |
+| `Set ACS Parameter Value` | `acs`, `cpe`, `parameter`, `value` | Set TR-069 parameter value |
+| `Wait For Boot Inform` | `acs`, `cpe`, `since`, `timeout` | Wait for boot Inform message |
+| `Get CPE Device ID` | `acs`, `cpe` | Get device identifier |
 
 #### Examples
 
@@ -80,35 +77,28 @@ ACS Parameter Operations
     ${acs}=    Get Device By Type    ACS
     ${cpe}=    Get Device By Type    CPE
     
+    # Verify online
+    The CPE Is Online Via ACS    ${acs}    ${cpe}
+    
     # Get parameter
-    ${version}=    Acs Get Parameter Value    ${acs}    ${cpe}
+    ${version}=    Get ACS Parameter Value    ${acs}    ${cpe}
     ...    Device.DeviceInfo.SoftwareVersion
     Log    Version: ${version}
     
     # Set parameter
-    Acs Set Parameter Value    ${acs}    ${cpe}
+    Set ACS Parameter Value    ${acs}    ${cpe}
     ...    Device.Users.User.1.Password    newpassword
-    
-    # Check online status
-    ${online}=    Acs Is Cpe Online    ${acs}    ${cpe}
-    Should Be True    ${online}
 ```
 
-### CPE Keywords
+### cpe_keywords.py - CPE Operations
 
 | Keyword | Arguments | Description |
 |---------|-----------|-------------|
-| `Cpe Get Cpu Usage` | `cpe` | Get current CPU usage |
-| `Cpe Get Memory Usage` | `cpe` | Get memory usage |
-| `Cpe Get Seconds Uptime` | `cpe` | Get uptime in seconds |
-| `Cpe Is Device Online` | `cpe`, `timeout=120` | Check if device is online |
-| `Cpe Is Console Connected` | `cpe` | Check console connection |
-| `Cpe Execute Command` | `cpe`, `command` | Execute console command |
-| `Cpe Factory Reset` | `cpe` | Factory reset the CPE |
-| `Cpe Boot Device` | `cpe` | Boot the device |
-| `Cpe Refresh Console Connection` | `cpe` | Refresh console connection |
-| `Cpe Stop Tr069 Client` | `cpe` | Stop TR-069 client |
-| `Cpe Start Tr069 Client` | `cpe` | Start TR-069 client |
+| `The CPE is rebooted` | `cpe` | Verify CPE has rebooted |
+| `The CPE should have rebooted` | `cpe` | Assert CPE rebooted (checks uptime) |
+| `Record CPE uptime` | `cpe` | Record current uptime for later comparison |
+| `The CPE uptime should be less than before` | `cpe` | Verify uptime reset |
+| `Get CPE Performance Metrics` | `cpe` | Get CPU, memory, uptime |
 
 #### Examples
 
@@ -117,37 +107,25 @@ ACS Parameter Operations
 CPE Status Check
     ${cpe}=    Get Device By Type    CPE
     
-    # Get performance metrics
-    ${cpu}=    Cpe Get Cpu Usage    ${cpe}
-    ${memory}=    Cpe Get Memory Usage    ${cpe}
-    ${uptime}=    Cpe Get Seconds Uptime    ${cpe}
+    # Record uptime before reboot
+    ${initial_uptime}=    Record CPE Uptime    ${cpe}
     
-    Log    CPU: ${cpu}%, Memory: ${memory}%, Uptime: ${uptime}s
+    # ... reboot happens ...
     
-    # Verify thresholds
-    Should Be True    ${cpu} < 90    CPU usage too high
-    Should Be True    ${memory} < 85    Memory usage too high
+    # Verify reboot
+    The CPE Should Have Rebooted    ${cpe}
 ```
 
-### Voice Keywords
+### voice_keywords.py - Voice/SIP Operations
 
 | Keyword | Arguments | Description |
 |---------|-----------|-------------|
-| `Voice Initialize Phone` | `phone` | Initialize SIP phone |
-| `Voice Shutdown Phone` | `phone` | Shutdown SIP phone |
-| `Voice Register Phone` | `phone`, `number=None` | Register phone with SIP server |
-| `Voice Unregister Phone` | `phone` | Unregister phone |
-| `Voice Is Phone Registered` | `phone` | Check registration status |
-| `Voice Is Phone Idle` | `phone` | Check if phone is idle |
-| `Voice Call A Phone` | `caller`, `callee` | Initiate call |
-| `Voice Answer A Call` | `phone` | Answer incoming call |
-| `Voice Disconnect The Call` | `phone` | Hang up call |
-| `Voice Reject Call` | `phone` | Reject incoming call |
-| `Voice Is Call Ringing` | `phone`, `timeout=30` | Check if call is ringing |
-| `Voice Is Call Connected` | `phone` | Check if call is connected |
-| `Voice Is Media Established` | `phone_a`, `phone_b` | Check RTP media |
-| `Voice Dial Number` | `phone`, `number` | Dial a number |
-| `Voice Get Last Sip Response` | `phone` | Get last SIP response |
+| `User makes a call to another user` | `caller`, `callee` | Initiate call |
+| `The called party answers` | `phone` | Answer incoming call |
+| `The calling party hangs up` | `phone` | Disconnect call |
+| `Voice call is connected` | `phone_a`, `phone_b` | Verify call connected |
+| `Initialize voice phones` | `phone_a`, `phone_b` | Setup phones for test |
+| `Cleanup voice phones` | `phone_a`, `phone_b` | Cleanup phones after test |
 
 #### Examples
 
@@ -157,47 +135,37 @@ Voice Call Test
     ${phone_a}=    Get Device By Type    SIPPhone    index=0
     ${phone_b}=    Get Device By Type    SIPPhone    index=1
     
-    # Setup phones
-    Voice Initialize Phone    ${phone_a}
-    Voice Initialize Phone    ${phone_b}
-    Voice Register Phone    ${phone_a}    number=1000
-    Voice Register Phone    ${phone_b}    number=2000
+    # Setup
+    Initialize Voice Phones    ${phone_a}    ${phone_b}
     
     # Make call
-    Voice Call A Phone    ${phone_a}    ${phone_b}
+    User Makes A Call To Another User    ${phone_a}    ${phone_b}
     
-    # Verify ringing
-    ${ringing}=    Voice Is Call Ringing    ${phone_b}
-    Should Be True    ${ringing}
+    # Answer
+    The Called Party Answers    ${phone_b}
     
-    # Answer and verify connected
-    Voice Answer A Call    ${phone_b}
-    ${connected_a}=    Voice Is Call Connected    ${phone_a}
-    ${connected_b}=    Voice Is Call Connected    ${phone_b}
-    Should Be True    ${connected_a}
-    Should Be True    ${connected_b}
+    # Verify
+    Voice Call Is Connected    ${phone_a}    ${phone_b}
     
-    # Hang up
-    Voice Disconnect The Call    ${phone_a}
+    # Hangup
+    The Calling Party Hangs Up    ${phone_a}
     
-    [Teardown]    Cleanup Voice Test    ${phone_a}    ${phone_b}
+    [Teardown]    Cleanup Voice Phones    ${phone_a}    ${phone_b}
 ```
 
-### Networking Keywords
+### background_keywords.py - Background/Setup Operations
 
 | Keyword | Arguments | Description |
 |---------|-----------|-------------|
-| `Networking Ping` | `source`, `target`, `count=4` | Ping from source to target |
-| `Networking Get Ip Address` | `device`, `interface` | Get IP address |
-| `Networking Check Connectivity` | `source`, `target` | Verify connectivity |
+| `A CPE is online and fully provisioned` | `acs`, `cpe` | Verify CPE preconditions |
+| `The testbed is ready` | | Verify testbed state |
 
-### Device Getters Keywords
+### operator_keywords.py - Operator Actions
 
 | Keyword | Arguments | Description |
 |---------|-----------|-------------|
-| `Device Getters Get Acs` | | Get ACS device |
-| `Device Getters Get Cpe` | | Get CPE device |
-| `Device Getters Get Lan` | | Get LAN device |
+| `The operator initiates a reboot task on the ACS for the CPE` | `acs`, `cpe` | Operator triggers reboot |
+| `Use case succeeds and all success guarantees are met` | `acs`, `cpe` | Verify success guarantees |
 
 ---
 
@@ -214,8 +182,6 @@ Common setup/teardown keywords:
 | `Cleanup After Test` | Test teardown - cleanup artifacts |
 | `Verify CPE Is Online` | Verify CPE is online |
 | `Wait Until CPE Is Online` | Wait for CPE to come online |
-| `Get TR069 Parameter` | Get TR-069 parameter (shortcut) |
-| `Set TR069 Parameter` | Set TR-069 parameter (shortcut) |
 
 ### variables.resource
 
@@ -271,22 +237,52 @@ Common tags used in test suites:
 
 ```bash
 # Run smoke tests only
-robot --include smoke robot/tests/
+bfrobot ... --include smoke robot/tests/
 
 # Run voice tests
-robot --include voice robot/tests/
+bfrobot ... --include voice robot/tests/
 
 # Exclude slow tests
-robot --exclude slow robot/tests/
+bfrobot ... --exclude slow robot/tests/
 
 # Combine tags
-robot --include "smoke AND reboot" robot/tests/
+bfrobot ... --include "smoke AND reboot" robot/tests/
 ```
+
+---
+
+## Creating New Keywords
+
+When adding new keywords, follow this pattern:
+
+```python
+# robot/libraries/my_keywords.py
+from robot.api.deco import keyword
+from boardfarm3.use_cases import my_module as my_use_cases
+
+class MyKeywords:
+    ROBOT_LIBRARY_SCOPE = "SUITE"
+
+    @keyword("The action is performed")
+    def perform_action(self, device, parameter):
+        """Perform the action.
+        
+        Maps to scenario step: "When the action is performed"
+        """
+        return my_use_cases.perform_action(device, parameter)
+```
+
+Key guidelines:
+1. Use `@keyword` decorator with scenario step text
+2. Delegate to `boardfarm3.use_cases` functions
+3. Mirror the corresponding `tests/step_defs/` file structure
+4. Add docstring describing the keyword
 
 ---
 
 ## Further Reading
 
 - [Getting Started Guide](getting_started.md)
+- [Keyword Libraries Documentation](../../robot/libraries/README.md)
 - [Use Case Architecture](../use_case_architecture.md)
 - [robotframework-boardfarm README](../../../robotframework-boardfarm/README.md)

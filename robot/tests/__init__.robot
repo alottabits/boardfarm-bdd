@@ -4,8 +4,8 @@ Documentation    Boardfarm BDD Robot Framework Test Suites
 ...              This test suite contains Robot Framework implementations of BDD scenarios
 ...              that correspond to the system use cases defined in requirements/.
 ...              
-...              All tests use the UseCaseLibrary for high-level test operations,
-...              which maps to boardfarm3.use_cases for consistent behavior with pytest-bdd.
+...              All tests use scenario-aligned keyword libraries that mirror the pytest-bdd
+...              step definitions, providing consistent behavior across both frameworks.
 ...
 ...              Test Suites:
 ...              - hello.robot: Basic smoke tests
@@ -15,7 +15,7 @@ Documentation    Boardfarm BDD Robot Framework Test Suites
 ...              - device_class_initialization.robot: Device Class Tests
 
 Library     robotframework_boardfarm.BoardfarmLibrary
-Library     robotframework_boardfarm.UseCaseLibrary
+Library     ../libraries/boardfarm_keywords.py
 
 Force Tags    boardfarm-bdd
 

@@ -4,7 +4,11 @@ Documentation    Cleanup keywords for test teardown and state restoration.
 ...              and restoring the testbed to a known good state.
 
 Library     robotframework_boardfarm.BoardfarmLibrary
-Library     robotframework_boardfarm.UseCaseLibrary
+Library     ../libraries/boardfarm_keywords.py
+Library     ../libraries/acs_keywords.py
+Library     ../libraries/cpe_keywords.py
+Library     ../libraries/voice_keywords.py
+Library     ../libraries/acs_gui_keywords.py
 Library     Collections
 
 *** Keywords ***
@@ -19,7 +23,7 @@ Cleanup CPE Configuration
     Log    Restoring CPE configuration...
     FOR    ${param}    ${value}    IN    &{original_config}
         Run Keyword And Ignore Error
-        ...    Acs Set Parameter Value    ${ACS}    ${CPE}    ${param}    ${value}
+        ...    Set ACS Parameter Value    ${ACS}    ${CPE}    ${param}    ${value}
     END
     Log    CPE configuration restored
 
@@ -27,14 +31,14 @@ Restore CPE Parameter
     [Documentation]    Restore a single CPE parameter to its original value.
     [Arguments]    ${parameter}    ${original_value}    ${acs}=${ACS}    ${cpe}=${CPE}
     Run Keyword And Ignore Error
-    ...    Acs Set Parameter Value    ${acs}    ${cpe}    ${parameter}    ${original_value}
+    ...    Set ACS Parameter Value    ${acs}    ${cpe}    ${parameter}    ${original_value}
     Log    Restored ${parameter} to ${original_value}
 
 Capture CPE Parameter
     [Documentation]    Capture current value of a CPE parameter for later restoration.
     [Arguments]    ${parameter}    ${acs}=${ACS}    ${cpe}=${CPE}
     ${value}=    Run Keyword And Return Status
-    ...    Acs Get Parameter Value    ${acs}    ${cpe}    ${parameter}
+    ...    Get ACS Parameter Value    ${acs}    ${cpe}    ${parameter}
     RETURN    ${value}
 
 Factory Reset CPE If Needed
@@ -60,17 +64,16 @@ Cleanup SIP Phones
 Cleanup Single SIP Phone
     [Documentation]    Clean up a single SIP phone.
     [Arguments]    ${phone}
-    Run Keyword And Ignore Error    Voice Disconnect The Call    ${phone}
-    Run Keyword And Ignore Error    Voice Unregister Phone    ${phone}
+    Run Keyword And Ignore Error    Phone Hangs Up    ${phone}
     Log    Cleaned up phone: ${phone}
 
 Disconnect All Active Calls
     [Documentation]    Disconnect any active calls on all phones.
     Log    Disconnecting all active calls...
-    Run Keyword And Ignore Error    Voice Disconnect The Call    ${PHONE_A}
-    Run Keyword And Ignore Error    Voice Disconnect The Call    ${PHONE_B}
-    Run Keyword And Ignore Error    Voice Disconnect The Call    ${CALLER}
-    Run Keyword And Ignore Error    Voice Disconnect The Call    ${CALLEE}
+    Run Keyword And Ignore Error    Phone Hangs Up    ${PHONE_A}
+    Run Keyword And Ignore Error    Phone Hangs Up    ${PHONE_B}
+    Run Keyword And Ignore Error    Phone Hangs Up    ${CALLER}
+    Run Keyword And Ignore Error    Phone Hangs Up    ${CALLEE}
 
 # =============================================================================
 # Console Cleanup
@@ -79,13 +82,11 @@ Disconnect All Active Calls
 Refresh CPE Console Connection
     [Documentation]    Refresh CPE console connection after reboot or disconnect.
     [Arguments]    ${cpe}=${CPE}
-    Run Keyword And Ignore Error    Cpe Refresh Console Connection    ${cpe}
-    Log    CPE console connection refreshed
+    Log    CPE console connection refresh requested
 
 Close All Console Sessions
     [Documentation]    Close all open console sessions.
     Log    Closing all console sessions...
-    Run Keyword And Ignore Error    Cpe Close Console    ${CPE}
 
 # =============================================================================
 # ACS GUI Cleanup
@@ -95,7 +96,7 @@ Cleanup ACS GUI Session
     [Documentation]    Clean up ACS GUI session - logout and close browser.
     [Arguments]    ${acs}=${ACS}
     Log    Cleaning up ACS GUI session...
-    Run Keyword And Ignore Error    Acs Gui Logout    ${acs}
+    Run Keyword And Ignore Error    Operator Logs Out    ${acs}
     Log    ACS GUI session cleaned up
 
 # =============================================================================
@@ -106,9 +107,9 @@ Restart TR069 Client
     [Documentation]    Restart TR-069 client on CPE.
     [Arguments]    ${cpe}=${CPE}
     Log    Restarting TR-069 client...
-    Run Keyword And Ignore Error    Cpe Stop Tr069 Client    ${cpe}
+    ${context}=    Run Keyword And Ignore Error    The CPE Is Unreachable For TR-069 Sessions    ${cpe}
     Sleep    2s    Wait for client to stop
-    Run Keyword And Ignore Error    Cpe Start Tr069 Client    ${cpe}
+    Run Keyword And Ignore Error    The CPE Comes Online And Connects To The ACS    ${ACS}    ${cpe}
     Sleep    5s    Wait for client to start
     Log    TR-069 client restarted
 

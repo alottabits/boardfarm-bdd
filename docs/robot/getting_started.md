@@ -27,6 +27,11 @@ boardfarm-bdd/
 │   │   ├── user_makes_one_way_call.robot
 │   │   ├── acs_gui_device_management.robot
 │   │   └── device_class_initialization.robot
+│   ├── libraries/                # Python keyword libraries
+│   │   ├── acs_keywords.py       # ACS operation keywords
+│   │   ├── cpe_keywords.py       # CPE operation keywords
+│   │   ├── voice_keywords.py     # Voice/SIP keywords
+│   │   └── ...                   # Other keyword libraries
 │   ├── resources/                # Shared resource files
 │   │   ├── common.resource       # Common keywords
 │   │   ├── variables.resource    # Shared variables
@@ -147,58 +152,61 @@ inventory_config=bf_config/boardfarm_config_example.json" \
 ```robot
 *** Settings ***
 Documentation    Description of this test suite
-Library     BoardfarmLibrary
-Library     UseCaseLibrary
-Resource    ../resources/common.resource
-
-Suite Setup       Setup Testbed Connection
-Suite Teardown    Teardown Testbed Connection
-Test Teardown     Cleanup After Test
+Library    robotframework_boardfarm.BoardfarmLibrary
+Library    ../libraries/acs_keywords.py
+Library    ../libraries/cpe_keywords.py
+Resource   ../resources/common.resource
 
 *** Test Cases ***
-My Test Case
-    [Documentation]    What this test verifies
-    [Tags]    smoke    my-feature
+UC-12347: Remote CPE Reboot
+    [Documentation]    Remote reboot of CPE via ACS
+    [Tags]    smoke    reboot
 
-    # Given
-    ${cpe}=    Get Device By Type    CPE
-    ${acs}=    Get Device By Type    ACS
-    
-    # When
-    ${result}=    Acs Get Parameter Value    ${acs}    ${cpe}
-    ...    Device.DeviceInfo.SoftwareVersion
-    
-    # Then
-    Should Not Be Empty    ${result}
-    Log    Software Version: ${result}
-```
-
-### Using Libraries
-
-Robot Framework tests use two main libraries:
-
-1. **BoardfarmLibrary** - Device access and configuration
-2. **UseCaseLibrary** - High-level test operations (recommended)
-
-```robot
-*** Settings ***
-Library    BoardfarmLibrary
-Library    UseCaseLibrary
-
-*** Test Cases ***
-Example Using UseCaseLibrary
     # Get devices
     ${acs}=    Get Device By Type    ACS
     ${cpe}=    Get Device By Type    CPE
+
+    # Given - use scenario-aligned keywords
+    A CPE Is Online And Fully Provisioned    ${acs}    ${cpe}
     
-    # Use high-level keywords from use_cases
-    ${online}=    Acs Is Cpe Online    ${acs}    ${cpe}
-    Should Be True    ${online}
+    # When
+    The Operator Initiates A Reboot Task On The ACS For The CPE    ${acs}    ${cpe}
     
-    # Get parameter value
-    ${version}=    Acs Get Parameter Value    ${acs}    ${cpe}
-    ...    Device.DeviceInfo.SoftwareVersion
-    Log    Version: ${version}
+    # Then
+    The CPE Should Have Rebooted    ${cpe}
+```
+
+### Keyword Libraries
+
+Robot Framework tests use Python keyword libraries that mirror the pytest-bdd step definitions:
+
+| Library | Purpose | Mirrors |
+|---------|---------|---------|
+| `acs_keywords.py` | ACS operations | `tests/step_defs/acs_steps.py` |
+| `cpe_keywords.py` | CPE operations | `tests/step_defs/cpe_steps.py` |
+| `voice_keywords.py` | Voice/SIP operations | `tests/step_defs/sip_phone_steps.py` |
+| `background_keywords.py` | Background setup | `tests/step_defs/background_steps.py` |
+| `operator_keywords.py` | Operator actions | `tests/step_defs/operator_steps.py` |
+
+**Example keyword library:**
+
+```python
+# robot/libraries/acs_keywords.py
+from robot.api.deco import keyword
+from boardfarm3.use_cases import acs as acs_use_cases
+
+class AcsKeywords:
+    ROBOT_LIBRARY_SCOPE = "SUITE"
+
+    @keyword("The CPE is online via ACS")
+    def verify_cpe_online(self, acs, cpe):
+        """Verify CPE connectivity via ACS."""
+        return acs_use_cases.is_cpe_online(acs, cpe)
+
+    @keyword("The ACS initiates a remote reboot of the CPE")
+    def initiate_reboot(self, acs, cpe):
+        """Initiate CPE reboot via ACS."""
+        acs_use_cases.initiate_reboot(acs, cpe)
 ```
 
 ### Using Resources
@@ -226,20 +234,19 @@ Tests follow the 4-layer architecture:
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  Robot Test Files (.robot)                              │
-│  - Test cases and keywords                              │
+│  - Test cases with scenario-aligned keywords            │
 └─────────────────────────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────┐
-│  UseCaseLibrary                                         │
-│  - Exposes boardfarm3.use_cases as keywords             │
-│  - E.g., "Acs Get Parameter Value" → acs.get_param...   │
+│  Python Keyword Libraries (robot/libraries/)            │
+│  - @keyword decorator maps to scenario steps            │
+│  - Mirrors tests/step_defs/ structure                   │
 └─────────────────────────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────┐
 │  boardfarm3.use_cases                                   │
-│  - Reusable test operations                             │
 │  - Single source of truth for test logic                │
 └─────────────────────────────────────────────────────────┘
                           │
@@ -253,16 +260,44 @@ Tests follow the 4-layer architecture:
 
 ## Keyword Naming Convention
 
-UseCaseLibrary converts `boardfarm3.use_cases` functions to Robot keywords:
+Keywords use the `@keyword` decorator to map clean Python function names to scenario step text:
 
-| Use Case Function | Robot Keyword |
-|-------------------|---------------|
-| `acs.get_parameter_value()` | `Acs Get Parameter Value` |
-| `acs.is_cpe_online()` | `Acs Is Cpe Online` |
-| `cpe.get_cpu_usage()` | `Cpe Get Cpu Usage` |
-| `voice.call_a_phone()` | `Voice Call A Phone` |
+| pytest-bdd | Robot Framework |
+|------------|-----------------|
+| `@when("step text")` | `@keyword("step text")` |
+| `tests/step_defs/acs_steps.py` | `robot/libraries/acs_keywords.py` |
+| `boardfarm3.use_cases.acs` | `boardfarm3.use_cases.acs` (same) |
 
-Pattern: `module_name.function_name()` → `Module Name Function Name`
+**Example comparison:**
+
+```python
+# pytest-bdd step definition
+@when("the ACS initiates a remote reboot of the CPE")
+def initiate_reboot(acs: ACS, cpe: CPE) -> None:
+    acs_use_cases.initiate_reboot(acs, cpe)
+```
+
+```python
+# Robot Framework keyword library
+@keyword("The ACS initiates a remote reboot of the CPE")
+def initiate_reboot(self, acs, cpe):
+    acs_use_cases.initiate_reboot(acs, cpe)
+```
+
+Both call the same `boardfarm3.use_cases.acs.initiate_reboot()` function.
+
+## Low-Level Device Access
+
+Since keyword libraries are Python code, you have full access to device objects when needed:
+
+```python
+@keyword("Get CPE load average")
+def get_load_avg(self, cpe):
+    """Direct device access when no use_case exists."""
+    return cpe.sw.get_load_avg()
+```
+
+Use this for edge cases where no `boardfarm3.use_cases` function exists.
 
 ## Reporting
 
@@ -270,10 +305,10 @@ Robot Framework generates HTML reports automatically:
 
 ```bash
 # Default output (log.html, report.html, output.xml)
-robot --outputdir results robot/tests/
+bfrobot ... --outputdir results robot/tests/
 
 # Custom report names
-robot --log mylog.html --report myreport.html robot/tests/
+bfrobot ... --log mylog.html --report myreport.html robot/tests/
 ```
 
 ### Reprocessing Results
@@ -294,7 +329,7 @@ Use `pabot` for parallel test execution:
 # Install pabot
 pip install robotframework-pabot
 
-# Run tests in parallel
+# Run tests in parallel (note: requires separate board per process)
 pabot --processes 2 \
     --listener "robotframework_boardfarm.BoardfarmListener:..." \
     robot/tests/
@@ -302,6 +337,6 @@ pabot --processes 2 \
 
 ## Further Reading
 
-- [Keyword Reference](keyword_reference.md) - Complete keyword documentation
+- [Keyword Libraries Documentation](../../robot/libraries/README.md)
 - [Use Case Architecture](../use_case_architecture.md) - Architecture overview
-- [robotframework-boardfarm Documentation](../../robotframework-boardfarm/README.md)
+- [robotframework-boardfarm Documentation](../../../robotframework-boardfarm/README.md)
