@@ -1,0 +1,563 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.4.1 (Python 3.12.3 on linux)" generated="2026-02-02T17:55:03.177612" rpa="false" schemaversion="5">
+<suite id="s1" name="Tests" source="/home/rjvisser/projects/req-tst/boardfarm-bdd/robot/tests">
+<suite id="s1-s1" name="Remote Cpe Reboot" source="/home/rjvisser/projects/req-tst/boardfarm-bdd/robot/tests/remote_cpe_reboot.robot">
+<kw name="Setup Testbed Connection" owner="common" type="SETUP">
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-02T17:55:07.473126" level="INFO">Setting up testbed connection...</msg>
+<arg>Setting up testbed connection...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-02T17:55:07.472842" elapsed="0.000355"/>
+</kw>
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<msg time="2026-02-02T17:55:07.473617" level="INFO">${acs} = &lt;boardfarm3.devices.genie_acs.GenieACS object at 0x7792ebb29820&gt;</msg>
+<var>${acs}</var>
+<arg>ACS</arg>
+<doc>Get a device by its type name.</doc>
+<status status="PASS" start="2026-02-02T17:55:07.473328" elapsed="0.000319"/>
+</kw>
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<msg time="2026-02-02T17:55:07.473939" level="INFO">${cpe} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
+<var>${cpe}</var>
+<arg>CPE</arg>
+<doc>Get a device by its type name.</doc>
+<status status="PASS" start="2026-02-02T17:55:07.473749" elapsed="0.000214"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<msg time="2026-02-02T17:55:07.474436" level="INFO">${ACS} = &lt;boardfarm3.devices.genie_acs.GenieACS object at 0x7792ebb29820&gt;</msg>
+<arg>${ACS}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-02-02T17:55:07.474083" elapsed="0.000428"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<msg time="2026-02-02T17:55:07.474939" level="INFO">${CPE} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
+<arg>${CPE}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-02-02T17:55:07.474674" elapsed="0.000309"/>
+</kw>
+<kw name="The CPE is online via ACS" owner="acs_keywords">
+<msg time="2026-02-02T17:55:12.642584" level="INFO">✓ CPE is online via ACS</msg>
+<arg>${acs}</arg>
+<arg>${cpe}</arg>
+<doc>Verify CPE is online via ACS.</doc>
+<status status="PASS" start="2026-02-02T17:55:07.475089" elapsed="5.167584"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-02T17:55:12.643379" level="INFO">Testbed connection established - ACS: &lt;boardfarm3.devices.genie_acs.GenieACS object at 0x7792ebb29820&gt;, CPE: &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
+<arg>Testbed connection established - ACS: ${ACS}, CPE: ${CPE}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-02T17:55:12.642853" elapsed="0.000664"/>
+</kw>
+<doc>Common suite setup - establish testbed connection and verify connectivity.
+Sets ACS and CPE as suite variables for use in all tests.</doc>
+<status status="PASS" start="2026-02-02T17:55:07.472241" elapsed="5.171457"/>
+</kw>
+<test id="s1-s1-t1" name="UC-12347-Main: Successful Remote Reboot" line="25">
+<kw name="A CPE Is Online And Fully Provisioned">
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<msg time="2026-02-02T17:55:12.650755" level="INFO">${acs} = &lt;boardfarm3.devices.genie_acs.GenieACS object at 0x7792ebb29820&gt;</msg>
+<var>${acs}</var>
+<arg>ACS</arg>
+<doc>Get a device by its type name.</doc>
+<status status="PASS" start="2026-02-02T17:55:12.649458" elapsed="0.001428"/>
+</kw>
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<msg time="2026-02-02T17:55:12.652183" level="INFO">${cpe} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
+<var>${cpe}</var>
+<arg>CPE</arg>
+<doc>Get a device by its type name.</doc>
+<status status="PASS" start="2026-02-02T17:55:12.651382" elapsed="0.000922"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<msg time="2026-02-02T17:55:12.654097" level="INFO">${ACS} = &lt;boardfarm3.devices.genie_acs.GenieACS object at 0x7792ebb29820&gt;</msg>
+<arg>${ACS}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-02-02T17:55:12.652809" elapsed="0.001334"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<msg time="2026-02-02T17:55:12.654536" level="INFO">${CPE} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
+<arg>${CPE}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-02-02T17:55:12.654249" elapsed="0.000377"/>
+</kw>
+<kw name="A CPE is online and fully provisioned" owner="background_keywords">
+<msg time="2026-02-02T17:55:17.779095" level="INFO">Querying CPE 0E4299-SN0E429997142C via ACS to confirm it's online and provisioned...
+CPE baseline state captured: firmware=3.0.2, uptime=36246s</msg>
+<msg time="2026-02-02T17:55:17.779386" level="INFO">${baseline} = {'firmware_version': '3.0.2', 'initial_uptime': 36246}</msg>
+<var>${baseline}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<doc>Confirm CPE is online and provisioned via ACS.</doc>
+<status status="PASS" start="2026-02-02T17:55:12.655167" elapsed="5.124293"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<msg time="2026-02-02T17:55:17.780989" level="INFO">${INITIAL_UPTIME} = 36246</msg>
+<arg>${INITIAL_UPTIME}</arg>
+<arg>${baseline}[initial_uptime]</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-02-02T17:55:17.779803" elapsed="0.001286"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-02T17:55:17.781678" level="INFO">CPE baseline captured: uptime=36246s</msg>
+<arg>CPE baseline captured: uptime=${INITIAL_UPTIME}s</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-02T17:55:17.781322" elapsed="0.000420"/>
+</kw>
+<doc>Verify CPE is online and fully provisioned</doc>
+<status status="PASS" start="2026-02-02T17:55:12.647844" elapsed="5.133986"/>
+</kw>
+<kw name="The User Sets The CPE GUI Password">
+<kw name="Set CPE GUI password" owner="background_keywords">
+<msg time="2026-02-02T17:56:27.604248" level="INFO">Searching through 11 users to find admin user...
+✓ Found admin user at index 10 (username='admin')
+Using User.10 as GUI admin user
+Captured original user 10 (GUI admin) password
+Setting CPE GUI password for 0E4299-SN0E429997142C...
+⚠ WARNING: Password encrypted value did not change - password may not have been set.</msg>
+<msg time="2026-02-02T17:56:27.604399" level="INFO">${result} = {'admin_user_index': 10, 'password_changed': False, 'original_password': 'admin'}</msg>
+<var>${result}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<arg>${password}</arg>
+<doc>Set CPE GUI password via ACS using TR-069 SPV.</doc>
+<status status="PASS" start="2026-02-02T17:55:17.782427" elapsed="69.822000"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<msg time="2026-02-02T17:56:27.605418" level="INFO">${ORIGINAL_PASSWORD} = admin</msg>
+<arg>${ORIGINAL_PASSWORD}</arg>
+<arg>${result}[original_password]</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-02-02T17:56:27.604620" elapsed="0.000846"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<msg time="2026-02-02T17:56:27.606246" level="INFO">${ADMIN_USER_INDEX} = 10</msg>
+<arg>${ADMIN_USER_INDEX}</arg>
+<arg>${result}[admin_user_index]</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-02-02T17:56:27.605586" elapsed="0.000707"/>
+</kw>
+<arg>${TEST_PASSWORD}</arg>
+<doc>Set the CPE GUI password via ACS</doc>
+<status status="PASS" start="2026-02-02T17:55:17.782064" elapsed="69.824292"/>
+</kw>
+<kw name="The Operator Initiates A Reboot Task On The ACS">
+<kw name="The operator initiates a reboot task on the ACS for the CPE" owner="operator_keywords">
+<msg time="2026-02-02T17:56:33.661224" level="INFO">Operator initiating reboot task for CPE 0E4299-SN0E429997142C via ACS...
+✓ Reboot task created successfully for CPE 0E4299-SN0E429997142C (test started at 2026-02-02 17:56:22.607030 UTC)</msg>
+<msg time="2026-02-02T17:56:33.661363" level="INFO">${result} = {'cpe_id': '0E4299-SN0E429997142C', 'command_key': 'reboot', 'test_start_timestamp': datetime.datetime(2026, 2, 2, 17, 56, 22, 607030)}</msg>
+<var>${result}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<doc>Operator initiates a reboot task on the ACS.</doc>
+<status status="PASS" start="2026-02-02T17:56:27.606810" elapsed="6.054579"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<msg time="2026-02-02T17:56:33.662283" level="INFO">${REBOOT_TIMESTAMP} = 2026-02-02 17:56:22.607030</msg>
+<arg>${REBOOT_TIMESTAMP}</arg>
+<arg>${result}[test_start_timestamp]</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-02-02T17:56:33.661562" elapsed="0.000763"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-02T17:56:33.662623" level="INFO">Reboot task initiated at 2026-02-02 17:56:22.607030</msg>
+<arg>Reboot task initiated at ${REBOOT_TIMESTAMP}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-02T17:56:33.662418" elapsed="0.000243"/>
+</kw>
+<doc>Operator initiates reboot task via ACS</doc>
+<status status="PASS" start="2026-02-02T17:56:27.606503" elapsed="6.056211"/>
+</kw>
+<kw name="The ACS Sends Connection Request To CPE">
+<kw name="The ACS sends a connection request to the CPE" owner="acs_keywords">
+<msg time="2026-02-02T17:56:35.728923" level="INFO">Verifying connection request for CPE 0E4299-SN0E429997142C...
+⚠ Connection request may not have been processed yet. Assuming sent (Reboot() was called).</msg>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<arg>cpe_id=${CPE.sw.cpe_id}</arg>
+<arg>since=${REBOOT_TIMESTAMP}</arg>
+<doc>ACS sends a connection request to the CPE.</doc>
+<status status="PASS" start="2026-02-02T17:56:33.663049" elapsed="2.066051"/>
+</kw>
+<doc>ACS sends TR-069 connection request to CPE</doc>
+<status status="PASS" start="2026-02-02T17:56:33.662832" elapsed="2.066397"/>
+</kw>
+<kw name="The CPE Initiates Session With ACS">
+<kw name="The CPE receives the connection request and initiates a session" owner="cpe_keywords">
+<msg time="2026-02-02T17:56:35.730150" level="INFO">Waiting for CPE 0E4299-SN0E429997142C to receive connection request and initiate session...</msg>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<doc>CPE receives connection request and initiates session.</doc>
+<status status="PASS" start="2026-02-02T17:56:35.729802" elapsed="0.000412"/>
+</kw>
+<doc>CPE receives connection request and initiates session</doc>
+<status status="PASS" start="2026-02-02T17:56:35.729444" elapsed="0.000849"/>
+</kw>
+<kw name="The CPE Sends Inform Message To ACS">
+<kw name="The CPE sends an Inform message to the ACS" owner="cpe_keywords">
+<msg time="2026-02-02T17:56:35.823353" level="INFO">Waiting for CPE 0E4299-SN0E429997142C to send Inform message (timeout=120s)...
+✓ CPE 0E4299-SN0E429997142C sent Inform message (verified in GenieACS logs)</msg>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<arg>since=${REBOOT_TIMESTAMP}</arg>
+<doc>CPE sends an Inform message to the ACS.</doc>
+<status status="PASS" start="2026-02-02T17:56:35.730713" elapsed="0.092736"/>
+</kw>
+<doc>CPE sends Inform message to ACS</doc>
+<status status="PASS" start="2026-02-02T17:56:35.730440" elapsed="0.093107"/>
+</kw>
+<kw name="The ACS Issues Reboot RPC To CPE">
+<kw name="The ACS responds to the Inform message by issuing the Reboot RPC" owner="acs_keywords">
+<msg time="2026-02-02T17:56:36.001393" level="INFO">Waiting for ACS to respond to Inform and issue Reboot RPC to CPE 0E4299-SN0E429997142C...
+✓ ACS responded to Inform and issued Reboot RPC to CPE 0E4299-SN0E429997142C (verified in GenieACS CWMP logs)</msg>
+<msg time="2026-02-02T17:56:36.001582" level="INFO">${reboot_time} = 2026-02-02 17:56:28.452000</msg>
+<var>${reboot_time}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<arg>since=${REBOOT_TIMESTAMP}</arg>
+<doc>ACS responds to Inform and issues Reboot RPC.</doc>
+<status status="PASS" start="2026-02-02T17:56:35.823997" elapsed="0.177621"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<msg time="2026-02-02T17:56:36.003174" level="INFO">${REBOOT_RPC_TIME} = 2026-02-02 17:56:28.452000</msg>
+<arg>${REBOOT_RPC_TIME}</arg>
+<arg>${reboot_time}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-02-02T17:56:36.001863" elapsed="0.001373"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-02T17:56:36.003717" level="INFO">Reboot RPC issued at 2026-02-02 17:56:28.452000</msg>
+<arg>Reboot RPC issued at ${reboot_time}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-02T17:56:36.003398" elapsed="0.000379"/>
+</kw>
+<doc>ACS issues Reboot RPC to CPE</doc>
+<status status="PASS" start="2026-02-02T17:56:35.823740" elapsed="0.180114"/>
+</kw>
+<kw name="The CPE Completes Boot Sequence">
+<kw name="The CPE sends an Inform message after boot completion" owner="cpe_keywords">
+<msg time="2026-02-02T17:57:58.867597" level="INFO">Waiting for CPE 0E4299-SN0E429997142C to complete boot and send post-reboot Inform message...
+✓ CPE 0E4299-SN0E429997142C sent post-reboot Inform message at 2026-02-02 17:57:57.790000 UTC
+↻ Refreshing CPE console connection after reboot...
+✓ Console connection refreshed successfully</msg>
+<msg time="2026-02-02T17:57:58.867981" level="INFO">${boot_time} = 2026-02-02 17:57:57.790000</msg>
+<var>${boot_time}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<arg>since=${REBOOT_RPC_TIME}</arg>
+<doc>CPE sends Inform after boot completion.</doc>
+<status status="PASS" start="2026-02-02T17:56:36.004375" elapsed="82.863652"/>
+</kw>
+<kw name="Should Not Be Equal" owner="BuiltIn">
+<msg time="2026-02-02T17:57:58.869028" level="INFO">Argument types are:
+&lt;class 'str'&gt;
+&lt;class 'NoneType'&gt;</msg>
+<arg>${boot_time}</arg>
+<arg>${None}</arg>
+<arg>CPE should complete boot sequence</arg>
+<doc>Fails if the given objects are equal.</doc>
+<status status="PASS" start="2026-02-02T17:57:58.868446" elapsed="0.000656"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-02T17:57:58.869444" level="INFO">Boot sequence completed at 2026-02-02 17:57:57.790000</msg>
+<arg>Boot sequence completed at ${boot_time}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-02T17:57:58.869221" elapsed="0.000265"/>
+</kw>
+<doc>CPE completes boot sequence and sends boot Inform</doc>
+<status status="PASS" start="2026-02-02T17:56:36.004059" elapsed="82.865511"/>
+</kw>
+<kw name="The CPE Resumes Normal Operation">
+<kw name="The CPE resumes normal operation" owner="cpe_keywords">
+<msg time="2026-02-02T17:58:03.945030" level="INFO">Verifying CPE 0E4299-SN0E429997142C has resumed normal operation (timeout=60s)...
+✓ CPE 0E4299-SN0E429997142C has resumed normal operation and periodic communication</msg>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<doc>CPE resumes normal operation.</doc>
+<status status="PASS" start="2026-02-02T17:57:58.870110" elapsed="5.075008"/>
+</kw>
+<doc>Verify CPE is back online and operational</doc>
+<status status="PASS" start="2026-02-02T17:57:58.869773" elapsed="5.075421"/>
+</kw>
+<kw name="The CPE Configuration Is Preserved">
+<kw name="The CPE is online via ACS" owner="acs_keywords">
+<msg time="2026-02-02T17:58:09.013569" level="INFO">✓ CPE is online via ACS</msg>
+<msg time="2026-02-02T17:58:09.013843" level="INFO">${is_online} = True</msg>
+<var>${is_online}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<doc>Verify CPE is online via ACS.</doc>
+<status status="PASS" start="2026-02-02T17:58:03.945622" elapsed="5.068289"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-02T17:58:09.015097" level="INFO">CPE is online - basic configuration verification passed</msg>
+<arg>CPE is online - basic configuration verification passed</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-02T17:58:09.014322" elapsed="0.001141"/>
+</kw>
+<doc>Verify CPE configuration was preserved after reboot
+Note: Password values are typically masked in TR-069, so we verify
+basic online status instead of checking specific password values.</doc>
+<status status="PASS" start="2026-02-02T17:58:03.945360" elapsed="5.070313"/>
+</kw>
+<kw name="Use Case Succeeds And All Success Guarantees Are Met">
+<kw name="Use case succeeds and all success guarantees are met" owner="operator_keywords">
+<msg time="2026-02-02T17:58:14.111662" level="INFO">Verifying all success guarantees for CPE 0E4299-SN0E429997142C...
+✓ CPE successfully rebooted and completed boot sequence
+✓ CPE reconnected to ACS after reboot
+✓ ACS correctly identified reboot event via Inform message
+✓ CPE configuration and operational state preserved
+✓ CPE resumed normal operation and periodic communication
+✓ All success guarantees met. Use case succeeded.</msg>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<doc>Verify all success guarantees are met.</doc>
+<status status="PASS" start="2026-02-02T17:58:09.016569" elapsed="5.095320"/>
+</kw>
+<doc>Final verification that use case succeeded</doc>
+<status status="PASS" start="2026-02-02T17:58:09.016083" elapsed="5.096065"/>
+</kw>
+<kw name="Cleanup After Reboot Test" type="TEARDOWN">
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Cleanup After Test" owner="common">
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-02T17:58:14.117422" level="INFO">Cleaning up after test...</msg>
+<arg>Cleaning up after test...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-02T17:58:14.116736" elapsed="0.000842"/>
+</kw>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Get CPE Device" owner="common">
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<msg time="2026-02-02T17:58:14.120658" level="INFO">${cpe} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
+<var>${cpe}</var>
+<arg>CPE</arg>
+<doc>Get a device by its type name.</doc>
+<status status="PASS" start="2026-02-02T17:58:14.119821" elapsed="0.000876"/>
+</kw>
+<return>
+<value>${cpe}</value>
+<status status="PASS" start="2026-02-02T17:58:14.120838" elapsed="0.000144"/>
+</return>
+<doc>Get CPE device instance. Returns cached instance if available.</doc>
+<status status="PASS" start="2026-02-02T17:58:14.119049" elapsed="0.002056"/>
+</kw>
+<msg time="2026-02-02T17:58:14.121185" level="INFO">${cpe} = ('PASS', &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;)</msg>
+<var>${cpe}</var>
+<arg>Get CPE Device</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-02T17:58:14.117983" elapsed="0.003230"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<msg time="2026-02-02T17:58:14.122496" level="INFO">${cpe_available} = PASS == 'PASS'</msg>
+<var>${cpe_available}</var>
+<arg>${cpe}[0] == 'PASS'</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="PASS" start="2026-02-02T17:58:14.121338" elapsed="0.001242"/>
+</kw>
+<if>
+<branch type="IF" condition="${cpe_available}">
+<kw name="Log" owner="BuiltIn">
+<arg>↻ Refreshing CPE console connection...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-02T17:58:14.125015" elapsed="0.000036"/>
+</kw>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<arg>Refresh CPE Console Connection</arg>
+<arg>${cpe}[1]</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="NOT RUN" start="2026-02-02T17:58:14.125198" elapsed="0.000020"/>
+</kw>
+<msg time="2026-02-02T17:58:14.125262" level="FAIL">Invalid IF condition: Evaluating expression "PASS == 'PASS'" failed: NameError: name 'PASS' is not defined nor importable as module
+
+Variables in the original expression '${cpe_available}' were resolved before the expression was evaluated. Try using '$cpe_available' syntax to avoid that. See Evaluating Expressions appendix in Robot Framework User Guide for more details.</msg>
+<status status="FAIL" start="2026-02-02T17:58:14.122831" elapsed="0.002494">Invalid IF condition: Evaluating expression "PASS == 'PASS'" failed: NameError: name 'PASS' is not defined nor importable as module
+
+Variables in the original expression '${cpe_available}' were resolved before the expression was evaluated. Try using '$cpe_available' syntax to avoid that. See Evaluating Expressions appendix in Robot Framework User Guide for more details.</status>
+</branch>
+<status status="FAIL" start="2026-02-02T17:58:14.122756" elapsed="0.002612">Invalid IF condition: Evaluating expression "PASS == 'PASS'" failed: NameError: name 'PASS' is not defined nor importable as module
+
+Variables in the original expression '${cpe_available}' were resolved before the expression was evaluated. Try using '$cpe_available' syntax to avoid that. See Evaluating Expressions appendix in Robot Framework User Guide for more details.</status>
+</if>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-02T17:58:14.125851" level="INFO">Test cleanup complete</msg>
+<arg>Test cleanup complete</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-02T17:58:14.125505" elapsed="0.000399"/>
+</kw>
+<doc>Common test teardown - cleanup any test artifacts.
+Called after each test to ensure clean state for next test.
+Always refreshes the CPE console connection to ensure it's valid
+for the next test (the previous test might have rebooted the CPE).
+Aligned with pytest cleanup_cpe_config_after_scenario fixture behavior.</doc>
+<status status="FAIL" start="2026-02-02T17:58:14.115980" elapsed="0.010127">Invalid IF condition: Evaluating expression "PASS == 'PASS'" failed: NameError: name 'PASS' is not defined nor importable as module
+
+Variables in the original expression '${cpe_available}' were resolved before the expression was evaluated. Try using '$cpe_available' syntax to avoid that. See Evaluating Expressions appendix in Robot Framework User Guide for more details.</status>
+</kw>
+<arg>Cleanup After Test</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-02T17:58:14.114252" elapsed="0.011919"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Variable Should Exist" owner="BuiltIn">
+<arg>${ADMIN_USER_INDEX}</arg>
+<doc>Fails unless the given variable exists within the current scope.</doc>
+<status status="PASS" start="2026-02-02T17:58:14.126573" elapsed="0.000253"/>
+</kw>
+<msg time="2026-02-02T17:58:14.126909" level="INFO">${has_index} = True</msg>
+<var>${has_index}</var>
+<arg>Variable Should Exist</arg>
+<arg>${ADMIN_USER_INDEX}</arg>
+<doc>Runs the specified keyword and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-02-02T17:58:14.126295" elapsed="0.000655"/>
+</kw>
+<if>
+<branch type="IF" condition="${has_index}">
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-02T17:58:14.127393" level="INFO">Restoring CPE GUI password to default 'admin'...</msg>
+<arg>Restoring CPE GUI password to default 'admin'...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-02T17:58:14.127190" elapsed="0.000247"/>
+</kw>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Restore CPE GUI Password To Default" owner="background_keywords">
+<msg time="2026-02-02T17:58:54.605801" level="INFO">Restoring GUI password to default 'admin' for CPE 0E4299-SN0E429997142C User.10...
+  Waiting for CPE to be ready...
+  ✓ CPE is online and ready
+  Attempt 1/3: Setting password...
+  ⚠ Hash unchanged on attempt 1, retrying...
+  Attempt 2/3: Setting password...
+  ⚠ Hash unchanged on attempt 2, retrying...
+  Attempt 3/3: Setting password...
+  ⚠ Hash unchanged on attempt 3, retrying...
+⚠ Failed to restore password after 3 attempts</msg>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<arg>${ADMIN_USER_INDEX}</arg>
+<doc>Restore CPE GUI password to the default 'admin' value.</doc>
+<status status="PASS" start="2026-02-02T17:58:14.127794" elapsed="40.478749"/>
+</kw>
+<arg>Restore CPE GUI Password To Default</arg>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<arg>${ADMIN_USER_INDEX}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-02T17:58:14.127546" elapsed="40.479470"/>
+</kw>
+<status status="PASS" start="2026-02-02T17:58:14.127047" elapsed="40.480174"/>
+</branch>
+<status status="PASS" start="2026-02-02T17:58:14.127019" elapsed="40.480421"/>
+</if>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-02T17:58:54.609079" level="INFO">Reboot test cleanup complete</msg>
+<arg>Reboot test cleanup complete</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-02T17:58:54.608167" elapsed="0.000979"/>
+</kw>
+<doc>Cleanup after reboot test - restore password to default and refresh console.
+Aligned with pytest cleanup_cpe_config_after_scenario fixture behavior.</doc>
+<status status="PASS" start="2026-02-02T17:58:14.113282" elapsed="40.496042"/>
+</kw>
+<doc>Main success scenario for remote CPE reboot.
+Given the operator initiates a reboot task on the ACS for the CPE,
+the ACS sends a connection request, issues the Reboot RPC,
+and the CPE completes the boot sequence and resumes normal operation.</doc>
+<tag>boardfarm-bdd</tag>
+<tag>main-scenario</tag>
+<tag>reboot</tag>
+<tag>smoke</tag>
+<tag>UC-12347</tag>
+<status status="PASS" start="2026-02-02T17:55:12.643896" elapsed="221.965581"/>
+</test>
+<kw name="Teardown Testbed Connection" owner="common" type="TEARDOWN">
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-02T17:58:54.611897" level="INFO">Tearing down testbed connection...</msg>
+<arg>Tearing down testbed connection...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-02T17:58:54.611450" elapsed="0.000570"/>
+</kw>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Refresh CPE Console Connection" owner="common">
+<kw name="Get CPE Device" owner="common">
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<msg time="2026-02-02T17:58:54.614030" level="INFO">${cpe} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
+<var>${cpe}</var>
+<arg>CPE</arg>
+<doc>Get a device by its type name.</doc>
+<status status="PASS" start="2026-02-02T17:58:54.613766" elapsed="0.000295"/>
+</kw>
+<return>
+<value>${cpe}</value>
+<status status="PASS" start="2026-02-02T17:58:54.614113" elapsed="0.000041"/>
+</return>
+<msg time="2026-02-02T17:58:54.614287" level="INFO">${cpe} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
+<var>${cpe}</var>
+<doc>Get CPE device instance. Returns cached instance if available.</doc>
+<status status="PASS" start="2026-02-02T17:58:54.613212" elapsed="0.001097"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-02T17:58:54.614607" level="INFO">Console connection refresh requested</msg>
+<arg>Console connection refresh requested</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-02T17:58:54.614412" elapsed="0.000236"/>
+</kw>
+<doc>Refresh CPE console connection (useful after reboot).</doc>
+<status status="PASS" start="2026-02-02T17:58:54.612860" elapsed="0.001837"/>
+</kw>
+<arg>Refresh CPE Console Connection</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-02T17:58:54.612292" elapsed="0.002440"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-02T17:58:54.615024" level="INFO">Testbed connection teardown complete</msg>
+<arg>Testbed connection teardown complete</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-02T17:58:54.614818" elapsed="0.000245"/>
+</kw>
+<doc>Common suite teardown - clean up testbed connection.</doc>
+<status status="PASS" start="2026-02-02T17:58:54.610973" elapsed="0.004138"/>
+</kw>
+<doc>UC-12347: Remote CPE Reboot
+As an operator of a network, I want to remotely reboot a CPE device
+so that I can restore connectivity, apply configuration changes,
+or resolve operational issues without physical access to the device.
+
+Corresponds to tests/features/Remote CPE Reboot.feature</doc>
+<status status="PASS" start="2026-02-02T17:55:07.416045" elapsed="227.199093"/>
+</suite>
+<doc>Boardfarm BDD Robot Framework Test Suites
+
+This test suite contains Robot Framework implementations of BDD scenarios
+that correspond to the system use cases defined in requirements/.
+
+All tests use scenario-aligned keyword libraries that mirror the pytest-bdd
+step definitions, providing consistent behavior across both frameworks.
+
+Test Suites:
+- hello.robot: Basic smoke tests
+- remote_cpe_reboot.robot: UC-12347 Remote CPE Reboot
+- user_makes_one_way_call.robot: UC-12348 Voice Call Tests
+- acs_gui_device_management.robot: UC-ACS-GUI-01 GUI Management
+- device_class_initialization.robot: Device Class Tests</doc>
+<meta name="Boardfarm Status">Deployed</meta>
+<meta name="Board Name">prplos-docker-1</meta>
+<status status="PASS" start="2026-02-02T17:55:03.940598" elapsed="230.675287"/>
+</suite>
+<statistics>
+<total>
+<stat pass="1" fail="0" skip="0">All Tests</stat>
+</total>
+<tag>
+<stat pass="1" fail="0" skip="0">boardfarm-bdd</stat>
+<stat pass="1" fail="0" skip="0">main-scenario</stat>
+<stat pass="1" fail="0" skip="0">reboot</stat>
+<stat pass="1" fail="0" skip="0">smoke</stat>
+<stat pass="1" fail="0" skip="0">UC-12347</stat>
+</tag>
+<suite>
+<stat name="Tests" id="s1" pass="1" fail="0" skip="0">Tests</stat>
+<stat name="Remote Cpe Reboot" id="s1-s1" pass="1" fail="0" skip="0">Tests.Remote Cpe Reboot</stat>
+</suite>
+</statistics>
+<errors>
+</errors>
+</robot>

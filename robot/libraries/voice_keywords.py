@@ -9,18 +9,16 @@ Mirrors: tests/step_defs/sip_phone_steps.py
 import time
 from typing import Any
 
-from robot.api.deco import keyword
+from robot.api.deco import keyword, library
 
 from boardfarm3.templates.sip_phone import SIPPhone
 from boardfarm3.templates.sip_server import SIPServer
 from boardfarm3.use_cases import voice as voice_use_cases
 
 
+@library(scope="SUITE", doc_format="TEXT")
 class VoiceKeywords:
     """Keywords for voice/SIP phone operations matching BDD scenario steps."""
-
-    ROBOT_LIBRARY_SCOPE = "SUITE"
-    ROBOT_LIBRARY_DOC_FORMAT = "TEXT"
 
     def __init__(self) -> None:
         """Initialize VoiceKeywords."""
@@ -34,7 +32,6 @@ class VoiceKeywords:
     # =========================================================================
 
     @keyword("The SIP server is running and operational")
-    @keyword("Verify SIP server is running")
     def verify_sip_server_running(self, sipcenter: SIPServer) -> None:
         """Verify SIP server (Kamailio) is running.
 
@@ -48,6 +45,11 @@ class VoiceKeywords:
         status = sipcenter.get_status()
         assert status == "Running", f"SIP server is not running. Status: {status}"
         print(f"✓ SIP server is running: {status}")
+
+    @keyword("Verify SIP server is running")
+    def verify_sip_server_running_alias(self, sipcenter: SIPServer) -> None:
+        """Alias for The SIP server is running and operational."""
+        self.verify_sip_server_running(sipcenter)
 
     @keyword("Register phone with SIP server")
     def register_phone(
@@ -67,21 +69,19 @@ class VoiceKeywords:
         # Verify registration
         all_users = sipcenter.get_all_users()
         phone_number = phone.number
+        phone_name = getattr(phone, 'name', str(phone))
         assert phone_number in all_users, (
-            f"Phone {phone.name} (number {phone_number}) is not registered. "
+            f"Phone {phone_name} (number {phone_number}) is not registered. "
             f"All users: {all_users}"
         )
 
         if name:
             self._phones[name] = phone
 
-        print(f"✓ Phone {phone.name} (number {phone_number}) is registered")
+        print(f"✓ Phone {phone_name} (number {phone_number}) is registered")
 
     @keyword("Assign caller and callee roles")
-    @keyword("${caller_name} is the caller and ${callee_name} is the callee")
-    def assign_roles(
-        self, caller: SIPPhone, callee: SIPPhone, caller_name: str = None, callee_name: str = None
-    ) -> None:
+    def assign_roles(self, caller: SIPPhone, callee: SIPPhone) -> None:
         """Assign caller and callee roles to phones.
 
         Maps to scenario step:
@@ -90,24 +90,20 @@ class VoiceKeywords:
         Arguments:
             caller: Caller phone instance
             callee: Callee phone instance
-            caller_name: Name of caller (optional)
-            callee_name: Name of callee (optional)
         """
         self._caller = caller
         self._callee = callee
 
-        if caller_name:
-            self._phones[caller_name] = caller
-        if callee_name:
-            self._phones[callee_name] = callee
+        # Get phone names safely
+        caller_name = getattr(caller, 'name', str(caller))
+        callee_name = getattr(callee, 'name', str(callee))
 
-        print(f"✓ Assigned roles: caller={caller.name}, callee={callee.name}")
+        print(f"✓ Assigned roles: caller={caller_name}, callee={callee_name}")
 
     # =========================================================================
     # Phone State Keywords
     # =========================================================================
 
-    @keyword("The ${role} phone is idle")
     @keyword("Verify phone is idle")
     def verify_phone_idle(self, phone: SIPPhone) -> None:
         """Verify phone is in idle state.
@@ -118,8 +114,9 @@ class VoiceKeywords:
         Arguments:
             phone: SIPPhone instance
         """
-        assert phone.is_idle(), f"Phone {phone.name} is not in idle state"
-        print(f"✓ Phone {phone.name} is in idle state")
+        phone_name = getattr(phone, 'name', str(phone))
+        assert phone.is_idle(), f"Phone {phone_name} is not in idle state"
+        print(f"✓ Phone {phone_name} is in idle state")
 
     @keyword("Wait for phone state")
     def wait_for_state(
@@ -137,11 +134,12 @@ class VoiceKeywords:
         """
         success = phone.wait_for_state(expected_state, timeout=timeout)
 
+        phone_name = getattr(phone, 'name', str(phone))
         if success:
-            print(f"✓ Phone {phone.name} reached {expected_state} state")
+            print(f"✓ Phone {phone_name} reached {expected_state} state")
         else:
             print(
-                f"✗ Phone {phone.name} did not reach {expected_state} state "
+                f"✗ Phone {phone_name} did not reach {expected_state} state "
                 f"within {timeout}s"
             )
 
@@ -151,7 +149,6 @@ class VoiceKeywords:
     # Call Setup Keywords
     # =========================================================================
 
-    @keyword("The caller dials the callee's number")
     @keyword("Caller calls callee")
     def caller_dials_callee(self, caller: SIPPhone = None, callee: SIPPhone = None) -> None:
         """Caller dials the callee's number.
@@ -168,11 +165,17 @@ class VoiceKeywords:
         if callee is None:
             callee = self._callee
 
-        print(f"Phone {caller.name} dialing {callee.number}...")
+        caller_name = getattr(caller, 'name', str(caller))
+        callee_number = getattr(callee, 'number', str(callee))
+        print(f"Phone {caller_name} dialing {callee_number}...")
         voice_use_cases.call_a_phone(caller, callee)
-        print(f"✓ Phone {caller.name} dialed {callee.number}")
+        print(f"✓ Phone {caller_name} dialed {callee_number}")
 
-    @keyword("${phone_name} calls ${number}")
+    @keyword("The caller dials the callee's number")
+    def the_caller_dials_callees_number(self, caller: SIPPhone = None, callee: SIPPhone = None) -> None:
+        """Alias for Caller calls callee."""
+        self.caller_dials_callee(caller, callee)
+
     @keyword("Phone dials number")
     def phone_dials_number(self, phone: SIPPhone, number: str) -> None:
         """Phone dials a specific number.
@@ -181,15 +184,15 @@ class VoiceKeywords:
             phone: SIPPhone instance
             number: Number to dial
         """
-        print(f"Phone {phone.name} calling {number}...")
+        phone_name = getattr(phone, 'name', str(phone))
+        print(f"Phone {phone_name} calling {number}...")
         phone.dial(number)
-        print(f"✓ Phone {phone.name} called {number}")
+        print(f"✓ Phone {phone_name} called {number}")
 
     # =========================================================================
     # Call Answer/Reject Keywords
     # =========================================================================
 
-    @keyword("The callee answers the call")
     @keyword("Callee answers call")
     def callee_answers(self, callee: SIPPhone = None) -> None:
         """Callee answers incoming call.
@@ -203,12 +206,17 @@ class VoiceKeywords:
         if callee is None:
             callee = self._callee
 
-        print(f"Phone {callee.name} answering call...")
+        callee_name = getattr(callee, 'name', str(callee))
+        print(f"Phone {callee_name} answering call...")
         success = voice_use_cases.answer_a_call(callee)
-        assert success, f"Phone {callee.name} failed to answer call"
-        print(f"✓ Phone {callee.name} answered call")
+        assert success, f"Phone {callee_name} failed to answer call"
+        print(f"✓ Phone {callee_name} answered call")
 
-    @keyword("The ${role} rejects the call")
+    @keyword("The callee answers the call")
+    def the_callee_answers_the_call(self, callee: SIPPhone = None) -> None:
+        """Alias for Callee answers call."""
+        self.callee_answers(callee)
+
     @keyword("Phone rejects call")
     def phone_rejects_call(self, phone: SIPPhone) -> None:
         """Reject incoming call with 603 Decline response.
@@ -216,19 +224,19 @@ class VoiceKeywords:
         Arguments:
             phone: SIPPhone instance
         """
-        print(f"Phone {phone.name} rejecting call...")
+        phone_name = getattr(phone, 'name', str(phone))
+        print(f"Phone {phone_name} rejecting call...")
         phone.reply_with_code(603)
 
         success = self.wait_for_state(phone, "idle", timeout=5)
-        assert success, f"Phone {phone.name} did not return to idle after rejection"
+        assert success, f"Phone {phone_name} did not return to idle after rejection"
 
-        print(f"✓ Phone {phone.name} rejected call with 603 Decline")
+        print(f"✓ Phone {phone_name} rejected call with 603 Decline")
 
     # =========================================================================
     # Call Termination Keywords
     # =========================================================================
 
-    @keyword("The ${role} hangs up")
     @keyword("Phone hangs up")
     def phone_hangs_up(self, phone: SIPPhone) -> None:
         """Hang up active call.
@@ -239,9 +247,10 @@ class VoiceKeywords:
         Arguments:
             phone: SIPPhone instance
         """
-        print(f"Phone {phone.name} hanging up...")
+        phone_name = getattr(phone, 'name', str(phone))
+        print(f"Phone {phone_name} hanging up...")
         voice_use_cases.disconnect_the_call(phone)
-        print(f"✓ Phone {phone.name} hung up")
+        print(f"✓ Phone {phone_name} hung up")
 
     @keyword("Caller hangs up")
     def caller_hangs_up(self, caller: SIPPhone = None) -> None:
@@ -258,7 +267,6 @@ class VoiceKeywords:
     # Verification Keywords
     # =========================================================================
 
-    @keyword("The callee phone should start ringing")
     @keyword("Verify phone is ringing")
     def verify_phone_ringing(self, phone: SIPPhone = None, timeout: int = 10) -> None:
         """Verify phone is ringing.
@@ -274,10 +282,15 @@ class VoiceKeywords:
             phone = self._callee
 
         success = self.wait_for_state(phone, "ringing", timeout=timeout)
-        assert success, f"Phone {phone.name} did not start ringing"
+        phone_name = getattr(phone, 'name', str(phone))
+        assert success, f"Phone {phone_name} did not start ringing"
+
+    @keyword("The callee phone should start ringing")
+    def the_callee_phone_should_start_ringing(self, phone: SIPPhone = None, timeout: int = 10) -> None:
+        """Alias for Verify phone is ringing."""
+        self.verify_phone_ringing(phone, timeout)
 
     @keyword("Both phones should be connected")
-    @keyword("Verify both phones connected")
     def verify_both_connected(
         self, caller: SIPPhone = None, callee: SIPPhone = None, timeout: int = 10
     ) -> None:
@@ -299,11 +312,19 @@ class VoiceKeywords:
         caller_connected = self.wait_for_state(caller, "connected", timeout=timeout)
         callee_connected = self.wait_for_state(callee, "connected", timeout=timeout)
 
-        assert caller_connected, f"Caller {caller.name} is not connected"
-        assert callee_connected, f"Callee {callee.name} is not connected"
+        caller_name = getattr(caller, 'name', str(caller))
+        callee_name = getattr(callee, 'name', str(callee))
+        assert caller_connected, f"Caller {caller_name} is not connected"
+        assert callee_connected, f"Callee {callee_name} is not connected"
+
+    @keyword("Verify both phones connected")
+    def verify_both_phones_connected(
+        self, caller: SIPPhone = None, callee: SIPPhone = None, timeout: int = 10
+    ) -> None:
+        """Alias for Both phones should be connected."""
+        self.verify_both_connected(caller, callee, timeout)
 
     @keyword("Both phones should return to idle state")
-    @keyword("Verify both phones idle")
     def verify_both_idle(
         self, caller: SIPPhone = None, callee: SIPPhone = None, timeout: int = 10
     ) -> None:
@@ -325,11 +346,19 @@ class VoiceKeywords:
         caller_idle = self.wait_for_state(caller, "idle", timeout=timeout)
         callee_idle = self.wait_for_state(callee, "idle", timeout=timeout)
 
-        assert caller_idle, f"Caller {caller.name} did not return to idle"
-        assert callee_idle, f"Callee {callee.name} did not return to idle"
+        caller_name = getattr(caller, 'name', str(caller))
+        callee_name = getattr(callee, 'name', str(callee))
+        assert caller_idle, f"Caller {caller_name} did not return to idle"
+        assert callee_idle, f"Callee {callee_name} did not return to idle"
+
+    @keyword("Verify both phones idle")
+    def verify_both_phones_idle(
+        self, caller: SIPPhone = None, callee: SIPPhone = None, timeout: int = 10
+    ) -> None:
+        """Alias for Both phones should return to idle state."""
+        self.verify_both_idle(caller, callee, timeout)
 
     @keyword("A bidirectional RTP media session should be established")
-    @keyword("Verify RTP session established")
     def verify_rtp_session(
         self, caller: SIPPhone = None, callee: SIPPhone = None
     ) -> None:
@@ -347,12 +376,20 @@ class VoiceKeywords:
         if callee is None:
             callee = self._callee
 
-        assert caller.is_connected(), f"Caller {caller.name} not in connected state"
-        assert callee.is_connected(), f"Callee {callee.name} not in connected state"
+        caller_name = getattr(caller, 'name', str(caller))
+        callee_name = getattr(callee, 'name', str(callee))
+        assert caller.is_connected(), f"Caller {caller_name} not in connected state"
+        assert callee.is_connected(), f"Callee {callee_name} not in connected state"
 
         print("✓ Bidirectional RTP media session established")
 
-    @keyword("The SIP server should terminate the call")
+    @keyword("Verify RTP session established")
+    def verify_rtp_session_established(
+        self, caller: SIPPhone = None, callee: SIPPhone = None
+    ) -> None:
+        """Alias for A bidirectional RTP media session should be established."""
+        self.verify_rtp_session(caller, callee)
+
     @keyword("Verify SIP call terminated")
     def verify_call_terminated(self, sipcenter: SIPServer = None) -> None:
         """Verify SIP server terminated the call.
@@ -373,3 +410,8 @@ class VoiceKeywords:
             print(f"⚠ Warning: {active_calls} active calls still on SIP server")
         else:
             print("✓ SIP server terminating call (verification skipped)")
+
+    @keyword("The SIP server should terminate the call")
+    def the_sip_server_should_terminate_the_call(self, sipcenter: SIPServer = None) -> None:
+        """Alias for Verify SIP call terminated."""
+        self.verify_call_terminated(sipcenter)

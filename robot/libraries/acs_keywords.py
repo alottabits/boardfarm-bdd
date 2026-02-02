@@ -9,7 +9,7 @@ Mirrors: tests/step_defs/acs_steps.py
 import time
 from typing import Any
 
-from robot.api.deco import keyword
+from robot.api.deco import keyword, library
 
 from boardfarm3.templates.acs import ACS
 from boardfarm3.templates.cpe.cpe import CPE
@@ -17,11 +17,9 @@ from boardfarm3.use_cases import acs as acs_use_cases
 from boardfarm3.use_cases import cpe as cpe_use_cases
 
 
+@library(scope="SUITE", doc_format="TEXT")
 class AcsKeywords:
     """Keywords for ACS operations matching BDD scenario steps."""
-
-    ROBOT_LIBRARY_SCOPE = "SUITE"
-    ROBOT_LIBRARY_DOC_FORMAT = "TEXT"
 
     def __init__(self) -> None:
         """Initialize AcsKeywords."""

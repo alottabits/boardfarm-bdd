@@ -12,6 +12,7 @@ pip install -e ".[robot]"
 ```
 
 This installs:
+
 - `robotframework` - Robot Framework test automation
 - `robotframework-boardfarm` - Boardfarm integration library (includes `bfrobot` CLI)
 
@@ -119,16 +120,16 @@ bfrobot --board-name prplos-docker-1 \
 
 ### Command Line Options
 
-| Option | Description | Required |
-|--------|-------------|----------|
-| `--board-name` | Board configuration name | Yes |
-| `--env-config` | Environment config JSON file | Yes |
-| `--inventory-config` | Inventory config JSON file | Yes |
-| `--skip-boot` | Skip device booting | No |
-| `--skip-contingency-checks` | Skip contingency checks | No |
-| `--save-console-logs` | Path to save console logs | No |
-| `--legacy` | Enable legacy device access | No |
-| `--ignore-devices` | Comma-separated devices to ignore | No |
+| Option                      | Description                       | Required |
+| --------------------------- | --------------------------------- | -------- |
+| `--board-name`              | Board configuration name          | Yes      |
+| `--env-config`              | Environment config JSON file      | Yes      |
+| `--inventory-config`        | Inventory config JSON file        | Yes      |
+| `--skip-boot`               | Skip device booting               | No       |
+| `--skip-contingency-checks` | Skip contingency checks           | No       |
+| `--save-console-logs`       | Path to save console logs         | No       |
+| `--legacy`                  | Enable legacy device access       | No       |
+| `--ignore-devices`          | Comma-separated devices to ignore | No       |
 
 All standard Robot Framework options are also supported (`--outputdir`, `--include`, `--exclude`, `--test`, `--log`, `--report`, etc.).
 
@@ -168,10 +169,10 @@ UC-12347: Remote CPE Reboot
 
     # Given - use scenario-aligned keywords
     A CPE Is Online And Fully Provisioned    ${acs}    ${cpe}
-    
+
     # When
     The Operator Initiates A Reboot Task On The ACS For The CPE    ${acs}    ${cpe}
-    
+
     # Then
     The CPE Should Have Rebooted    ${cpe}
 ```
@@ -180,13 +181,13 @@ UC-12347: Remote CPE Reboot
 
 Robot Framework tests use Python keyword libraries that mirror the pytest-bdd step definitions:
 
-| Library | Purpose | Mirrors |
-|---------|---------|---------|
-| `acs_keywords.py` | ACS operations | `tests/step_defs/acs_steps.py` |
-| `cpe_keywords.py` | CPE operations | `tests/step_defs/cpe_steps.py` |
-| `voice_keywords.py` | Voice/SIP operations | `tests/step_defs/sip_phone_steps.py` |
-| `background_keywords.py` | Background setup | `tests/step_defs/background_steps.py` |
-| `operator_keywords.py` | Operator actions | `tests/step_defs/operator_steps.py` |
+| Library                  | Purpose              | Mirrors                               |
+| ------------------------ | -------------------- | ------------------------------------- |
+| `acs_keywords.py`        | ACS operations       | `tests/step_defs/acs_steps.py`        |
+| `cpe_keywords.py`        | CPE operations       | `tests/step_defs/cpe_steps.py`        |
+| `voice_keywords.py`      | Voice/SIP operations | `tests/step_defs/sip_phone_steps.py`  |
+| `background_keywords.py` | Background setup     | `tests/step_defs/background_steps.py` |
+| `operator_keywords.py`   | Operator actions     | `tests/step_defs/operator_steps.py`   |
 
 **Example keyword library:**
 
@@ -222,7 +223,7 @@ Resource    ../resources/variables.resource
 Test With Resources
     # Uses keyword from common.resource
     Setup Testbed Connection
-    
+
     # Uses variable from variables.resource
     Log    Timeout: ${DEFAULT_TIMEOUT}
 ```
@@ -262,11 +263,11 @@ Tests follow the 4-layer architecture:
 
 Keywords use the `@keyword` decorator to map clean Python function names to scenario step text:
 
-| pytest-bdd | Robot Framework |
-|------------|-----------------|
-| `@when("step text")` | `@keyword("step text")` |
+| pytest-bdd                     | Robot Framework                   |
+| ------------------------------ | --------------------------------- |
+| `@when("step text")`           | `@keyword("step text")`           |
 | `tests/step_defs/acs_steps.py` | `robot/libraries/acs_keywords.py` |
-| `boardfarm3.use_cases.acs` | `boardfarm3.use_cases.acs` (same) |
+| `boardfarm3.use_cases.acs`     | `boardfarm3.use_cases.acs` (same) |
 
 **Example comparison:**
 
@@ -321,22 +322,10 @@ rebot --output combined.xml results1/output.xml results2/output.xml
 rebot --log newlog.html output.xml
 ```
 
-## Parallel Execution
-
-Use `pabot` for parallel test execution:
-
-```bash
-# Install pabot
-pip install robotframework-pabot
-
-# Run tests in parallel (note: requires separate board per process)
-pabot --processes 2 \
-    --listener "robotframework_boardfarm.BoardfarmListener:..." \
-    robot/tests/
-```
-
 ## Further Reading
 
+- [Best Practices Guide](best_practices.md) - **Important lessons learned and pitfalls to avoid**
+- [Keyword Reference](keyword_reference.md) - Complete keyword documentation
 - [Keyword Libraries Documentation](../../robot/libraries/README.md)
 - [Use Case Architecture](../use_case_architecture.md) - Architecture overview
 - [robotframework-boardfarm Documentation](../../../robotframework-boardfarm/README.md)

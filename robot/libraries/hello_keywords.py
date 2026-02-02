@@ -6,14 +6,12 @@ Uses @keyword decorator to map clean function names to scenario step text.
 Mirrors: tests/step_defs/hello_steps.py
 """
 
-from robot.api.deco import keyword
+from robot.api.deco import keyword, library
 
 
+@library(scope="SUITE", doc_format="TEXT")
 class HelloKeywords:
     """Keywords for simple smoke tests and basic verification."""
-
-    ROBOT_LIBRARY_SCOPE = "SUITE"
-    ROBOT_LIBRARY_DOC_FORMAT = "TEXT"
 
     @keyword("I say hello")
     @keyword("Say hello")

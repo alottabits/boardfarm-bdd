@@ -9,7 +9,7 @@ Mirrors: tests/step_defs/cpe_steps.py
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from robot.api.deco import keyword
+from robot.api.deco import keyword, library
 
 from boardfarm3.templates.acs import ACS
 from boardfarm3.templates.cpe.cpe import CPE
@@ -17,11 +17,9 @@ from boardfarm3.use_cases import acs as acs_use_cases
 from boardfarm3.use_cases import cpe as cpe_use_cases
 
 
+@library(scope="SUITE", doc_format="TEXT")
 class CpeKeywords:
     """Keywords for CPE operations matching BDD scenario steps."""
-
-    ROBOT_LIBRARY_SCOPE = "SUITE"
-    ROBOT_LIBRARY_DOC_FORMAT = "TEXT"
 
     def __init__(self) -> None:
         """Initialize CpeKeywords."""
@@ -32,7 +30,6 @@ class CpeKeywords:
     # =========================================================================
 
     @keyword("The CPE receives the connection request and initiates a session")
-    @keyword("CPE initiates session with ACS")
     def receive_connection_request_initiate_session(
         self, acs: ACS, cpe: CPE, cpe_id: str = None
     ) -> None:
@@ -54,10 +51,16 @@ class CpeKeywords:
             "and initiate session..."
         )
 
+    @keyword("CPE initiates session with ACS")
+    def cpe_initiates_session_with_acs(
+        self, acs: ACS, cpe: CPE, cpe_id: str = None
+    ) -> None:
+        """Alias for The CPE receives the connection request and initiates a session."""
+        self.receive_connection_request_initiate_session(acs, cpe, cpe_id)
+
     @keyword("The CPE sends an Inform message to the ACS")
-    @keyword("CPE sends Inform message")
     def send_inform_message(
-        self, acs: ACS, cpe: CPE, cpe_id: str = None, since: Any = None, timeout: int = 30
+        self, acs: ACS, cpe: CPE, cpe_id: str = None, since: Any = None, timeout: int = 120
     ) -> None:
         """CPE sends an Inform message to the ACS.
 
@@ -70,23 +73,29 @@ class CpeKeywords:
             cpe: CPE device instance
             cpe_id: CPE identifier (optional)
             since: Timestamp to filter logs from (optional)
-            timeout: Timeout in seconds (default: 30)
+            timeout: Timeout in seconds (default: 120, matching step_defs)
         """
         if cpe_id is None:
             cpe_id = cpe.sw.cpe_id
 
-        print(f"Waiting for CPE {cpe_id} to send Inform message...")
+        print(f"Waiting for CPE {cpe_id} to send Inform message (timeout={timeout}s)...")
 
         acs_use_cases.wait_for_inform_message(acs, cpe_id, since=since, timeout=timeout)
 
         print(f"✓ CPE {cpe_id} sent Inform message (verified in GenieACS logs)")
+
+    @keyword("CPE sends Inform message")
+    def cpe_sends_inform_message(
+        self, acs: ACS, cpe: CPE, cpe_id: str = None, since: Any = None, timeout: int = 120
+    ) -> None:
+        """Alias for The CPE sends an Inform message to the ACS."""
+        self.send_inform_message(acs, cpe, cpe_id, since, timeout)
 
     # =========================================================================
     # Reboot Keywords
     # =========================================================================
 
     @keyword("The CPE executes the reboot command and restarts")
-    @keyword("CPE executes reboot")
     def execute_reboot_and_restart(self, cpe: CPE, timeout: int = 60) -> None:
         """CPE executes the reboot command and restarts.
 
@@ -105,8 +114,12 @@ class CpeKeywords:
 
         print(f"✓ CPE {cpe_id} reboot completed")
 
+    @keyword("CPE executes reboot")
+    def cpe_executes_reboot(self, cpe: CPE, timeout: int = 60) -> None:
+        """Alias for The CPE executes the reboot command and restarts."""
+        self.execute_reboot_and_restart(cpe, timeout)
+
     @keyword("The CPE sends an Inform message after boot completion")
-    @keyword("CPE sends boot Inform")
     def send_inform_after_boot(
         self, acs: ACS, cpe: CPE, cpe_id: str = None, since: Any = None, timeout: int = 240
     ) -> str:
@@ -150,8 +163,14 @@ class CpeKeywords:
 
         return str(inform_timestamp)
 
+    @keyword("CPE sends boot Inform")
+    def cpe_sends_boot_inform(
+        self, acs: ACS, cpe: CPE, cpe_id: str = None, since: Any = None, timeout: int = 240
+    ) -> str:
+        """Alias for The CPE sends an Inform message after boot completion."""
+        return self.send_inform_after_boot(acs, cpe, cpe_id, since, timeout)
+
     @keyword("The CPE does not reboot")
-    @keyword("Verify CPE did not reboot")
     def verify_no_reboot(self, cpe: CPE, initial_uptime: float) -> None:
         """Verify the CPE does not reboot.
 
@@ -179,14 +198,18 @@ class CpeKeywords:
             f"Uptime increased from {initial_uptime} to {current_uptime}."
         )
 
+    @keyword("Verify CPE did not reboot")
+    def verify_cpe_did_not_reboot(self, cpe: CPE, initial_uptime: float) -> None:
+        """Alias for The CPE does not reboot."""
+        self.verify_no_reboot(cpe, initial_uptime)
+
     # =========================================================================
     # Normal Operation Keywords
     # =========================================================================
 
     @keyword("The CPE resumes normal operation")
-    @keyword("CPE resumes normal operation")
     def verify_normal_operation(
-        self, acs: ACS, cpe: CPE, cpe_id: str = None, timeout: int = 30
+        self, acs: ACS, cpe: CPE, cpe_id: str = None, timeout: int = 60
     ) -> None:
         """CPE resumes normal operation.
 
@@ -197,12 +220,12 @@ class CpeKeywords:
             acs: ACS device instance
             cpe: CPE device instance
             cpe_id: CPE identifier (optional)
-            timeout: Timeout in seconds (default: 30)
+            timeout: Timeout in seconds (default: 60, increased for post-reboot)
         """
         if cpe_id is None:
             cpe_id = cpe.sw.cpe_id
 
-        print(f"Verifying CPE {cpe_id} has resumed normal operation...")
+        print(f"Verifying CPE {cpe_id} has resumed normal operation (timeout={timeout}s)...")
 
         is_online = acs_use_cases.is_cpe_online(acs, cpe, timeout=timeout)
 
@@ -216,8 +239,14 @@ class CpeKeywords:
             "and periodic communication"
         )
 
+    @keyword("CPE resumes normal operation")
+    def cpe_resumes_normal_operation(
+        self, acs: ACS, cpe: CPE, cpe_id: str = None, timeout: int = 60
+    ) -> None:
+        """Alias for The CPE resumes normal operation."""
+        self.verify_normal_operation(acs, cpe, cpe_id, timeout)
+
     @keyword("The CPE configuration is preserved after reboot")
-    @keyword("Verify CPE configuration preserved")
     def verify_config_preserved(
         self, acs: ACS, cpe: CPE, config_before: dict = None, cpe_id: str = None, timeout: int = 30
     ) -> None:
@@ -261,12 +290,18 @@ class CpeKeywords:
 
         print("✓ All configuration parameters preserved after reboot")
 
+    @keyword("Verify CPE configuration preserved")
+    def verify_cpe_configuration_preserved(
+        self, acs: ACS, cpe: CPE, config_before: dict = None, cpe_id: str = None, timeout: int = 30
+    ) -> None:
+        """Alias for The CPE configuration is preserved after reboot."""
+        self.verify_config_preserved(acs, cpe, config_before, cpe_id, timeout)
+
     # =========================================================================
     # TR-069 Agent Keywords
     # =========================================================================
 
     @keyword("The CPE is unreachable for TR-069 sessions")
-    @keyword("Make CPE unreachable for TR-069")
     def make_unreachable_for_tr069(self, cpe: CPE) -> dict:
         """Make CPE unreachable for TR-069 sessions.
 
@@ -304,8 +339,12 @@ class CpeKeywords:
 
         return context
 
+    @keyword("Make CPE unreachable for TR-069")
+    def make_cpe_unreachable_for_tr069(self, cpe: CPE) -> dict:
+        """Alias for The CPE is unreachable for TR-069 sessions."""
+        return self.make_unreachable_for_tr069(cpe)
+
     @keyword("The CPE comes online and connects to the ACS")
-    @keyword("Bring CPE back online")
     def bring_online_and_connect(
         self, acs: ACS, cpe: CPE, cpe_id: str = None, offline_timestamp: Any = None, timeout: int = 120
     ) -> str:
@@ -347,12 +386,18 @@ class CpeKeywords:
 
         return str(reconnection_timestamp)
 
+    @keyword("Bring CPE back online")
+    def bring_cpe_back_online(
+        self, acs: ACS, cpe: CPE, cpe_id: str = None, offline_timestamp: Any = None, timeout: int = 120
+    ) -> str:
+        """Alias for The CPE comes online and connects to the ACS."""
+        return self.bring_online_and_connect(acs, cpe, cpe_id, offline_timestamp, timeout)
+
     # =========================================================================
     # Uptime Keywords
     # =========================================================================
 
     @keyword("Get CPE uptime")
-    @keyword("Get console uptime")
     def get_uptime(self, cpe: CPE) -> float:
         """Get CPE uptime in seconds.
 
@@ -363,6 +408,11 @@ class CpeKeywords:
             Uptime in seconds
         """
         return cpe_use_cases.get_console_uptime_seconds(cpe)
+
+    @keyword("Get console uptime")
+    def get_console_uptime(self, cpe: CPE) -> float:
+        """Alias for Get CPE uptime."""
+        return self.get_uptime(cpe)
 
     @keyword("Verify CPE rebooted")
     def verify_rebooted(self, cpe: CPE, initial_uptime: float) -> None:
@@ -383,3 +433,62 @@ class CpeKeywords:
         print(
             f"✓ CPE rebooted. Uptime reset from {initial_uptime}s to {current_uptime}s"
         )
+
+    # =========================================================================
+    # Console Management Keywords
+    # =========================================================================
+
+    @keyword("Refresh CPE Console Connection")
+    def refresh_console_connection(self, cpe: CPE) -> bool:
+        """Refresh CPE console connection (disconnect + reconnect).
+
+        This is aligned with the pytest cleanup behavior where console
+        connections are always refreshed after each test.
+
+        Arguments:
+            cpe: CPE device instance
+
+        Returns:
+            True if console connection was refreshed successfully
+        """
+        print("↻ Refreshing CPE console connection...")
+        if cpe_use_cases.refresh_console_connection(cpe):
+            print("✓ Console connection refreshed successfully")
+            return True
+        else:
+            print("⚠ Could not refresh console connection")
+            return False
+
+    @keyword("Disconnect CPE Console")
+    def disconnect_console(self, cpe: CPE) -> None:
+        """Disconnect from CPE console.
+
+        Arguments:
+            cpe: CPE device instance
+        """
+        print("Disconnecting from CPE console...")
+        try:
+            cpe.hw.disconnect_from_consoles()
+            print("✓ Disconnected from CPE console")
+        except Exception as e:
+            print(f"⚠ Error disconnecting (may be expected): {e}")
+
+    @keyword("Reconnect CPE Console")
+    def reconnect_console(self, cpe: CPE) -> bool:
+        """Reconnect to CPE console.
+
+        Arguments:
+            cpe: CPE device instance
+
+        Returns:
+            True if connection was successful
+        """
+        print("Reconnecting to CPE console...")
+        try:
+            device_name = getattr(cpe, "device_name", "cpe")
+            cpe.hw.connect_to_consoles(device_name)
+            print("✓ Reconnected to CPE console")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to reconnect to console: {e}")
+            return False

@@ -8,14 +8,12 @@ Mirrors: tests/step_defs/device_class_steps.py
 
 from typing import Any
 
-from robot.api.deco import keyword
+from robot.api.deco import keyword, library
 
 
+@library(scope="SUITE", doc_format="TEXT")
 class DeviceClassKeywords:
     """Keywords for device initialization and class operations."""
-
-    ROBOT_LIBRARY_SCOPE = "SUITE"
-    ROBOT_LIBRARY_DOC_FORMAT = "TEXT"
 
     def __init__(self) -> None:
         """Initialize DeviceClassKeywords."""

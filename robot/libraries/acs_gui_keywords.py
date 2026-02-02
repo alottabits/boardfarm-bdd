@@ -10,18 +10,16 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from robot.api.deco import keyword
+from robot.api.deco import keyword, library
 
 from boardfarm3.templates.acs import ACS
 from boardfarm3.templates.cpe.cpe import CPE
 from boardfarm3.use_cases.cpe import get_console_uptime_seconds
 
 
+@library(scope="SUITE", doc_format="TEXT")
 class AcsGuiKeywords:
     """Keywords for ACS GUI operations matching BDD scenario steps."""
-
-    ROBOT_LIBRARY_SCOPE = "SUITE"
-    ROBOT_LIBRARY_DOC_FORMAT = "TEXT"
 
     def __init__(self) -> None:
         """Initialize AcsGuiKeywords."""

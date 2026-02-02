@@ -184,7 +184,8 @@ Register Phone On WAN Side
 Assign Caller And Callee Roles
     [Documentation]    Set the caller and callee phones for the test
     [Arguments]    ${caller}    ${callee}
-    Assign Caller And Callee Roles    ${caller}    ${callee}
+    # Call the library keyword using fully qualified name to avoid recursion
+    voice_keywords.Assign Caller And Callee Roles    ${caller}    ${callee}
     Set Test Variable    ${CALLER}    ${caller}
     Set Test Variable    ${CALLEE}    ${callee}
 
@@ -206,7 +207,7 @@ The Callee Rejects The Call
 
 Caller Hangs Up
     [Documentation]    Caller hangs up the call
-    Caller Hangs Up
+    voice_keywords.Caller Hangs Up
 
 Cleanup SIP Phones
     [Documentation]    Clean up any active calls

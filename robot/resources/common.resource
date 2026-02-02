@@ -38,8 +38,18 @@ Teardown Testbed Connection
 Cleanup After Test
     [Documentation]    Common test teardown - cleanup any test artifacts.
     ...    Called after each test to ensure clean state for next test.
+    ...    Always refreshes the CPE console connection to ensure it's valid
+    ...    for the next test (the previous test might have rebooted the CPE).
+    ...    Aligned with pytest cleanup_cpe_config_after_scenario fixture behavior.
     Log    Cleaning up after test...
-    Run Keyword And Ignore Error    Refresh CPE Console Connection
+    # Always refresh console connection - previous test might have rebooted CPE
+    ${cpe}=    Run Keyword And Ignore Error    Get CPE Device
+    ${cpe_available}=    Set Variable    ${cpe}[0] == 'PASS'
+    IF    ${cpe_available}
+        Log    ↻ Refreshing CPE console connection...
+        Run Keyword And Ignore Error    Refresh CPE Console Connection    ${cpe}[1]
+    END
+    Log    Test cleanup complete
 
 # =============================================================================
 # Device Access Keywords

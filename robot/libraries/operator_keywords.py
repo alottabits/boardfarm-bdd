@@ -9,18 +9,16 @@ Mirrors: tests/step_defs/operator_steps.py
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from robot.api.deco import keyword
+from robot.api.deco import keyword, library
 
 from boardfarm3.templates.acs import ACS
 from boardfarm3.templates.cpe.cpe import CPE
 from boardfarm3.use_cases import acs as acs_use_cases
 
 
+@library(scope="SUITE", doc_format="TEXT")
 class OperatorKeywords:
     """Keywords for operator-initiated operations matching BDD scenario steps."""
-
-    ROBOT_LIBRARY_SCOPE = "SUITE"
-    ROBOT_LIBRARY_DOC_FORMAT = "TEXT"
 
     def __init__(self) -> None:
         """Initialize OperatorKeywords."""
@@ -82,8 +80,6 @@ class OperatorKeywords:
     # =========================================================================
 
     @keyword("Use case succeeds and all success guarantees are met")
-    @keyword("Verify use case success")
-    @keyword("All success guarantees are met")
     def verify_use_case_success(self, acs: ACS, cpe: CPE) -> None:
         """Verify all success guarantees are met.
 
@@ -116,6 +112,16 @@ class OperatorKeywords:
         print("✓ CPE resumed normal operation and periodic communication")
 
         print("✓ All success guarantees met. Use case succeeded.")
+
+    @keyword("Verify use case success")
+    def verify_use_case_success_alias(self, acs: ACS, cpe: CPE) -> None:
+        """Alias for Use case succeeds and all success guarantees are met."""
+        self.verify_use_case_success(acs, cpe)
+
+    @keyword("All success guarantees are met")
+    def all_success_guarantees_are_met(self, acs: ACS, cpe: CPE) -> None:
+        """Alias for Use case succeeds and all success guarantees are met."""
+        self.verify_use_case_success(acs, cpe)
 
     # =========================================================================
     # Context Access Keywords
