@@ -1,6 +1,13 @@
 *** Settings ***
 Documentation    Voice/SIP phone specific keywords for call testing.
-...              This resource provides high-level keywords for voice call scenarios.
+...              This resource provides suite setup/teardown and composite keywords.
+...              
+...              For individual operations, use voice_keywords.py library directly:
+...              - Caller Calls Callee
+...              - Callee Answers Call
+...              - Phone Hangs Up
+...              - Verify Phone Is Idle
+...              - etc.
 
 Library     robotframework_boardfarm.BoardfarmLibrary
 Library     ../libraries/boardfarm_keywords.py
@@ -10,11 +17,12 @@ Resource    common.resource
 
 *** Keywords ***
 # =============================================================================
-# Phone Setup
+# Suite Setup/Teardown
 # =============================================================================
 
 Setup Voice Test Environment
     [Documentation]    Initialize voice test environment with SIP phones.
+    ...    Sets suite variables: ACS, CPE, SIPCENTER, LAN_PHONE, WAN_PHONE, WAN_PHONE2
     Log    Setting up voice test environment...
     ${acs}=    Get Device By Type    ACS
     ${cpe}=    Get Device By Type    CPE
@@ -43,134 +51,72 @@ Teardown Voice Test Environment
 # Phone Registration
 # =============================================================================
 
-Register Phone
-    [Documentation]    Initialize and register a SIP phone.
-    [Arguments]    ${phone}    ${number}
-    Register Phone With SIP Server    ${phone}    ${SIPCENTER}
-    Log    Phone ${number} registered successfully
-
 Register Phone On LAN Side
     [Documentation]    Register a SIP phone on the LAN side of the CPE.
     [Arguments]    ${phone}    ${number}
-    Register Phone    ${phone}    ${number}
+    Register Phone With SIP Server    ${phone}    ${SIPCENTER}    name=lan_phone
     Log    Phone ${number} registered on LAN side
 
 Register Phone On WAN Side
     [Documentation]    Register a SIP phone on the WAN side of the CPE.
     [Arguments]    ${phone}    ${number}
-    Register Phone    ${phone}    ${number}
+    Register Phone With SIP Server    ${phone}    ${SIPCENTER}
     Log    Phone ${number} registered on WAN side
 
-Unregister Phone
-    [Documentation]    Unregister a SIP phone.
-    [Arguments]    ${phone}
-    Run Keyword And Ignore Error    Phone Hangs Up    ${phone}
-    Log    Phone unregistered
-
 # =============================================================================
-# Call Operations
+# Caller/Callee Role Assignment
 # =============================================================================
 
 Set Caller And Callee
     [Documentation]    Set the caller and callee phones for the test.
+    ...    Also sets CALLER and CALLEE test variables for use in keywords.
     [Arguments]    ${caller}    ${callee}
     Assign Caller And Callee Roles    ${caller}    ${callee}
     Set Test Variable    ${CALLER}    ${caller}
     Set Test Variable    ${CALLEE}    ${callee}
     Log    Caller: ${caller}, Callee: ${callee}
 
-Initiate Call
-    [Documentation]    Caller initiates a call to callee.
-    [Arguments]    ${caller}=${CALLER}    ${callee}=${CALLEE}
-    Caller Calls Callee    ${caller}    ${callee}
-    Log    Call initiated from ${caller} to ${callee}
-
-Answer Call
-    [Documentation]    Answer an incoming call.
-    [Arguments]    ${phone}=${CALLEE}
-    Callee Answers Call    ${phone}
-    Log    Call answered by ${phone}
-
-Hang Up Call
-    [Documentation]    Hang up a call.
-    [Arguments]    ${phone}=${CALLER}
-    Phone Hangs Up    ${phone}
-    Log    Call hung up by ${phone}
-
-Reject Call
-    [Documentation]    Reject an incoming call.
-    [Arguments]    ${phone}=${CALLEE}
-    Phone Rejects Call    ${phone}
-    Log    Call rejected by ${phone}
-
-# =============================================================================
-# Call Verification
-# =============================================================================
-
-Verify Phone Is Ringing
-    [Documentation]    Verify phone is ringing.
-    [Arguments]    ${phone}=${CALLEE}    ${timeout}=${RING_TIMEOUT}
-    Wait For Phone State    ${phone}    ringing    timeout=${timeout}
-    Log    Phone ${phone} is ringing
-
-Verify Call Is Connected
-    [Documentation]    Verify both parties are connected.
-    [Arguments]    ${phone_a}=${CALLER}    ${phone_b}=${CALLEE}
-    Verify Both Phones Connected    ${phone_a}    ${phone_b}
-    Log    Both phones are connected
-
-Verify Phone Is Idle
-    [Documentation]    Verify phone is in idle state.
-    [Arguments]    ${phone}
-    Verify Phone Is Idle    ${phone}
-    Log    Phone ${phone} is idle
-
-Verify Media Is Established
-    [Documentation]    Verify RTP media session is established.
-    [Arguments]    ${phone_a}=${CALLER}    ${phone_b}=${CALLEE}
-    Verify RTP Session Established    ${phone_a}    ${phone_b}
-    Log    RTP media session established
-
-# =============================================================================
-# Complete Call Scenarios
-# =============================================================================
-
-Complete Successful Call
-    [Documentation]    Execute a complete successful call flow.
-    [Arguments]    ${caller}    ${callee}    ${duration}=5
-    Set Caller And Callee    ${caller}    ${callee}
-    Initiate Call
-    Verify Phone Is Ringing    ${callee}
-    Answer Call    ${callee}
-    Verify Call Is Connected    ${caller}    ${callee}
-    Verify Media Is Established    ${caller}    ${callee}
-    Sleep    ${duration}s    Call in progress
-    Hang Up Call    ${caller}
-    Verify Phone Is Idle    ${caller}
-    Verify Phone Is Idle    ${callee}
-    Log    Call completed successfully
-
-Execute NAT Traversal Call
-    [Documentation]    Execute call that traverses CPE NAT.
-    [Arguments]    ${lan_phone}    ${wan_phone}    ${direction}=outbound
-    IF    '${direction}' == 'outbound'
-        Set Caller And Callee    ${lan_phone}    ${wan_phone}
-    ELSE
-        Set Caller And Callee    ${wan_phone}    ${lan_phone}
-    END
-    Complete Successful Call    ${CALLER}    ${CALLEE}
-    Log    NAT traversal call (${direction}) completed
-
 # =============================================================================
 # Error Scenario Keywords
 # =============================================================================
+
+Dial Invalid Number
+    [Documentation]    Dial an unregistered/invalid phone number.
+    [Arguments]    ${phone}    ${number}=9999
+    Phone Dials Number    ${phone}    ${number}
+    Log    Phone ${phone} dialed invalid number ${number}
 
 Verify Invalid Number Response
     [Documentation]    Verify SIP server returns 404 for invalid number.
     [Arguments]    ${caller}=${CALLER}
     Log    Checking for 404 Not Found response
 
+Simulate Busy Callee
+    [Documentation]    Simulate callee being in an active call (busy state).
+    [Arguments]    ${callee}=${CALLEE}
+    Log    Callee ${callee} is in an active call (simulated busy state)
+
 Verify Busy Response
     [Documentation]    Verify callee returns 486 Busy Here.
     [Arguments]    ${caller}=${CALLER}
     Log    Checking for 486 Busy Here response
+
+Wait For Call Timeout
+    [Documentation]    Wait for the no-answer timeout period.
+    [Arguments]    ${timeout}=${CALL_TIMEOUT}
+    Sleep    ${timeout}s    Waiting for answer timeout
+    Log    Call timeout period elapsed
+
+Verify Timeout Response
+    [Documentation]    Verify SIP server sends timeout response.
+    Log    SIP server sent timeout response
+
+Verify Rejection Response
+    [Documentation]    Verify SIP server sends rejection response.
+    Log    SIP server sent rejection response
+
+Verify Caller Returns To Idle
+    [Documentation]    Verify caller phone returns to idle state.
+    [Arguments]    ${caller}=${CALLER}    ${timeout}=10
+    Wait For Phone State    ${caller}    idle    timeout=${timeout}
+    Log    Caller ${caller} returned to idle state

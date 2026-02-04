@@ -8,6 +8,8 @@ Library     robotframework_boardfarm.BoardfarmLibrary
 Library     ../libraries/boardfarm_keywords.py
 Library     ../libraries/acs_keywords.py
 Library     ../libraries/cpe_keywords.py
+Library     ../libraries/background_keywords.py
+Library     ../libraries/operator_keywords.py
 Library     Collections
 Library     String
 Library     DateTime
@@ -139,8 +141,12 @@ Get Manufacturer
 
 Refresh CPE Console Connection
     [Documentation]    Refresh CPE console connection (useful after reboot).
-    ${cpe}=    Get CPE Device
-    # Console refresh is handled by cpe_use_cases
+    [Arguments]    ${cpe}=${None}
+    IF    $cpe is None
+        ${cpe}=    Get CPE Device
+    END
+    # Use the library keyword which properly handles console refresh
+    cpe_keywords.Refresh CPE Console Connection    ${cpe}
     Log    Console connection refresh requested
 
 Execute Console Command
@@ -185,3 +191,32 @@ Log Test Result
     [Documentation]    Log a test result with consistent formatting.
     [Arguments]    ${result_description}    ${status}=PASS
     Log    === RESULT [${status}]: ${result_description} ===    level=INFO
+
+# =============================================================================
+# Test-Specific Cleanup Keywords
+# =============================================================================
+
+Cleanup After Reboot Test
+    [Documentation]    Cleanup after reboot test - restore password to default and refresh console.
+    ...    Aligned with pytest cleanup_cpe_config_after_scenario fixture behavior.
+    [Arguments]    ${acs}=${None}    ${cpe}=${None}    ${admin_user_index}=${None}
+    Log    Cleaning up after reboot test...
+    # First run the common cleanup (includes console refresh)
+    Run Keyword And Ignore Error    Cleanup After Test
+    # Restore password to default 'admin' if it was changed
+    IF    $admin_user_index is not None
+        Log    Restoring CPE GUI password to default 'admin'...
+        Run Keyword And Ignore Error    Restore CPE GUI Password To Default    ${acs}    ${cpe}
+        ...    ${admin_user_index}
+    END
+    Log    Reboot test cleanup complete
+
+Cleanup SIP Phones After Test
+    [Documentation]    Cleanup any active SIP calls after test.
+    ...    Hangs up any phones that may still be in a call.
+    [Arguments]    @{phones}
+    Log    Cleaning up SIP phones...
+    FOR    ${phone}    IN    @{phones}
+        Run Keyword And Ignore Error    Phone Hangs Up    ${phone}
+    END
+    Log    SIP phone cleanup complete

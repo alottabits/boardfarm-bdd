@@ -1,461 +1,1179 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<robot generator="Robot 7.4.1 (Python 3.12.3 on linux)" generated="2026-02-02T17:55:03.177612" rpa="false" schemaversion="5">
+<robot generator="Robot 7.4.1 (Python 3.12.3 on linux)" generated="2026-02-04T06:55:58.502322" rpa="false" schemaversion="5">
 <suite id="s1" name="Tests" source="/home/rjvisser/projects/req-tst/boardfarm-bdd/robot/tests">
-<suite id="s1-s1" name="Remote Cpe Reboot" source="/home/rjvisser/projects/req-tst/boardfarm-bdd/robot/tests/remote_cpe_reboot.robot">
-<kw name="Setup Testbed Connection" owner="common" type="SETUP">
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-02T17:55:07.473126" level="INFO">Setting up testbed connection...</msg>
-<arg>Setting up testbed connection...</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-02T17:55:07.472842" elapsed="0.000355"/>
-</kw>
+<suite id="s1-s1" name="Acs Gui Device Management" source="/home/rjvisser/projects/req-tst/boardfarm-bdd/robot/tests/acs_gui_device_management.robot">
+<kw name="Setup ACS GUI Test Environment" type="SETUP">
 <kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
-<msg time="2026-02-02T17:55:07.473617" level="INFO">${acs} = &lt;boardfarm3.devices.genie_acs.GenieACS object at 0x7792ebb29820&gt;</msg>
 <var>${acs}</var>
 <arg>ACS</arg>
 <doc>Get a device by its type name.</doc>
-<status status="PASS" start="2026-02-02T17:55:07.473328" elapsed="0.000319"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.126689" elapsed="0.000079"/>
 </kw>
 <kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
-<msg time="2026-02-02T17:55:07.473939" level="INFO">${cpe} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
 <var>${cpe}</var>
 <arg>CPE</arg>
 <doc>Get a device by its type name.</doc>
-<status status="PASS" start="2026-02-02T17:55:07.473749" elapsed="0.000214"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.126900" elapsed="0.000053"/>
 </kw>
 <kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-02T17:55:07.474436" level="INFO">${ACS} = &lt;boardfarm3.devices.genie_acs.GenieACS object at 0x7792ebb29820&gt;</msg>
 <arg>${ACS}</arg>
 <doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-02T17:55:07.474083" elapsed="0.000428"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.127073" elapsed="0.000180"/>
 </kw>
 <kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-02T17:55:07.474939" level="INFO">${CPE} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
 <arg>${CPE}</arg>
 <doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-02T17:55:07.474674" elapsed="0.000309"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.127356" elapsed="0.000145"/>
 </kw>
-<kw name="The CPE is online via ACS" owner="acs_keywords">
-<msg time="2026-02-02T17:55:12.642584" level="INFO">✓ CPE is online via ACS</msg>
-<arg>${acs}</arg>
-<arg>${cpe}</arg>
-<doc>Verify CPE is online via ACS.</doc>
-<status status="PASS" start="2026-02-02T17:55:07.475089" elapsed="5.167584"/>
+<kw name="The ACS GUI is configured and available" owner="acs_gui_keywords">
+<arg>${ACS}</arg>
+<doc>Verify ACS GUI is configured and available.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.127594" elapsed="0.000054"/>
 </kw>
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-02T17:55:12.643379" level="INFO">Testbed connection established - ACS: &lt;boardfarm3.devices.genie_acs.GenieACS object at 0x7792ebb29820&gt;, CPE: &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
-<arg>Testbed connection established - ACS: ${ACS}, CPE: ${CPE}</arg>
+<arg>ACS GUI test environment initialized</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-02T17:55:12.642853" elapsed="0.000664"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.127735" elapsed="0.000143"/>
 </kw>
-<doc>Common suite setup - establish testbed connection and verify connectivity.
-Sets ACS and CPE as suite variables for use in all tests.</doc>
-<status status="PASS" start="2026-02-02T17:55:07.472241" elapsed="5.171457"/>
+<doc>Initialize ACS GUI test environment</doc>
+<status status="PASS" start="2026-02-04T06:55:59.126103" elapsed="0.001819"/>
 </kw>
-<test id="s1-s1-t1" name="UC-12347-Main: Successful Remote Reboot" line="25">
-<kw name="A CPE Is Online And Fully Provisioned">
-<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
-<msg time="2026-02-02T17:55:12.650755" level="INFO">${acs} = &lt;boardfarm3.devices.genie_acs.GenieACS object at 0x7792ebb29820&gt;</msg>
-<var>${acs}</var>
-<arg>ACS</arg>
-<doc>Get a device by its type name.</doc>
-<status status="PASS" start="2026-02-02T17:55:12.649458" elapsed="0.001428"/>
-</kw>
-<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
-<msg time="2026-02-02T17:55:12.652183" level="INFO">${cpe} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
-<var>${cpe}</var>
-<arg>CPE</arg>
-<doc>Get a device by its type name.</doc>
-<status status="PASS" start="2026-02-02T17:55:12.651382" elapsed="0.000922"/>
-</kw>
-<kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-02T17:55:12.654097" level="INFO">${ACS} = &lt;boardfarm3.devices.genie_acs.GenieACS object at 0x7792ebb29820&gt;</msg>
+<test id="s1-s1-t1" name="UC-ACS-GUI-01-Auth: Successful GUI Login and Logout" line="28">
+<kw name="Operator Is Logged Out">
+<msg time="2026-02-04T06:55:59.129616" level="FAIL">No keyword with name 'Operator Is Logged Out' found. Did you mean:
+    Verify Operator Is Logged Out</msg>
 <arg>${ACS}</arg>
-<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-02T17:55:12.652809" elapsed="0.001334"/>
+<status status="FAIL" start="2026-02-04T06:55:59.129588" elapsed="0.000077">No keyword with name 'Operator Is Logged Out' found. Did you mean:
+    Verify Operator Is Logged Out</status>
 </kw>
-<kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-02T17:55:12.654536" level="INFO">${CPE} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
+<kw name="Operator Logs In">
+<msg time="2026-02-04T06:55:59.131283" level="FAIL">No keyword with name 'Operator Logs In' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.131257" elapsed="0.000063">No keyword with name 'Operator Logs In' found.</status>
+</kw>
+<kw name="Operator Is Authenticated">
+<msg time="2026-02-04T06:55:59.132721" level="FAIL">No keyword with name 'Operator Is Authenticated' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.132698" elapsed="0.000055">No keyword with name 'Operator Is Authenticated' found.</status>
+</kw>
+<kw name="Dashboard Is Displayed">
+<msg time="2026-02-04T06:55:59.134215" level="FAIL">No keyword with name 'Dashboard Is Displayed' found.</msg>
+<status status="FAIL" start="2026-02-04T06:55:59.134172" elapsed="0.000099">No keyword with name 'Dashboard Is Displayed' found.</status>
+</kw>
+<kw name="Operator Logs Out">
+<msg time="2026-02-04T06:55:59.136202" level="FAIL">No keyword with name 'Operator Logs Out' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.136171" elapsed="0.000088">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<kw name="Verify Operator Is Logged Out">
+<kw name="Is GUI logged in" owner="acs_gui_keywords">
+<var>${logged_in}</var>
+<doc>Check if operator is logged into GUI.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.136679" elapsed="0.000038"/>
+</kw>
+<kw name="Should Not Be True" owner="BuiltIn">
+<arg>${logged_in}</arg>
+<arg>Operator should be logged out</arg>
+<doc>Fails if the given condition is true.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.136803" elapsed="0.000200"/>
+</kw>
+<doc>Verify operator is logged out</doc>
+<status status="PASS" start="2026-02-04T06:55:59.136480" elapsed="0.000596"/>
+</kw>
+<kw name="Verify Login Page Is Displayed">
+<kw name="Log" owner="BuiltIn">
+<arg>Login page is displayed</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.137345" elapsed="0.000143"/>
+</kw>
+<doc>Verify login page is displayed</doc>
+<status status="PASS" start="2026-02-04T06:55:59.137178" elapsed="0.000349"/>
+</kw>
+<kw name="Cleanup After GUI Test" type="TEARDOWN">
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Operator Logs Out">
+<msg time="2026-02-04T06:55:59.139492" level="FAIL">No keyword with name 'Operator Logs Out' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.139469" elapsed="0.000055">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<arg>Operator Logs Out</arg>
+<arg>${ACS}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.137911" elapsed="0.001659">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Clean up after each GUI test</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.137734" elapsed="0.001904">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Operator can login and logout from ACS GUI</doc>
+<tag>auth</tag>
+<tag>boardfarm-bdd</tag>
+<tag>gui</tag>
+<tag>smoke</tag>
+<tag>UC-ACS-GUI-01</tag>
+<status status="FAIL" start="2026-02-04T06:55:59.127984" elapsed="0.011704">Several failures occurred:
+
+1) No keyword with name 'Operator Is Logged Out' found. Did you mean:
+    Verify Operator Is Logged Out
+
+2) No keyword with name 'Operator Logs In' found.
+
+3) No keyword with name 'Operator Is Authenticated' found.
+
+4) No keyword with name 'Dashboard Is Displayed' found.
+
+5) No keyword with name 'Operator Logs Out' found.
+
+Also teardown failed:
+No keyword with name 'Operator Logs Out' found.</status>
+</test>
+<test id="s1-s1-t2" name="UC-ACS-GUI-01-Search: Search for Device by ID" line="49">
+<kw name="Operator Logs In">
+<msg time="2026-02-04T06:55:59.141421" level="FAIL">No keyword with name 'Operator Logs In' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.141398" elapsed="0.000052">No keyword with name 'Operator Logs In' found.</status>
+</kw>
+<kw name="The CPE device ID is known" owner="acs_gui_keywords">
+<var>${device_id}</var>
 <arg>${CPE}</arg>
-<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-02T17:55:12.654249" elapsed="0.000377"/>
+<doc>Ensure CPE device ID is known.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.141540" elapsed="0.000049"/>
 </kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${DEVICE_ID}</arg>
+<arg>${device_id}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.141687" elapsed="0.000148"/>
+</kw>
+<kw name="Search For Device In GUI">
+<msg time="2026-02-04T06:55:59.143356" level="FAIL">No keyword with name 'Search For Device In GUI' found.</msg>
+<var>${found}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.143334" elapsed="0.000051">No keyword with name 'Search For Device In GUI' found.</status>
+</kw>
+<kw name="Device Is In Search Results">
+<msg time="2026-02-04T06:55:59.144865" level="FAIL">No keyword with name 'Device Is In Search Results' found.</msg>
+<status status="FAIL" start="2026-02-04T06:55:59.144820" elapsed="0.000102">No keyword with name 'Device Is In Search Results' found.</status>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Device status is visible in search results</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.145118" elapsed="0.000297"/>
+</kw>
+<kw name="Cleanup After GUI Test" type="TEARDOWN">
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Operator Logs Out">
+<msg time="2026-02-04T06:55:59.148604" level="FAIL">No keyword with name 'Operator Logs Out' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.148551" elapsed="0.000205">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<arg>Operator Logs Out</arg>
+<arg>${ACS}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.146197" elapsed="0.002645">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Clean up after each GUI test</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.145827" elapsed="0.003138">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Operator can search for device by device ID</doc>
+<tag>boardfarm-bdd</tag>
+<tag>gui</tag>
+<tag>search</tag>
+<tag>UC-ACS-GUI-01</tag>
+<status status="FAIL" start="2026-02-04T06:55:59.139893" elapsed="0.009151">Several failures occurred:
+
+1) No keyword with name 'Operator Logs In' found.
+
+2) No keyword with name 'Search For Device In GUI' found.
+
+3) No keyword with name 'Device Is In Search Results' found.
+
+Also teardown failed:
+No keyword with name 'Operator Logs Out' found.</status>
+</test>
+<test id="s1-s1-t3" name="UC-ACS-GUI-01-Status: View Device Status and Information" line="65">
+<kw name="Operator Logs In">
+<msg time="2026-02-04T06:55:59.151130" level="FAIL">No keyword with name 'Operator Logs In' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.151097" elapsed="0.000077">No keyword with name 'Operator Logs In' found.</status>
+</kw>
+<kw name="The CPE device ID is known" owner="acs_gui_keywords">
+<var>${device_id}</var>
+<arg>${CPE}</arg>
+<doc>Ensure CPE device ID is known.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.151309" elapsed="0.000069"/>
+</kw>
+<kw name="Navigate To Device Details">
+<msg time="2026-02-04T06:55:59.153491" level="FAIL">No keyword with name 'Navigate To Device Details' found.</msg>
+<var>${status_info}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.153459" elapsed="0.000068">No keyword with name 'Navigate To Device Details' found.</status>
+</kw>
+<kw name="Device Status Is Online">
+<msg time="2026-02-04T06:55:59.155000" level="FAIL">No keyword with name 'Device Status Is Online' found.</msg>
+<status status="FAIL" start="2026-02-04T06:55:59.154974" elapsed="0.000073">No keyword with name 'Device Status Is Online' found.</status>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Device information is visible</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.155166" elapsed="0.000186"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Last inform time is displayed</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.155446" elapsed="0.000131"/>
+</kw>
+<kw name="Cleanup After GUI Test" type="TEARDOWN">
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Operator Logs Out">
+<msg time="2026-02-04T06:55:59.157568" level="FAIL">No keyword with name 'Operator Logs Out' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.157544" elapsed="0.000054">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<arg>Operator Logs Out</arg>
+<arg>${ACS}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.155981" elapsed="0.001658">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Clean up after each GUI test</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.155786" elapsed="0.001918">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Operator can view device status and information</doc>
+<tag>boardfarm-bdd</tag>
+<tag>gui</tag>
+<tag>status</tag>
+<tag>UC-ACS-GUI-01</tag>
+<status status="FAIL" start="2026-02-04T06:55:59.149319" elapsed="0.008428">Several failures occurred:
+
+1) No keyword with name 'Operator Logs In' found.
+
+2) No keyword with name 'Navigate To Device Details' found.
+
+3) No keyword with name 'Device Status Is Online' found.
+
+Also teardown failed:
+No keyword with name 'Operator Logs Out' found.</status>
+</test>
+<test id="s1-s1-t4" name="UC-ACS-GUI-01-Reboot: Reboot Device via GUI" line="81">
 <kw name="A CPE is online and fully provisioned" owner="background_keywords">
-<msg time="2026-02-02T17:55:17.779095" level="INFO">Querying CPE 0E4299-SN0E429997142C via ACS to confirm it's online and provisioned...
-CPE baseline state captured: firmware=3.0.2, uptime=36246s</msg>
-<msg time="2026-02-02T17:55:17.779386" level="INFO">${baseline} = {'firmware_version': '3.0.2', 'initial_uptime': 36246}</msg>
 <var>${baseline}</var>
 <arg>${ACS}</arg>
 <arg>${CPE}</arg>
 <doc>Confirm CPE is online and provisioned via ACS.</doc>
-<status status="PASS" start="2026-02-02T17:55:12.655167" elapsed="5.124293"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.158216" elapsed="0.000057"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${INITIAL_UPTIME}</arg>
+<arg>${baseline}[initial_uptime]</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.158369" elapsed="0.000151"/>
+</kw>
+<kw name="Operator Logs In">
+<msg time="2026-02-04T06:55:59.159978" level="FAIL">No keyword with name 'Operator Logs In' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.159954" elapsed="0.000059">No keyword with name 'Operator Logs In' found.</status>
+</kw>
+<kw name="The CPE device ID is known" owner="acs_gui_keywords">
+<var>${device_id}</var>
+<arg>${CPE}</arg>
+<doc>Ensure CPE device ID is known.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.160109" elapsed="0.000049"/>
+</kw>
+<kw name="Initiate Reboot Via GUI">
+<msg time="2026-02-04T06:55:59.161749" level="FAIL">No keyword with name 'Initiate Reboot Via GUI' found.</msg>
+<var>${result}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.161726" elapsed="0.000050">No keyword with name 'Initiate Reboot Via GUI' found.</status>
+</kw>
+<kw name="Reboot Command Sent">
+<msg time="2026-02-04T06:55:59.163189" level="FAIL">No keyword with name 'Reboot Command Sent' found.</msg>
+<arg>${result}[gui_reboot_initiated]</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.163167" elapsed="0.000050">No keyword with name 'Reboot Command Sent' found.</status>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Confirmation message displayed</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.163302" elapsed="0.000134"/>
+</kw>
+<kw name="Device Reboots Successfully">
+<msg time="2026-02-04T06:55:59.165047" level="FAIL">No keyword with name 'Device Reboots Successfully' found.</msg>
+<arg>${CPE}</arg>
+<arg>initial_uptime=${INITIAL_UPTIME}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.165004" elapsed="0.000071">No keyword with name 'Device Reboots Successfully' found.</status>
+</kw>
+<kw name="The CPE resumes normal operation" owner="cpe_keywords">
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<doc>CPE resumes normal operation.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.165163" elapsed="0.000056"/>
+</kw>
+<kw name="Cleanup After GUI Test" type="TEARDOWN">
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Operator Logs Out">
+<msg time="2026-02-04T06:55:59.167131" level="FAIL">No keyword with name 'Operator Logs Out' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.167108" elapsed="0.000051">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<arg>Operator Logs Out</arg>
+<arg>${ACS}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.165601" elapsed="0.001598">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Clean up after each GUI test</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.165426" elapsed="0.001832">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Operator can reboot device via ACS GUI</doc>
+<tag>boardfarm-bdd</tag>
+<tag>gui</tag>
+<tag>reboot</tag>
+<tag>UC-ACS-GUI-01</tag>
+<status status="FAIL" start="2026-02-04T06:55:59.157914" elapsed="0.009384">Several failures occurred:
+
+1) No keyword with name 'Operator Logs In' found.
+
+2) No keyword with name 'Initiate Reboot Via GUI' found.
+
+3) No keyword with name 'Reboot Command Sent' found.
+
+4) No keyword with name 'Device Reboots Successfully' found.
+
+Also teardown failed:
+No keyword with name 'Operator Logs Out' found.</status>
+</test>
+<test id="s1-s1-t5" name="UC-ACS-GUI-01-GetParam: Retrieve Device Parameter via GUI" line="102">
+<kw name="Operator Logs In">
+<msg time="2026-02-04T06:55:59.169955" level="FAIL">No keyword with name 'Operator Logs In' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.169920" elapsed="0.000074">No keyword with name 'Operator Logs In' found.</status>
+</kw>
+<kw name="The CPE device ID is known" owner="acs_gui_keywords">
+<var>${device_id}</var>
+<arg>${CPE}</arg>
+<doc>Ensure CPE device ID is known.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.170152" elapsed="0.000061"/>
+</kw>
+<kw name="Get Software Version Via GUI">
+<msg time="2026-02-04T06:55:59.171430" level="FAIL">No keyword with name 'Get Software Version Via GUI' found. Did you mean:
+    common.Get Software Version</msg>
+<var>${version}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.171406" elapsed="0.000054">No keyword with name 'Get Software Version Via GUI' found. Did you mean:
+    common.Get Software Version</status>
+</kw>
+<kw name="Parameter Was Retrieved">
+<msg time="2026-02-04T06:55:59.172878" level="FAIL">No keyword with name 'Parameter Was Retrieved' found.</msg>
+<arg>${version}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.172855" elapsed="0.000051">No keyword with name 'Parameter Was Retrieved' found.</status>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Parameter value displayed in GUI: ${version}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.172997" elapsed="0.000168"/>
+</kw>
+<kw name="Cleanup After GUI Test" type="TEARDOWN">
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Operator Logs Out">
+<msg time="2026-02-04T06:55:59.175044" level="FAIL">No keyword with name 'Operator Logs Out' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.175020" elapsed="0.000052">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<arg>Operator Logs Out</arg>
+<arg>${ACS}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.173549" elapsed="0.001565">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Clean up after each GUI test</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.173366" elapsed="0.001809">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Operator can retrieve device parameters via GUI</doc>
+<tag>boardfarm-bdd</tag>
+<tag>gui</tag>
+<tag>parameters</tag>
+<tag>UC-ACS-GUI-01</tag>
+<status status="FAIL" start="2026-02-04T06:55:59.167504" elapsed="0.007717">Several failures occurred:
+
+1) No keyword with name 'Operator Logs In' found.
+
+2) No keyword with name 'Get Software Version Via GUI' found. Did you mean:
+    common.Get Software Version
+
+3) No keyword with name 'Parameter Was Retrieved' found.
+
+Also teardown failed:
+No keyword with name 'Operator Logs Out' found.</status>
+</test>
+<test id="s1-s1-t6" name="UC-ACS-GUI-01-2a: Invalid Credentials" line="117">
+<kw name="Operator Is Logged Out">
+<msg time="2026-02-04T06:55:59.176930" level="FAIL">No keyword with name 'Operator Is Logged Out' found. Did you mean:
+    Verify Operator Is Logged Out</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.176852" elapsed="0.000161">No keyword with name 'Operator Is Logged Out' found. Did you mean:
+    Verify Operator Is Logged Out</status>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Operator Logs In">
+<msg time="2026-02-04T06:55:59.179539" level="FAIL">No keyword with name 'Operator Logs In' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.179464" elapsed="0.000155">No keyword with name 'Operator Logs In' found.</status>
+</kw>
+<var>${login_failed}</var>
+<arg>Operator Logs In</arg>
+<arg>${ACS}</arg>
+<doc>Runs the specified keyword and returns the status as a Boolean value.</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.177215" elapsed="0.002513">No keyword with name 'Operator Logs In' found.</status>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Login should fail with invalid credentials</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.179958" elapsed="0.000322"/>
+</kw>
+<kw name="Cleanup After GUI Test" type="TEARDOWN">
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Operator Logs Out">
+<msg time="2026-02-04T06:55:59.183297" level="FAIL">No keyword with name 'Operator Logs Out' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.183258" elapsed="0.000083">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<arg>Operator Logs Out</arg>
+<arg>${ACS}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.181108" elapsed="0.002289">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Clean up after each GUI test</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.180698" elapsed="0.002770">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Extension: Login fails with invalid credentials</doc>
+<tag>auth</tag>
+<tag>boardfarm-bdd</tag>
+<tag>error</tag>
+<tag>gui</tag>
+<tag>UC-ACS-GUI-01</tag>
+<status status="FAIL" start="2026-02-04T06:55:59.175393" elapsed="0.008126">Several failures occurred:
+
+1) No keyword with name 'Operator Is Logged Out' found. Did you mean:
+    Verify Operator Is Logged Out
+
+2) No keyword with name 'Operator Logs In' found.
+
+Also teardown failed:
+No keyword with name 'Operator Logs Out' found.</status>
+</test>
+<test id="s1-s1-t7" name="UC-ACS-GUI-01-4a: Search for Non-Existent Device" line="131">
+<kw name="Operator Logs In">
+<msg time="2026-02-04T06:55:59.185554" level="FAIL">No keyword with name 'Operator Logs In' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.185510" elapsed="0.000094">No keyword with name 'Operator Logs In' found.</status>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Search For Device In GUI">
+<msg time="2026-02-04T06:55:59.187711" level="FAIL">No keyword with name 'Search For Device In GUI' found.</msg>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.187684" elapsed="0.000059">No keyword with name 'Search For Device In GUI' found.</status>
+</kw>
+<var>${found}</var>
+<arg>Search For Device In GUI</arg>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<doc>Runs the specified keyword and returns the status as a Boolean value.</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.185794" elapsed="0.001996">No keyword with name 'Search For Device In GUI' found.</status>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>No devices found or appropriate message displayed</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.187894" elapsed="0.000162"/>
+</kw>
+<kw name="Cleanup After GUI Test" type="TEARDOWN">
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Operator Logs Out">
+<msg time="2026-02-04T06:55:59.189962" level="FAIL">No keyword with name 'Operator Logs Out' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.189937" elapsed="0.000054">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<arg>Operator Logs Out</arg>
+<arg>${ACS}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.188449" elapsed="0.001590">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Clean up after each GUI test</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.188258" elapsed="0.001843">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Extension: Search returns no results for non-existent device</doc>
+<tag>boardfarm-bdd</tag>
+<tag>error</tag>
+<tag>gui</tag>
+<tag>search</tag>
+<tag>UC-ACS-GUI-01</tag>
+<status status="FAIL" start="2026-02-04T06:55:59.183729" elapsed="0.006464">Several failures occurred:
+
+1) No keyword with name 'Operator Logs In' found.
+
+2) No keyword with name 'Search For Device In GUI' found.
+
+Also teardown failed:
+No keyword with name 'Operator Logs Out' found.</status>
+</test>
+<test id="s1-s1-t8" name="UC-ACS-GUI-01-7a: View Offline Device Status" line="145">
+<kw name="Skip" owner="BuiltIn" type="SETUP">
+<arg>Offline device testing not implemented in this testbed</arg>
+<doc>Skips the rest of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.190698" elapsed="0.000141"/>
+</kw>
+<kw name="Operator Logs In">
+<msg time="2026-02-04T06:55:59.192346" level="FAIL">No keyword with name 'Operator Logs In' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.192322" elapsed="0.000053">No keyword with name 'Operator Logs In' found.</status>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Offline device testing requires special setup</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.192463" elapsed="0.000136"/>
+</kw>
+<kw name="Cleanup After GUI Test" type="TEARDOWN">
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Operator Logs Out">
+<msg time="2026-02-04T06:55:59.194435" level="FAIL">No keyword with name 'Operator Logs Out' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.194412" elapsed="0.000051">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<arg>Operator Logs Out</arg>
+<arg>${ACS}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.192947" elapsed="0.001556">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Clean up after each GUI test</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.192773" elapsed="0.001789">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>Extension: View status of offline device</doc>
+<tag>boardfarm-bdd</tag>
+<tag>gui</tag>
+<tag>offline</tag>
+<tag>status</tag>
+<tag>UC-ACS-GUI-01</tag>
+<status status="FAIL" start="2026-02-04T06:55:59.190405" elapsed="0.004196">No keyword with name 'Operator Logs In' found.
+
+Also teardown failed:
+No keyword with name 'Operator Logs Out' found.</status>
+</test>
+<kw name="Teardown ACS GUI Test Environment" type="TEARDOWN">
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Operator Logs Out">
+<msg time="2026-02-04T06:55:59.196641" level="FAIL">No keyword with name 'Operator Logs Out' found.</msg>
+<arg>${ACS}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.196618" elapsed="0.000052">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<arg>Operator Logs Out</arg>
+<arg>${ACS}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.195144" elapsed="0.001567">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>ACS GUI test environment torn down</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.196798" elapsed="0.000134"/>
+</kw>
+<doc>Clean up ACS GUI test environment</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.195026" elapsed="0.001970">No keyword with name 'Operator Logs Out' found.</status>
+</kw>
+<doc>UC-ACS-GUI-01: ACS GUI Device Management
+As a network operator, I want to manage CPE devices through the ACS web interface
+so that I can monitor device status and perform operations without requiring API access.
+
+Corresponds to tests/features/ACS GUI Device Management.feature</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.078435" elapsed="0.118622">Suite teardown failed:
+No keyword with name 'Operator Logs Out' found.</status>
+</suite>
+<suite id="s1-s2" name="Device Class Initialization" source="/home/rjvisser/projects/req-tst/boardfarm-bdd/robot/tests/device_class_initialization.robot">
+<kw name="Setup Device Initialization Test" type="SETUP">
+<kw name="Get Device Manager" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${device_manager}</var>
+<doc>Return the Boardfarm device manager.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.205350" elapsed="0.000037"/>
 </kw>
 <kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-02T17:55:17.780989" level="INFO">${INITIAL_UPTIME} = 36246</msg>
+<arg>${DEVICE_MANAGER}</arg>
+<arg>${device_manager}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.205495" elapsed="0.000161"/>
+</kw>
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${acs}</var>
+<arg>ACS</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.205754" elapsed="0.000045"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<arg>${ACS}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.205890" elapsed="0.000148"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Device initialization test environment ready</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.206127" elapsed="0.000130"/>
+</kw>
+<doc>Initialize test environment</doc>
+<status status="PASS" start="2026-02-04T06:55:59.205185" elapsed="0.001111"/>
+</kw>
+<test id="s1-s2-t1" name="UC-Device-Init-Main: Successful Device Initialization" line="18">
+<kw name="The testbed is configured with RPi prplOS CPE" owner="device_class_keywords">
+<arg>${DEVICE_MANAGER}</arg>
+<doc>Verify testbed is configured with RPi prplOS CPE.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.206677" elapsed="0.000049"/>
+</kw>
+<kw name="Boardfarm Instantiates Device From Configuration">
+<msg time="2026-02-04T06:55:59.207742" level="FAIL">No keyword with name 'Boardfarm Instantiates Device From Configuration' found. Did you mean:
+    device_class_keywords.Boardfarm instantiates the device from configuration</msg>
+<var>${cpe}</var>
+<arg>${DEVICE_MANAGER}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.207714" elapsed="0.000063">No keyword with name 'Boardfarm Instantiates Device From Configuration' found. Did you mean:
+    device_class_keywords.Boardfarm instantiates the device from configuration</status>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<arg>${CPE}</arg>
+<arg>${cpe}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.207874" elapsed="0.000156"/>
+</kw>
+<kw name="Boardfarm Connects To Serial Console">
+<msg time="2026-02-04T06:55:59.208940" level="FAIL">No keyword with name 'Boardfarm Connects To Serial Console' found. Did you mean:
+    device_class_keywords.Boardfarm connects to the serial console</msg>
+<arg>${DEVICE_MANAGER}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.208918" elapsed="0.000051">No keyword with name 'Boardfarm Connects To Serial Console' found. Did you mean:
+    device_class_keywords.Boardfarm connects to the serial console</status>
+</kw>
+<kw name="Boardfarm boots the device" owner="device_class_keywords">
+<arg>${DEVICE_MANAGER}</arg>
+<doc>Boardfarm boots the device.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.209061" elapsed="0.000047"/>
+</kw>
+<kw name="Device Is Online">
+<msg time="2026-02-04T06:55:59.210436" level="FAIL">No keyword with name 'Device Is Online' found.</msg>
+<arg>${DEVICE_MANAGER}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.210394" elapsed="0.000099">No keyword with name 'Device Is Online' found.</status>
+</kw>
+<kw name="Device Registers With ACS">
+<msg time="2026-02-04T06:55:59.214835" level="FAIL">No keyword with name 'Device Registers With ACS' found. Did you mean:
+    device_class_keywords.The device registers with ACS</msg>
+<arg>${DEVICE_MANAGER}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.214758" elapsed="0.000310">No keyword with name 'Device Registers With ACS' found. Did you mean:
+    device_class_keywords.The device registers with ACS</status>
+</kw>
+<doc>Main success scenario: Boardfarm initializes RPi prplOS CPE</doc>
+<tag>boardfarm-bdd</tag>
+<tag>device-init</tag>
+<tag>main-scenario</tag>
+<tag>prplos</tag>
+<tag>rpi</tag>
+<status status="FAIL" start="2026-02-04T06:55:59.206344" elapsed="0.009093">Several failures occurred:
+
+1) No keyword with name 'Boardfarm Instantiates Device From Configuration' found. Did you mean:
+    device_class_keywords.Boardfarm instantiates the device from configuration
+
+2) No keyword with name 'Boardfarm Connects To Serial Console' found. Did you mean:
+    device_class_keywords.Boardfarm connects to the serial console
+
+3) No keyword with name 'Device Is Online' found.
+
+4) No keyword with name 'Device Registers With ACS' found. Did you mean:
+    device_class_keywords.The device registers with ACS</status>
+</test>
+<test id="s1-s2-t2" name="UC-Device-Init-1a: Device Not Found in Configuration" line="35">
+<kw name="Testbed Missing Device">
+<msg time="2026-02-04T06:55:59.217775" level="FAIL">No keyword with name 'Testbed Missing Device' found.</msg>
+<status status="FAIL" start="2026-02-04T06:55:59.217738" elapsed="0.000078">No keyword with name 'Testbed Missing Device' found.</status>
+</kw>
+<kw name="Boardfarm Instantiation Should Fail With Config Error">
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<arg>NonExistentDeviceType</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.218844" elapsed="0.000093"/>
+</kw>
+<var>${error_raised}</var>
+<arg>Get Device By Type</arg>
+<arg>NonExistentDeviceType</arg>
+<doc>Runs the specified keyword and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.218234" elapsed="0.000761"/>
+</kw>
+<kw name="Should Not Be True" owner="BuiltIn">
+<arg>${error_raised}</arg>
+<arg>Configuration error should be raised</arg>
+<doc>Fails if the given condition is true.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.219167" elapsed="0.000203"/>
+</kw>
+<kw name="Configuration Error Raised">
+<msg time="2026-02-04T06:55:59.220627" level="FAIL">No keyword with name 'Configuration Error Raised' found. Did you mean:
+    device_class_keywords.A configuration error is raised</msg>
+<status status="FAIL" start="2026-02-04T06:55:59.220598" elapsed="0.000066">No keyword with name 'Configuration Error Raised' found. Did you mean:
+    device_class_keywords.A configuration error is raised</status>
+</kw>
+<doc>Verify instantiation fails with config error</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.217977" elapsed="0.002762">No keyword with name 'Configuration Error Raised' found. Did you mean:
+    device_class_keywords.A configuration error is raised</status>
+</kw>
+<doc>Extension: Configuration missing device definition</doc>
+<tag>boardfarm-bdd</tag>
+<tag>configuration</tag>
+<tag>device-init</tag>
+<tag>error</tag>
+<status status="FAIL" start="2026-02-04T06:55:59.215735" elapsed="0.005121">Several failures occurred:
+
+1) No keyword with name 'Testbed Missing Device' found.
+
+2) No keyword with name 'Configuration Error Raised' found. Did you mean:
+    device_class_keywords.A configuration error is raised</status>
+</test>
+<test id="s1-s2-t3" name="UC-Device-Init-4a: ACS Registration Failure" line="46">
+<kw name="Boardfarm Instantiates Device From Configuration">
+<msg time="2026-02-04T06:55:59.222275" level="FAIL">No keyword with name 'Boardfarm Instantiates Device From Configuration' found. Did you mean:
+    device_class_keywords.Boardfarm instantiates the device from configuration</msg>
+<var>${cpe}</var>
+<arg>${DEVICE_MANAGER}</arg>
+<status status="FAIL" start="2026-02-04T06:55:59.222251" elapsed="0.000056">No keyword with name 'Boardfarm Instantiates Device From Configuration' found. Did you mean:
+    device_class_keywords.Boardfarm instantiates the device from configuration</status>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<arg>${CPE}</arg>
+<arg>${cpe}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.222414" elapsed="0.000159"/>
+</kw>
+<kw name="Boardfarm boots the device" owner="device_class_keywords">
+<arg>${DEVICE_MANAGER}</arg>
+<doc>Boardfarm boots the device.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.222664" elapsed="0.000048"/>
+</kw>
+<kw name="ACS Is Unreachable">
+<msg time="2026-02-04T06:55:59.223792" level="FAIL">No keyword with name 'ACS Is Unreachable' found. Did you mean:
+    device_class_keywords.The ACS is unreachable</msg>
+<status status="FAIL" start="2026-02-04T06:55:59.223768" elapsed="0.000052">No keyword with name 'ACS Is Unreachable' found. Did you mean:
+    device_class_keywords.The ACS is unreachable</status>
+</kw>
+<kw name="Device Fails ACS Registration">
+<msg time="2026-02-04T06:55:59.225095" level="FAIL">No keyword with name 'Device Fails ACS Registration' found.</msg>
+<status status="FAIL" start="2026-02-04T06:55:59.225072" elapsed="0.000051">No keyword with name 'Device Fails ACS Registration' found.</status>
+</kw>
+<doc>Extension: Device fails to register with ACS</doc>
+<tag>acs</tag>
+<tag>boardfarm-bdd</tag>
+<tag>device-init</tag>
+<tag>error</tag>
+<tag>registration</tag>
+<status status="FAIL" start="2026-02-04T06:55:59.221038" elapsed="0.004191">Several failures occurred:
+
+1) No keyword with name 'Boardfarm Instantiates Device From Configuration' found. Did you mean:
+    device_class_keywords.Boardfarm instantiates the device from configuration
+
+2) No keyword with name 'ACS Is Unreachable' found. Did you mean:
+    device_class_keywords.The ACS is unreachable
+
+3) No keyword with name 'Device Fails ACS Registration' found.</status>
+</test>
+<kw name="Teardown Device Initialization Test" type="TEARDOWN">
+<kw name="Log" owner="BuiltIn">
+<arg>Device initialization test complete</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.225800" elapsed="0.000186"/>
+</kw>
+<doc>Clean up test environment</doc>
+<status status="PASS" start="2026-02-04T06:55:59.225632" elapsed="0.000420"/>
+</kw>
+<doc>Device Class Initialization
+As a Test Engineer, I want Boardfarm to support RPi prplOS CPEs
+so that I can test physical devices in the testbed.
+
+Corresponds to tests/features/Device Class Initialization.feature</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.197860" elapsed="0.028221"/>
+</suite>
+<suite id="s1-s3" name="Hello" source="/home/rjvisser/projects/req-tst/boardfarm-bdd/robot/tests/hello.robot">
+<test id="s1-s3-t1" name="Say Hello - Verify Basic Connectivity" line="11">
+<kw name="Say Hello">
+<msg time="2026-02-04T06:55:59.266456" level="FAIL">No keyword with name 'Say Hello' found. Did you mean:
+    hello_keywords.I say hello</msg>
+<status status="FAIL" start="2026-02-04T06:55:59.266411" elapsed="0.000099">No keyword with name 'Say Hello' found. Did you mean:
+    hello_keywords.I say hello</status>
+</kw>
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${acs}</var>
+<arg>ACS</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.266633" elapsed="0.000064"/>
+</kw>
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${cpe}</var>
+<arg>CPE</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.266789" elapsed="0.000045"/>
+</kw>
+<kw name="Should Not Be Equal" owner="BuiltIn">
+<arg>${acs}</arg>
+<arg>${None}</arg>
+<arg>ACS device should exist</arg>
+<doc>Fails if the given objects are equal.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.266919" elapsed="0.000248"/>
+</kw>
+<kw name="Should Not Be Equal" owner="BuiltIn">
+<arg>${cpe}</arg>
+<arg>${None}</arg>
+<arg>CPE device should exist</arg>
+<doc>Fails if the given objects are equal.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.267257" elapsed="0.000159"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>ACS: ${acs}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.267556" elapsed="0.000157"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>CPE: ${cpe}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.267797" elapsed="0.000127"/>
+</kw>
+<doc>Basic test to verify testbed connectivity</doc>
+<tag>boardfarm-bdd</tag>
+<tag>hello</tag>
+<tag>smoke</tag>
+<status status="FAIL" start="2026-02-04T06:55:59.229576" elapsed="0.038511">No keyword with name 'Say Hello' found. Did you mean:
+    hello_keywords.I say hello</status>
+</test>
+<test id="s1-s3-t2" name="Verify CPE Is Online" line="22">
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${acs}</var>
+<arg>ACS</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.268641" elapsed="0.000045"/>
+</kw>
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${cpe}</var>
+<arg>CPE</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.268769" elapsed="0.000041"/>
+</kw>
+<kw name="The CPE is online via ACS" owner="acs_keywords">
+<arg>${acs}</arg>
+<arg>${cpe}</arg>
+<doc>Verify CPE is online via ACS.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.268898" elapsed="0.000085"/>
+</kw>
+<doc>Verify CPE is online via ACS</doc>
+<tag>boardfarm-bdd</tag>
+<tag>cpe</tag>
+<tag>online</tag>
+<tag>smoke</tag>
+<status status="PASS" start="2026-02-04T06:55:59.268306" elapsed="0.000833"/>
+</test>
+<doc>Basic smoke test to verify testbed connectivity.
+Corresponds to tests/features/hello.feature</doc>
+<status status="FAIL" start="2026-02-04T06:55:59.226609" elapsed="0.042887"/>
+</suite>
+<suite id="s1-s4" name="Remote Cpe Reboot" source="/home/rjvisser/projects/req-tst/boardfarm-bdd/robot/tests/remote_cpe_reboot.robot">
+<kw name="Setup Reboot Test Suite" type="SETUP">
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${acs}</var>
+<arg>ACS</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.276295" elapsed="0.000053"/>
+</kw>
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${cpe}</var>
+<arg>CPE</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.276466" elapsed="0.000056"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<arg>${ACS}</arg>
+<arg>${acs}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.276649" elapsed="0.000184"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<arg>${CPE}</arg>
+<arg>${cpe}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.276984" elapsed="0.000349"/>
+</kw>
+<kw name="A CPE is online and fully provisioned" owner="background_keywords">
+<var>${baseline}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<doc>Confirm CPE is online and provisioned via ACS.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.277560" elapsed="0.000124"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
 <arg>${INITIAL_UPTIME}</arg>
 <arg>${baseline}[initial_uptime]</arg>
 <doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-02T17:55:17.779803" elapsed="0.001286"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.277920" elapsed="0.000422"/>
 </kw>
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-02T17:55:17.781678" level="INFO">CPE baseline captured: uptime=36246s</msg>
-<arg>CPE baseline captured: uptime=${INITIAL_UPTIME}s</arg>
+<arg>Reboot test suite setup complete. CPE baseline: uptime=${INITIAL_UPTIME}s</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-02T17:55:17.781322" elapsed="0.000420"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.278589" elapsed="0.000399"/>
 </kw>
-<doc>Verify CPE is online and fully provisioned</doc>
-<status status="PASS" start="2026-02-02T17:55:12.647844" elapsed="5.133986"/>
+<doc>Suite setup - get devices and verify CPE is online.
+Captures baseline state for all tests in this suite.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.276149" elapsed="0.002987"/>
 </kw>
-<kw name="The User Sets The CPE GUI Password">
+<test id="s1-s4-t1" name="UC-12347-Main: Successful Remote Reboot" line="26">
 <kw name="Set CPE GUI password" owner="background_keywords">
-<msg time="2026-02-02T17:56:27.604248" level="INFO">Searching through 11 users to find admin user...
-✓ Found admin user at index 10 (username='admin')
-Using User.10 as GUI admin user
-Captured original user 10 (GUI admin) password
-Setting CPE GUI password for 0E4299-SN0E429997142C...
-⚠ WARNING: Password encrypted value did not change - password may not have been set.</msg>
-<msg time="2026-02-02T17:56:27.604399" level="INFO">${result} = {'admin_user_index': 10, 'password_changed': False, 'original_password': 'admin'}</msg>
-<var>${result}</var>
+<var>${password_result}</var>
 <arg>${ACS}</arg>
 <arg>${CPE}</arg>
-<arg>${password}</arg>
-<doc>Set CPE GUI password via ACS using TR-069 SPV.</doc>
-<status status="PASS" start="2026-02-02T17:55:17.782427" elapsed="69.822000"/>
-</kw>
-<kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-02T17:56:27.605418" level="INFO">${ORIGINAL_PASSWORD} = admin</msg>
-<arg>${ORIGINAL_PASSWORD}</arg>
-<arg>${result}[original_password]</arg>
-<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-02T17:56:27.604620" elapsed="0.000846"/>
-</kw>
-<kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-02T17:56:27.606246" level="INFO">${ADMIN_USER_INDEX} = 10</msg>
-<arg>${ADMIN_USER_INDEX}</arg>
-<arg>${result}[admin_user_index]</arg>
-<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-02T17:56:27.605586" elapsed="0.000707"/>
-</kw>
 <arg>${TEST_PASSWORD}</arg>
-<doc>Set the CPE GUI password via ACS</doc>
-<status status="PASS" start="2026-02-02T17:55:17.782064" elapsed="69.824292"/>
+<doc>Set CPE GUI password via ACS using TR-069 SPV.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.280175" elapsed="0.000151"/>
 </kw>
-<kw name="The Operator Initiates A Reboot Task On The ACS">
+<kw name="Set Suite Variable" owner="BuiltIn">
+<arg>${ADMIN_USER_INDEX}</arg>
+<arg>${password_result}[admin_user_index]</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.280654" elapsed="0.000645"/>
+</kw>
 <kw name="The operator initiates a reboot task on the ACS for the CPE" owner="operator_keywords">
-<msg time="2026-02-02T17:56:33.661224" level="INFO">Operator initiating reboot task for CPE 0E4299-SN0E429997142C via ACS...
-✓ Reboot task created successfully for CPE 0E4299-SN0E429997142C (test started at 2026-02-02 17:56:22.607030 UTC)</msg>
-<msg time="2026-02-02T17:56:33.661363" level="INFO">${result} = {'cpe_id': '0E4299-SN0E429997142C', 'command_key': 'reboot', 'test_start_timestamp': datetime.datetime(2026, 2, 2, 17, 56, 22, 607030)}</msg>
-<var>${result}</var>
+<var>${reboot_result}</var>
 <arg>${ACS}</arg>
 <arg>${CPE}</arg>
 <doc>Operator initiates a reboot task on the ACS.</doc>
-<status status="PASS" start="2026-02-02T17:56:27.606810" elapsed="6.054579"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.281613" elapsed="0.000103"/>
 </kw>
-<kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-02T17:56:33.662283" level="INFO">${REBOOT_TIMESTAMP} = 2026-02-02 17:56:22.607030</msg>
-<arg>${REBOOT_TIMESTAMP}</arg>
-<arg>${result}[test_start_timestamp]</arg>
-<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-02T17:56:33.661562" elapsed="0.000763"/>
+<kw name="Set Variable" owner="BuiltIn">
+<var>${reboot_timestamp}</var>
+<arg>${reboot_result}[test_start_timestamp]</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.281942" elapsed="0.000506"/>
 </kw>
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-02T17:56:33.662623" level="INFO">Reboot task initiated at 2026-02-02 17:56:22.607030</msg>
-<arg>Reboot task initiated at ${REBOOT_TIMESTAMP}</arg>
+<arg>Reboot task initiated at ${reboot_timestamp}</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-02T17:56:33.662418" elapsed="0.000243"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.282775" elapsed="0.000487"/>
 </kw>
-<doc>Operator initiates reboot task via ACS</doc>
-<status status="PASS" start="2026-02-02T17:56:27.606503" elapsed="6.056211"/>
-</kw>
-<kw name="The ACS Sends Connection Request To CPE">
 <kw name="The ACS sends a connection request to the CPE" owner="acs_keywords">
-<msg time="2026-02-02T17:56:35.728923" level="INFO">Verifying connection request for CPE 0E4299-SN0E429997142C...
-⚠ Connection request may not have been processed yet. Assuming sent (Reboot() was called).</msg>
 <arg>${ACS}</arg>
 <arg>${CPE}</arg>
 <arg>cpe_id=${CPE.sw.cpe_id}</arg>
-<arg>since=${REBOOT_TIMESTAMP}</arg>
+<arg>since=${reboot_timestamp}</arg>
 <doc>ACS sends a connection request to the CPE.</doc>
-<status status="PASS" start="2026-02-02T17:56:33.663049" elapsed="2.066051"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.283562" elapsed="0.000232"/>
 </kw>
-<doc>ACS sends TR-069 connection request to CPE</doc>
-<status status="PASS" start="2026-02-02T17:56:33.662832" elapsed="2.066397"/>
-</kw>
-<kw name="The CPE Initiates Session With ACS">
 <kw name="The CPE receives the connection request and initiates a session" owner="cpe_keywords">
-<msg time="2026-02-02T17:56:35.730150" level="INFO">Waiting for CPE 0E4299-SN0E429997142C to receive connection request and initiate session...</msg>
 <arg>${ACS}</arg>
 <arg>${CPE}</arg>
 <doc>CPE receives connection request and initiates session.</doc>
-<status status="PASS" start="2026-02-02T17:56:35.729802" elapsed="0.000412"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.284044" elapsed="0.000073"/>
 </kw>
-<doc>CPE receives connection request and initiates session</doc>
-<status status="PASS" start="2026-02-02T17:56:35.729444" elapsed="0.000849"/>
-</kw>
-<kw name="The CPE Sends Inform Message To ACS">
 <kw name="The CPE sends an Inform message to the ACS" owner="cpe_keywords">
-<msg time="2026-02-02T17:56:35.823353" level="INFO">Waiting for CPE 0E4299-SN0E429997142C to send Inform message (timeout=120s)...
-✓ CPE 0E4299-SN0E429997142C sent Inform message (verified in GenieACS logs)</msg>
 <arg>${ACS}</arg>
 <arg>${CPE}</arg>
-<arg>since=${REBOOT_TIMESTAMP}</arg>
+<arg>since=${reboot_timestamp}</arg>
 <doc>CPE sends an Inform message to the ACS.</doc>
-<status status="PASS" start="2026-02-02T17:56:35.730713" elapsed="0.092736"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.284275" elapsed="0.000142"/>
 </kw>
-<doc>CPE sends Inform message to ACS</doc>
-<status status="PASS" start="2026-02-02T17:56:35.730440" elapsed="0.093107"/>
-</kw>
-<kw name="The ACS Issues Reboot RPC To CPE">
 <kw name="The ACS responds to the Inform message by issuing the Reboot RPC" owner="acs_keywords">
-<msg time="2026-02-02T17:56:36.001393" level="INFO">Waiting for ACS to respond to Inform and issue Reboot RPC to CPE 0E4299-SN0E429997142C...
-✓ ACS responded to Inform and issued Reboot RPC to CPE 0E4299-SN0E429997142C (verified in GenieACS CWMP logs)</msg>
-<msg time="2026-02-02T17:56:36.001582" level="INFO">${reboot_time} = 2026-02-02 17:56:28.452000</msg>
-<var>${reboot_time}</var>
+<var>${reboot_rpc_time}</var>
 <arg>${ACS}</arg>
 <arg>${CPE}</arg>
-<arg>since=${REBOOT_TIMESTAMP}</arg>
+<arg>since=${reboot_timestamp}</arg>
 <doc>ACS responds to Inform and issues Reboot RPC.</doc>
-<status status="PASS" start="2026-02-02T17:56:35.823997" elapsed="0.177621"/>
-</kw>
-<kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-02T17:56:36.003174" level="INFO">${REBOOT_RPC_TIME} = 2026-02-02 17:56:28.452000</msg>
-<arg>${REBOOT_RPC_TIME}</arg>
-<arg>${reboot_time}</arg>
-<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-02T17:56:36.001863" elapsed="0.001373"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.284549" elapsed="0.000082"/>
 </kw>
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-02T17:56:36.003717" level="INFO">Reboot RPC issued at 2026-02-02 17:56:28.452000</msg>
-<arg>Reboot RPC issued at ${reboot_time}</arg>
+<arg>Reboot RPC issued at ${reboot_rpc_time}</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-02T17:56:36.003398" elapsed="0.000379"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.284743" elapsed="0.000253"/>
 </kw>
-<doc>ACS issues Reboot RPC to CPE</doc>
-<status status="PASS" start="2026-02-02T17:56:35.823740" elapsed="0.180114"/>
-</kw>
-<kw name="The CPE Completes Boot Sequence">
 <kw name="The CPE sends an Inform message after boot completion" owner="cpe_keywords">
-<msg time="2026-02-02T17:57:58.867597" level="INFO">Waiting for CPE 0E4299-SN0E429997142C to complete boot and send post-reboot Inform message...
-✓ CPE 0E4299-SN0E429997142C sent post-reboot Inform message at 2026-02-02 17:57:57.790000 UTC
-↻ Refreshing CPE console connection after reboot...
-✓ Console connection refreshed successfully</msg>
-<msg time="2026-02-02T17:57:58.867981" level="INFO">${boot_time} = 2026-02-02 17:57:57.790000</msg>
 <var>${boot_time}</var>
 <arg>${ACS}</arg>
 <arg>${CPE}</arg>
-<arg>since=${REBOOT_RPC_TIME}</arg>
+<arg>since=${reboot_rpc_time}</arg>
 <doc>CPE sends Inform after boot completion.</doc>
-<status status="PASS" start="2026-02-02T17:56:36.004375" elapsed="82.863652"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.285213" elapsed="0.000137"/>
 </kw>
 <kw name="Should Not Be Equal" owner="BuiltIn">
-<msg time="2026-02-02T17:57:58.869028" level="INFO">Argument types are:
-&lt;class 'str'&gt;
-&lt;class 'NoneType'&gt;</msg>
 <arg>${boot_time}</arg>
 <arg>${None}</arg>
 <arg>CPE should complete boot sequence</arg>
 <doc>Fails if the given objects are equal.</doc>
-<status status="PASS" start="2026-02-02T17:57:58.868446" elapsed="0.000656"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.285538" elapsed="0.000227"/>
 </kw>
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-02T17:57:58.869444" level="INFO">Boot sequence completed at 2026-02-02 17:57:57.790000</msg>
 <arg>Boot sequence completed at ${boot_time}</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-02T17:57:58.869221" elapsed="0.000265"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.285885" elapsed="0.000262"/>
 </kw>
-<doc>CPE completes boot sequence and sends boot Inform</doc>
-<status status="PASS" start="2026-02-02T17:56:36.004059" elapsed="82.865511"/>
-</kw>
-<kw name="The CPE Resumes Normal Operation">
 <kw name="The CPE resumes normal operation" owner="cpe_keywords">
-<msg time="2026-02-02T17:58:03.945030" level="INFO">Verifying CPE 0E4299-SN0E429997142C has resumed normal operation (timeout=60s)...
-✓ CPE 0E4299-SN0E429997142C has resumed normal operation and periodic communication</msg>
 <arg>${ACS}</arg>
 <arg>${CPE}</arg>
 <doc>CPE resumes normal operation.</doc>
-<status status="PASS" start="2026-02-02T17:57:58.870110" elapsed="5.075008"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.286257" elapsed="0.000059"/>
 </kw>
-<doc>Verify CPE is back online and operational</doc>
-<status status="PASS" start="2026-02-02T17:57:58.869773" elapsed="5.075421"/>
-</kw>
-<kw name="The CPE Configuration Is Preserved">
 <kw name="The CPE is online via ACS" owner="acs_keywords">
-<msg time="2026-02-02T17:58:09.013569" level="INFO">✓ CPE is online via ACS</msg>
-<msg time="2026-02-02T17:58:09.013843" level="INFO">${is_online} = True</msg>
 <var>${is_online}</var>
 <arg>${ACS}</arg>
 <arg>${CPE}</arg>
 <doc>Verify CPE is online via ACS.</doc>
-<status status="PASS" start="2026-02-02T17:58:03.945622" elapsed="5.068289"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.286488" elapsed="0.000067"/>
 </kw>
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-02T17:58:09.015097" level="INFO">CPE is online - basic configuration verification passed</msg>
 <arg>CPE is online - basic configuration verification passed</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-02T17:58:09.014322" elapsed="0.001141"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.286660" elapsed="0.000193"/>
 </kw>
-<doc>Verify CPE configuration was preserved after reboot
-Note: Password values are typically masked in TR-069, so we verify
-basic online status instead of checking specific password values.</doc>
-<status status="PASS" start="2026-02-02T17:58:03.945360" elapsed="5.070313"/>
-</kw>
-<kw name="Use Case Succeeds And All Success Guarantees Are Met">
 <kw name="Use case succeeds and all success guarantees are met" owner="operator_keywords">
-<msg time="2026-02-02T17:58:14.111662" level="INFO">Verifying all success guarantees for CPE 0E4299-SN0E429997142C...
-✓ CPE successfully rebooted and completed boot sequence
-✓ CPE reconnected to ACS after reboot
-✓ ACS correctly identified reboot event via Inform message
-✓ CPE configuration and operational state preserved
-✓ CPE resumed normal operation and periodic communication
-✓ All success guarantees met. Use case succeeded.</msg>
 <arg>${ACS}</arg>
 <arg>${CPE}</arg>
 <doc>Verify all success guarantees are met.</doc>
-<status status="PASS" start="2026-02-02T17:58:09.016569" elapsed="5.095320"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.286980" elapsed="0.000129"/>
 </kw>
-<doc>Final verification that use case succeeded</doc>
-<status status="PASS" start="2026-02-02T17:58:09.016083" elapsed="5.096065"/>
+<kw name="Cleanup After Reboot Test" owner="common" type="TEARDOWN">
+<kw name="Log" owner="BuiltIn">
+<arg>Cleaning up after reboot test...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.287893" elapsed="0.000302"/>
 </kw>
-<kw name="Cleanup After Reboot Test" type="TEARDOWN">
 <kw name="Run Keyword And Ignore Error" owner="BuiltIn">
 <kw name="Cleanup After Test" owner="common">
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-02T17:58:14.117422" level="INFO">Cleaning up after test...</msg>
 <arg>Cleaning up after test...</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-02T17:58:14.116736" elapsed="0.000842"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.288967" elapsed="0.000175"/>
 </kw>
 <kw name="Run Keyword And Ignore Error" owner="BuiltIn">
 <kw name="Get CPE Device" owner="common">
 <kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
-<msg time="2026-02-02T17:58:14.120658" level="INFO">${cpe} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
 <var>${cpe}</var>
 <arg>CPE</arg>
 <doc>Get a device by its type name.</doc>
-<status status="PASS" start="2026-02-02T17:58:14.119821" elapsed="0.000876"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.289729" elapsed="0.000051"/>
 </kw>
 <return>
 <value>${cpe}</value>
-<status status="PASS" start="2026-02-02T17:58:14.120838" elapsed="0.000144"/>
+<status status="PASS" start="2026-02-04T06:55:59.289830" elapsed="0.000028"/>
 </return>
 <doc>Get CPE device instance. Returns cached instance if available.</doc>
-<status status="PASS" start="2026-02-02T17:58:14.119049" elapsed="0.002056"/>
+<status status="PASS" start="2026-02-04T06:55:59.289531" elapsed="0.000368"/>
 </kw>
-<msg time="2026-02-02T17:58:14.121185" level="INFO">${cpe} = ('PASS', &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;)</msg>
 <var>${cpe}</var>
 <arg>Get CPE Device</arg>
 <doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-02T17:58:14.117983" elapsed="0.003230"/>
+<status status="PASS" start="2026-02-04T06:55:59.289255" elapsed="0.000669"/>
 </kw>
 <kw name="Set Variable" owner="BuiltIn">
-<msg time="2026-02-02T17:58:14.122496" level="INFO">${cpe_available} = PASS == 'PASS'</msg>
 <var>${cpe_available}</var>
 <arg>${cpe}[0] == 'PASS'</arg>
 <doc>Returns the given values which can then be assigned to a variables.</doc>
-<status status="PASS" start="2026-02-02T17:58:14.121338" elapsed="0.001242"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.290032" elapsed="0.000182"/>
 </kw>
 <if>
 <branch type="IF" condition="${cpe_available}">
 <kw name="Log" owner="BuiltIn">
 <arg>↻ Refreshing CPE console connection...</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="NOT RUN" start="2026-02-02T17:58:14.125015" elapsed="0.000036"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.290426" elapsed="0.000139"/>
 </kw>
 <kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Refresh CPE Console Connection" owner="common">
+<if>
+<branch type="IF" condition="$cpe is None">
+<kw name="Get CPE Device" owner="common">
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${cpe}</var>
+<arg>CPE</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.291976" elapsed="0.000117"/>
+</kw>
+<return>
+<value>${cpe}</value>
+<status status="PASS" start="2026-02-04T06:55:59.292192" elapsed="0.000028"/>
+</return>
+<var>${cpe}</var>
+<doc>Get CPE device instance. Returns cached instance if available.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.291691" elapsed="0.000576"/>
+</kw>
+<status status="PASS" start="2026-02-04T06:55:59.291483" elapsed="0.000835"/>
+</branch>
+<status status="PASS" start="2026-02-04T06:55:59.291453" elapsed="0.000892"/>
+</if>
+<kw name="Refresh CPE Console Connection" owner="cpe_keywords">
+<arg>${cpe}</arg>
+<doc>Refresh CPE console connection (disconnect + reconnect).</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.292462" elapsed="0.000082"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Console connection refresh requested</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.292741" elapsed="0.000173"/>
+</kw>
+<arg>${cpe}[1]</arg>
+<doc>Refresh CPE console connection (useful after reboot).</doc>
+<status status="PASS" start="2026-02-04T06:55:59.291210" elapsed="0.001746"/>
+</kw>
 <arg>Refresh CPE Console Connection</arg>
 <arg>${cpe}[1]</arg>
 <doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="NOT RUN" start="2026-02-02T17:58:14.125198" elapsed="0.000020"/>
+<status status="PASS" start="2026-02-04T06:55:59.290663" elapsed="0.002320"/>
 </kw>
-<msg time="2026-02-02T17:58:14.125262" level="FAIL">Invalid IF condition: Evaluating expression "PASS == 'PASS'" failed: NameError: name 'PASS' is not defined nor importable as module
-
-Variables in the original expression '${cpe_available}' were resolved before the expression was evaluated. Try using '$cpe_available' syntax to avoid that. See Evaluating Expressions appendix in Robot Framework User Guide for more details.</msg>
-<status status="FAIL" start="2026-02-02T17:58:14.122831" elapsed="0.002494">Invalid IF condition: Evaluating expression "PASS == 'PASS'" failed: NameError: name 'PASS' is not defined nor importable as module
-
-Variables in the original expression '${cpe_available}' were resolved before the expression was evaluated. Try using '$cpe_available' syntax to avoid that. See Evaluating Expressions appendix in Robot Framework User Guide for more details.</status>
+<status status="PASS" start="2026-02-04T06:55:59.290325" elapsed="0.002704"/>
 </branch>
-<status status="FAIL" start="2026-02-02T17:58:14.122756" elapsed="0.002612">Invalid IF condition: Evaluating expression "PASS == 'PASS'" failed: NameError: name 'PASS' is not defined nor importable as module
-
-Variables in the original expression '${cpe_available}' were resolved before the expression was evaluated. Try using '$cpe_available' syntax to avoid that. See Evaluating Expressions appendix in Robot Framework User Guide for more details.</status>
+<status status="PASS" start="2026-02-04T06:55:59.290299" elapsed="0.002767"/>
 </if>
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-02T17:58:14.125851" level="INFO">Test cleanup complete</msg>
 <arg>Test cleanup complete</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-02T17:58:14.125505" elapsed="0.000399"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.293154" elapsed="0.000139"/>
 </kw>
 <doc>Common test teardown - cleanup any test artifacts.
 Called after each test to ensure clean state for next test.
 Always refreshes the CPE console connection to ensure it's valid
 for the next test (the previous test might have rebooted the CPE).
 Aligned with pytest cleanup_cpe_config_after_scenario fixture behavior.</doc>
-<status status="FAIL" start="2026-02-02T17:58:14.115980" elapsed="0.010127">Invalid IF condition: Evaluating expression "PASS == 'PASS'" failed: NameError: name 'PASS' is not defined nor importable as module
-
-Variables in the original expression '${cpe_available}' were resolved before the expression was evaluated. Try using '$cpe_available' syntax to avoid that. See Evaluating Expressions appendix in Robot Framework User Guide for more details.</status>
+<status status="PASS" start="2026-02-04T06:55:59.288764" elapsed="0.004566"/>
 </kw>
 <arg>Cleanup After Test</arg>
 <doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-02T17:58:14.114252" elapsed="0.011919"/>
-</kw>
-<kw name="Run Keyword And Return Status" owner="BuiltIn">
-<kw name="Variable Should Exist" owner="BuiltIn">
-<arg>${ADMIN_USER_INDEX}</arg>
-<doc>Fails unless the given variable exists within the current scope.</doc>
-<status status="PASS" start="2026-02-02T17:58:14.126573" elapsed="0.000253"/>
-</kw>
-<msg time="2026-02-02T17:58:14.126909" level="INFO">${has_index} = True</msg>
-<var>${has_index}</var>
-<arg>Variable Should Exist</arg>
-<arg>${ADMIN_USER_INDEX}</arg>
-<doc>Runs the specified keyword and returns the status as a Boolean value.</doc>
-<status status="PASS" start="2026-02-02T17:58:14.126295" elapsed="0.000655"/>
+<status status="PASS" start="2026-02-04T06:55:59.288404" elapsed="0.004951"/>
 </kw>
 <if>
-<branch type="IF" condition="${has_index}">
+<branch type="IF" condition="$admin_user_index is not None">
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-02T17:58:14.127393" level="INFO">Restoring CPE GUI password to default 'admin'...</msg>
 <arg>Restoring CPE GUI password to default 'admin'...</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-02T17:58:14.127190" elapsed="0.000247"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.293499" elapsed="0.000134"/>
 </kw>
 <kw name="Run Keyword And Ignore Error" owner="BuiltIn">
 <kw name="Restore CPE GUI Password To Default" owner="background_keywords">
-<msg time="2026-02-02T17:58:54.605801" level="INFO">Restoring GUI password to default 'admin' for CPE 0E4299-SN0E429997142C User.10...
-  Waiting for CPE to be ready...
-  ✓ CPE is online and ready
-  Attempt 1/3: Setting password...
-  ⚠ Hash unchanged on attempt 1, retrying...
-  Attempt 2/3: Setting password...
-  ⚠ Hash unchanged on attempt 2, retrying...
-  Attempt 3/3: Setting password...
-  ⚠ Hash unchanged on attempt 3, retrying...
-⚠ Failed to restore password after 3 attempts</msg>
-<arg>${ACS}</arg>
-<arg>${CPE}</arg>
-<arg>${ADMIN_USER_INDEX}</arg>
+<arg>${acs}</arg>
+<arg>${cpe}</arg>
+<arg>${admin_user_index}</arg>
 <doc>Restore CPE GUI password to the default 'admin' value.</doc>
-<status status="PASS" start="2026-02-02T17:58:14.127794" elapsed="40.478749"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.293958" elapsed="0.000090"/>
 </kw>
 <arg>Restore CPE GUI Password To Default</arg>
+<arg>${acs}</arg>
+<arg>${cpe}</arg>
+<arg>${admin_user_index}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.293730" elapsed="0.000361"/>
+</kw>
+<status status="PASS" start="2026-02-04T06:55:59.293414" elapsed="0.000704"/>
+</branch>
+<status status="PASS" start="2026-02-04T06:55:59.293399" elapsed="0.000740"/>
+</if>
+<kw name="Log" owner="BuiltIn">
+<arg>Reboot test cleanup complete</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.294218" elapsed="0.000132"/>
+</kw>
 <arg>${ACS}</arg>
 <arg>${CPE}</arg>
 <arg>${ADMIN_USER_INDEX}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-02T17:58:14.127546" elapsed="40.479470"/>
-</kw>
-<status status="PASS" start="2026-02-02T17:58:14.127047" elapsed="40.480174"/>
-</branch>
-<status status="PASS" start="2026-02-02T17:58:14.127019" elapsed="40.480421"/>
-</if>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-02T17:58:54.609079" level="INFO">Reboot test cleanup complete</msg>
-<arg>Reboot test cleanup complete</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-02T17:58:54.608167" elapsed="0.000979"/>
-</kw>
 <doc>Cleanup after reboot test - restore password to default and refresh console.
 Aligned with pytest cleanup_cpe_config_after_scenario fixture behavior.</doc>
-<status status="PASS" start="2026-02-02T17:58:14.113282" elapsed="40.496042"/>
+<status status="PASS" start="2026-02-04T06:55:59.287527" elapsed="0.006860"/>
 </kw>
 <doc>Main success scenario for remote CPE reboot.
 Given the operator initiates a reboot task on the ACS for the CPE,
@@ -466,55 +1184,331 @@ and the CPE completes the boot sequence and resumes normal operation.</doc>
 <tag>reboot</tag>
 <tag>smoke</tag>
 <tag>UC-12347</tag>
-<status status="PASS" start="2026-02-02T17:55:12.643896" elapsed="221.965581"/>
+<status status="PASS" start="2026-02-04T06:55:59.279275" elapsed="0.015151"/>
 </test>
-<kw name="Teardown Testbed Connection" owner="common" type="TEARDOWN">
+<test id="s1-s4-t2" name="UC-12347-3a: CPE Not Connected When Reboot Requested" line="73">
+<kw name="Set CPE GUI password" owner="background_keywords">
+<var>${password_result}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<arg>${TEST_PASSWORD}</arg>
+<doc>Set CPE GUI password via ACS using TR-069 SPV.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.294991" elapsed="0.000110"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<arg>${ADMIN_USER_INDEX}</arg>
+<arg>${password_result}[admin_user_index]</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.295204" elapsed="0.000168"/>
+</kw>
+<kw name="The CPE is unreachable for TR-069 sessions" owner="cpe_keywords">
+<var>${offline_context}</var>
+<arg>${CPE}</arg>
+<doc>Make CPE unreachable for TR-069 sessions.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.295520" elapsed="0.000059"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<arg>2s</arg>
+<arg>Wait for TR069 client to stop</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.295662" elapsed="0.000200"/>
+</kw>
+<kw name="The operator initiates a reboot task on the ACS for the CPE" owner="operator_keywords">
+<var>${reboot_result}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<doc>Operator initiates a reboot task on the ACS.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.295959" elapsed="0.000075"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<var>${reboot_timestamp}</var>
+<arg>${reboot_result}[test_start_timestamp]</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.296144" elapsed="0.000135"/>
+</kw>
+<kw name="The ACS queues the Reboot RPC as a pending task" owner="acs_keywords">
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<arg>since=${reboot_timestamp}</arg>
+<doc>Verify Reboot RPC is queued.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.296371" elapsed="0.000074"/>
+</kw>
+<kw name="The CPE comes online and connects to the ACS" owner="cpe_keywords">
+<var>${reconnect_time}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<arg>offline_timestamp=${offline_context}[cpe_offline_timestamp]</arg>
+<doc>Bring CPE back online and wait for ACS connection.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.296535" elapsed="0.000085"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<arg>5s</arg>
+<arg>Wait for TR069 client to connect</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.296708" elapsed="0.000179"/>
+</kw>
+<kw name="The CPE sends an Inform message to the ACS" owner="cpe_keywords">
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<arg>since=${reboot_timestamp}</arg>
+<doc>CPE sends an Inform message to the ACS.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.296982" elapsed="0.000112"/>
+</kw>
+<kw name="The ACS issues the queued Reboot RPC" owner="acs_keywords">
+<var>${reboot_rpc_time}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<arg>since=${reconnect_time}</arg>
+<doc>Verify ACS issues the queued Reboot RPC.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.297231" elapsed="0.000083"/>
+</kw>
+<kw name="The CPE sends an Inform message after boot completion" owner="cpe_keywords">
+<var>${boot_time}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<arg>since=${reboot_rpc_time}</arg>
+<doc>CPE sends Inform after boot completion.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.297436" elapsed="0.000101"/>
+</kw>
+<kw name="Should Not Be Equal" owner="BuiltIn">
+<arg>${boot_time}</arg>
+<arg>${None}</arg>
+<arg>CPE should complete boot sequence</arg>
+<doc>Fails if the given objects are equal.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.297631" elapsed="0.000197"/>
+</kw>
+<kw name="The CPE resumes normal operation" owner="cpe_keywords">
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<doc>CPE resumes normal operation.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.297925" elapsed="0.000051"/>
+</kw>
+<kw name="The CPE is online via ACS" owner="acs_keywords">
+<var>${is_online}</var>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<doc>Verify CPE is online via ACS.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.298104" elapsed="0.000062"/>
+</kw>
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-02T17:58:54.611897" level="INFO">Tearing down testbed connection...</msg>
-<arg>Tearing down testbed connection...</arg>
+<arg>CPE is online - basic configuration verification passed</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-02T17:58:54.611450" elapsed="0.000570"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.298287" elapsed="0.000150"/>
+</kw>
+<kw name="Use case succeeds and all success guarantees are met" owner="operator_keywords">
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<doc>Verify all success guarantees are met.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.298530" elapsed="0.000053"/>
+</kw>
+<kw name="Cleanup After Reboot Test" owner="common" type="TEARDOWN">
+<kw name="Log" owner="BuiltIn">
+<arg>Cleaning up after reboot test...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.299086" elapsed="0.000137"/>
 </kw>
 <kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Refresh CPE Console Connection" owner="common">
+<kw name="Cleanup After Test" owner="common">
+<kw name="Log" owner="BuiltIn">
+<arg>Cleaning up after test...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.299762" elapsed="0.000135"/>
+</kw>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
 <kw name="Get CPE Device" owner="common">
 <kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
-<msg time="2026-02-02T17:58:54.614030" level="INFO">${cpe} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
 <var>${cpe}</var>
 <arg>CPE</arg>
 <doc>Get a device by its type name.</doc>
-<status status="PASS" start="2026-02-02T17:58:54.613766" elapsed="0.000295"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.300407" elapsed="0.000048"/>
 </kw>
 <return>
 <value>${cpe}</value>
-<status status="PASS" start="2026-02-02T17:58:54.614113" elapsed="0.000041"/>
+<status status="PASS" start="2026-02-04T06:55:59.300495" elapsed="0.000015"/>
 </return>
-<msg time="2026-02-02T17:58:54.614287" level="INFO">${cpe} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x7792ea964cb0&gt;</msg>
+<doc>Get CPE device instance. Returns cached instance if available.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.300230" elapsed="0.000311"/>
+</kw>
+<var>${cpe}</var>
+<arg>Get CPE Device</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.299991" elapsed="0.000571"/>
+</kw>
+<kw name="Set Variable" owner="BuiltIn">
+<var>${cpe_available}</var>
+<arg>${cpe}[0] == 'PASS'</arg>
+<doc>Returns the given values which can then be assigned to a variables.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.300641" elapsed="0.000148"/>
+</kw>
+<if>
+<branch type="IF" condition="${cpe_available}">
+<kw name="Log" owner="BuiltIn">
+<arg>↻ Refreshing CPE console connection...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.300938" elapsed="0.000213"/>
+</kw>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Refresh CPE Console Connection" owner="common">
+<if>
+<branch type="IF" condition="$cpe is None">
+<kw name="Get CPE Device" owner="common">
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${cpe}</var>
+<arg>CPE</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.302233" elapsed="0.000076"/>
+</kw>
+<return>
+<value>${cpe}</value>
+<status status="PASS" start="2026-02-04T06:55:59.302375" elapsed="0.000018"/>
+</return>
 <var>${cpe}</var>
 <doc>Get CPE device instance. Returns cached instance if available.</doc>
-<status status="PASS" start="2026-02-02T17:58:54.613212" elapsed="0.001097"/>
+<status status="PASS" start="2026-02-04T06:55:59.301886" elapsed="0.000543"/>
+</kw>
+<status status="PASS" start="2026-02-04T06:55:59.301715" elapsed="0.000738"/>
+</branch>
+<status status="PASS" start="2026-02-04T06:55:59.301685" elapsed="0.000788"/>
+</if>
+<kw name="Refresh CPE Console Connection" owner="cpe_keywords">
+<arg>${cpe}</arg>
+<doc>Refresh CPE console connection (disconnect + reconnect).</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.302559" elapsed="0.000049"/>
 </kw>
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-02T17:58:54.614607" level="INFO">Console connection refresh requested</msg>
 <arg>Console connection refresh requested</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-02T17:58:54.614412" elapsed="0.000236"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.302720" elapsed="0.000192"/>
+</kw>
+<arg>${cpe}[1]</arg>
+<doc>Refresh CPE console connection (useful after reboot).</doc>
+<status status="PASS" start="2026-02-04T06:55:59.301514" elapsed="0.001439"/>
+</kw>
+<arg>Refresh CPE Console Connection</arg>
+<arg>${cpe}[1]</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.301252" elapsed="0.001726"/>
+</kw>
+<status status="PASS" start="2026-02-04T06:55:59.300856" elapsed="0.002144"/>
+</branch>
+<status status="PASS" start="2026-02-04T06:55:59.300841" elapsed="0.002211"/>
+</if>
+<kw name="Log" owner="BuiltIn">
+<arg>Test cleanup complete</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.303180" elapsed="0.000137"/>
+</kw>
+<doc>Common test teardown - cleanup any test artifacts.
+Called after each test to ensure clean state for next test.
+Always refreshes the CPE console connection to ensure it's valid
+for the next test (the previous test might have rebooted the CPE).
+Aligned with pytest cleanup_cpe_config_after_scenario fixture behavior.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.299584" elapsed="0.003772"/>
+</kw>
+<arg>Cleanup After Test</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.299316" elapsed="0.004065"/>
+</kw>
+<if>
+<branch type="IF" condition="$admin_user_index is not None">
+<kw name="Log" owner="BuiltIn">
+<arg>Restoring CPE GUI password to default 'admin'...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.303521" elapsed="0.000131"/>
+</kw>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Restore CPE GUI Password To Default" owner="background_keywords">
+<arg>${acs}</arg>
+<arg>${cpe}</arg>
+<arg>${admin_user_index}</arg>
+<doc>Restore CPE GUI password to the default 'admin' value.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.303968" elapsed="0.000090"/>
+</kw>
+<arg>Restore CPE GUI Password To Default</arg>
+<arg>${acs}</arg>
+<arg>${cpe}</arg>
+<arg>${admin_user_index}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.303746" elapsed="0.000346"/>
+</kw>
+<status status="PASS" start="2026-02-04T06:55:59.303439" elapsed="0.000681"/>
+</branch>
+<status status="PASS" start="2026-02-04T06:55:59.303423" elapsed="0.000718"/>
+</if>
+<kw name="Log" owner="BuiltIn">
+<arg>Reboot test cleanup complete</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.304221" elapsed="0.000134"/>
+</kw>
+<arg>${ACS}</arg>
+<arg>${CPE}</arg>
+<arg>${ADMIN_USER_INDEX}</arg>
+<doc>Cleanup after reboot test - restore password to default and refresh console.
+Aligned with pytest cleanup_cpe_config_after_scenario fixture behavior.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.298869" elapsed="0.005524"/>
+</kw>
+<doc>Extension scenario: CPE is offline when reboot is requested.
+The ACS queues the reboot task and executes it when the CPE comes online.</doc>
+<tag>boardfarm-bdd</tag>
+<tag>extension</tag>
+<tag>offline</tag>
+<tag>reboot</tag>
+<tag>UC-12347</tag>
+<status status="PASS" start="2026-02-04T06:55:59.294603" elapsed="0.009830"/>
+</test>
+<kw name="Teardown Testbed Connection" owner="common" type="TEARDOWN">
+<kw name="Log" owner="BuiltIn">
+<arg>Tearing down testbed connection...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.304879" elapsed="0.000158"/>
+</kw>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Refresh CPE Console Connection" owner="common">
+<if>
+<branch type="IF" condition="$cpe is None">
+<kw name="Get CPE Device" owner="common">
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${cpe}</var>
+<arg>CPE</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.305878" elapsed="0.000047"/>
+</kw>
+<return>
+<value>${cpe}</value>
+<status status="PASS" start="2026-02-04T06:55:59.305965" elapsed="0.000015"/>
+</return>
+<var>${cpe}</var>
+<doc>Get CPE device instance. Returns cached instance if available.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.305765" elapsed="0.000256"/>
+</kw>
+<status status="PASS" start="2026-02-04T06:55:59.305652" elapsed="0.000397"/>
+</branch>
+<status status="PASS" start="2026-02-04T06:55:59.305634" elapsed="0.000434"/>
+</if>
+<kw name="Refresh CPE Console Connection" owner="cpe_keywords">
+<arg>${cpe}</arg>
+<doc>Refresh CPE console connection (disconnect + reconnect).</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.306147" elapsed="0.000049"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Console connection refresh requested</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.306279" elapsed="0.000138"/>
 </kw>
 <doc>Refresh CPE console connection (useful after reboot).</doc>
-<status status="PASS" start="2026-02-02T17:58:54.612860" elapsed="0.001837"/>
+<status status="PASS" start="2026-02-04T06:55:59.305396" elapsed="0.001060"/>
 </kw>
 <arg>Refresh CPE Console Connection</arg>
 <doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-02T17:58:54.612292" elapsed="0.002440"/>
+<status status="PASS" start="2026-02-04T06:55:59.305142" elapsed="0.001337"/>
 </kw>
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-02T17:58:54.615024" level="INFO">Testbed connection teardown complete</msg>
 <arg>Testbed connection teardown complete</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-02T17:58:54.614818" elapsed="0.000245"/>
+<status status="NOT RUN" start="2026-02-04T06:55:59.306565" elapsed="0.000127"/>
 </kw>
 <doc>Common suite teardown - clean up testbed connection.</doc>
-<status status="PASS" start="2026-02-02T17:58:54.610973" elapsed="0.004138"/>
+<status status="PASS" start="2026-02-04T06:55:59.304761" elapsed="0.001967"/>
 </kw>
 <doc>UC-12347: Remote CPE Reboot
 As an operator of a network, I want to remotely reboot a CPE device
@@ -522,7 +1516,1121 @@ so that I can restore connectivity, apply configuration changes,
 or resolve operational issues without physical access to the device.
 
 Corresponds to tests/features/Remote CPE Reboot.feature</doc>
-<status status="PASS" start="2026-02-02T17:55:07.416045" elapsed="227.199093"/>
+<status status="PASS" start="2026-02-04T06:55:59.269977" elapsed="0.036775"/>
+</suite>
+<suite id="s1-s5" name="User Makes One Way Call" source="/home/rjvisser/projects/req-tst/boardfarm-bdd/robot/tests/user_makes_one_way_call.robot">
+<kw name="Setup Voice Test Environment" owner="voice" type="SETUP">
+<kw name="Log" owner="BuiltIn">
+<arg>Setting up voice test environment...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.332559" elapsed="0.000156"/>
+</kw>
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${acs}</var>
+<arg>ACS</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.332832" elapsed="0.000046"/>
+</kw>
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${cpe}</var>
+<arg>CPE</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.332972" elapsed="0.000048"/>
+</kw>
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${sipcenter}</var>
+<arg>SIPServer</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.333110" elapsed="0.000039"/>
+</kw>
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${lan_phone}</var>
+<arg>SIPPhone</arg>
+<arg>index=0</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.333235" elapsed="0.000064"/>
+</kw>
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${wan_phone}</var>
+<arg>SIPPhone</arg>
+<arg>index=1</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.333393" elapsed="0.000058"/>
+</kw>
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<var>${wan_phone2}</var>
+<arg>SIPPhone</arg>
+<arg>index=2</arg>
+<doc>Get a device by its type name.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.333573" elapsed="0.000104"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<arg>${ACS}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.333788" elapsed="0.000140"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<arg>${CPE}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.334055" elapsed="0.000134"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<arg>${SIPCENTER}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.334285" elapsed="0.000128"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<arg>${LAN_PHONE}</arg>
+<arg>${lan_phone}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.334571" elapsed="0.000153"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<arg>${WAN_PHONE}</arg>
+<arg>${wan_phone}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.334883" elapsed="0.000188"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<arg>${WAN_PHONE2}</arg>
+<arg>${wan_phone2}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.335172" elapsed="0.000134"/>
+</kw>
+<kw name="The SIP server is running and operational" owner="voice_keywords">
+<arg>${SIPCENTER}</arg>
+<doc>Verify SIP server (Kamailio) is running.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.335463" elapsed="0.000069"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Voice test environment initialized</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.335681" elapsed="0.000222"/>
+</kw>
+<doc>Initialize voice test environment with SIP phones.
+Sets suite variables: ACS, CPE, SIPCENTER, LAN_PHONE, WAN_PHONE, WAN_PHONE2</doc>
+<status status="PASS" start="2026-02-04T06:55:59.332378" elapsed="0.003590"/>
+</kw>
+<test id="s1-s5-t1" name="UC-12348-Main-V1: LAN Phone Calls WAN Phone (NAT Outbound)" line="25">
+<kw name="Register Phone On LAN Side" owner="voice">
+<kw name="Register phone with SIP server" owner="voice_keywords">
+<arg>${phone}</arg>
+<arg>${SIPCENTER}</arg>
+<arg>name=lan_phone</arg>
+<doc>Register a phone with the SIP server.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.336742" elapsed="0.000072"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Phone ${number} registered on LAN side</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.336908" elapsed="0.000165"/>
+</kw>
+<arg>${LAN_PHONE}</arg>
+<arg>${LAN_PHONE_NUMBER}</arg>
+<doc>Register a SIP phone on the LAN side of the CPE.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.336545" elapsed="0.000574"/>
+</kw>
+<kw name="Register Phone On WAN Side" owner="voice">
+<kw name="Register phone with SIP server" owner="voice_keywords">
+<arg>${phone}</arg>
+<arg>${SIPCENTER}</arg>
+<doc>Register a phone with the SIP server.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.337395" elapsed="0.000052"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Phone ${number} registered on WAN side</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.337540" elapsed="0.000133"/>
+</kw>
+<arg>${WAN_PHONE}</arg>
+<arg>${WAN_PHONE_NUMBER}</arg>
+<doc>Register a SIP phone on the WAN side of the CPE.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.337233" elapsed="0.000478"/>
+</kw>
+<kw name="Set Caller And Callee" owner="voice">
+<kw name="Assign caller and callee roles" owner="voice_keywords">
+<arg>${caller}</arg>
+<arg>${callee}</arg>
+<doc>Assign caller and callee roles to phones.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.337984" elapsed="0.000061"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${CALLER}</arg>
+<arg>${caller}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.338140" elapsed="0.000143"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${CALLEE}</arg>
+<arg>${callee}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.338378" elapsed="0.000141"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Caller: ${caller}, Callee: ${callee}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.338609" elapsed="0.000129"/>
+</kw>
+<arg>${LAN_PHONE}</arg>
+<arg>${WAN_PHONE}</arg>
+<doc>Set the caller and callee phones for the test.
+Also sets CALLER and CALLEE test variables for use in keywords.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.337825" elapsed="0.000951"/>
+</kw>
+<kw name="Caller calls callee" owner="voice_keywords">
+<doc>Caller dials the callee's number.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.338862" elapsed="0.000033"/>
+</kw>
+<kw name="The callee phone should start ringing" owner="voice_keywords">
+<doc>Alias for Verify phone is ringing.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.338975" elapsed="0.000037"/>
+</kw>
+<kw name="Callee answers call" owner="voice_keywords">
+<doc>Callee answers incoming call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.339124" elapsed="0.000053"/>
+</kw>
+<kw name="Both phones should be connected" owner="voice_keywords">
+<doc>Verify both phones are in connected state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.339283" elapsed="0.000030"/>
+</kw>
+<kw name="A bidirectional RTP media session should be established" owner="voice_keywords">
+<doc>Verify RTP media session is established.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.339390" elapsed="0.000034"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Voice communication established through CPE NAT</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.339501" elapsed="0.000280"/>
+</kw>
+<kw name="Caller hangs up" owner="voice_keywords">
+<doc>Caller hangs up the call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.339873" elapsed="0.000034"/>
+</kw>
+<kw name="Verify SIP call terminated" owner="voice_keywords">
+<doc>Verify SIP server terminated the call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.339988" elapsed="0.000054"/>
+</kw>
+<kw name="Both phones should return to idle state" owner="voice_keywords">
+<doc>Verify both phones returned to idle state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.340138" elapsed="0.000031"/>
+</kw>
+<kw name="Cleanup SIP Phones After Test" owner="common" type="TEARDOWN">
+<kw name="Log" owner="BuiltIn">
+<arg>Cleaning up SIP phones...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.340534" elapsed="0.000154"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Phone hangs up" owner="voice_keywords">
+<arg>${phone}</arg>
+<doc>Hang up active call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.341229" elapsed="0.000046"/>
+</kw>
+<arg>Phone Hangs Up</arg>
+<arg>${phone}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.340951" elapsed="0.000353"/>
+</kw>
+<var name="${phone}"/>
+<status status="PASS" start="2026-02-04T06:55:59.340856" elapsed="0.000472"/>
+</iter>
+<var>${phone}</var>
+<value>@{phones}</value>
+<status status="PASS" start="2026-02-04T06:55:59.340759" elapsed="0.000598"/>
+</for>
+<kw name="Log" owner="BuiltIn">
+<arg>SIP phone cleanup complete</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.341447" elapsed="0.000132"/>
+</kw>
+<arg>${CALLER}</arg>
+<arg>${CALLEE}</arg>
+<doc>Cleanup any active SIP calls after test.
+Hangs up any phones that may still be in a call.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.340356" elapsed="0.001259"/>
+</kw>
+<doc>LAN phone calls WAN phone - tests NAT outbound traversal</doc>
+<tag>boardfarm-bdd</tag>
+<tag>call</tag>
+<tag>main-scenario</tag>
+<tag>nat-outbound</tag>
+<tag>UC-12348</tag>
+<tag>voice</tag>
+<status status="PASS" start="2026-02-04T06:55:59.336082" elapsed="0.005567"/>
+</test>
+<test id="s1-s5-t2" name="UC-12348-Main-V3: WAN Phone Calls LAN Phone (NAT Inbound)" line="49">
+<kw name="Register Phone On WAN Side" owner="voice">
+<kw name="Register phone with SIP server" owner="voice_keywords">
+<arg>${phone}</arg>
+<arg>${SIPCENTER}</arg>
+<doc>Register a phone with the SIP server.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.342613" elapsed="0.000064"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Phone ${number} registered on WAN side</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.342769" elapsed="0.000137"/>
+</kw>
+<arg>${WAN_PHONE}</arg>
+<arg>${WAN_PHONE_NUMBER}</arg>
+<doc>Register a SIP phone on the WAN side of the CPE.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.342400" elapsed="0.000544"/>
+</kw>
+<kw name="Register Phone On LAN Side" owner="voice">
+<kw name="Register phone with SIP server" owner="voice_keywords">
+<arg>${phone}</arg>
+<arg>${SIPCENTER}</arg>
+<arg>name=lan_phone</arg>
+<doc>Register a phone with the SIP server.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.343264" elapsed="0.000067"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Phone ${number} registered on LAN side</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.343422" elapsed="0.000131"/>
+</kw>
+<arg>${LAN_PHONE}</arg>
+<arg>${LAN_PHONE_NUMBER}</arg>
+<doc>Register a SIP phone on the LAN side of the CPE.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.343103" elapsed="0.000487"/>
+</kw>
+<kw name="Set Caller And Callee" owner="voice">
+<kw name="Assign caller and callee roles" owner="voice_keywords">
+<arg>${caller}</arg>
+<arg>${callee}</arg>
+<doc>Assign caller and callee roles to phones.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.343877" elapsed="0.000099"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${CALLER}</arg>
+<arg>${caller}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.344198" elapsed="0.000299"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${CALLEE}</arg>
+<arg>${callee}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.344694" elapsed="0.000293"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Caller: ${caller}, Callee: ${callee}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.345202" elapsed="0.000289"/>
+</kw>
+<arg>${WAN_PHONE}</arg>
+<arg>${LAN_PHONE}</arg>
+<doc>Set the caller and callee phones for the test.
+Also sets CALLER and CALLEE test variables for use in keywords.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.343705" elapsed="0.001872"/>
+</kw>
+<kw name="Caller calls callee" owner="voice_keywords">
+<doc>Caller dials the callee's number.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.345704" elapsed="0.000043"/>
+</kw>
+<kw name="The callee phone should start ringing" owner="voice_keywords">
+<doc>Alias for Verify phone is ringing.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.345846" elapsed="0.000038"/>
+</kw>
+<kw name="Callee answers call" owner="voice_keywords">
+<doc>Callee answers incoming call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.345975" elapsed="0.000046"/>
+</kw>
+<kw name="Both phones should be connected" owner="voice_keywords">
+<doc>Verify both phones are in connected state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.346116" elapsed="0.000037"/>
+</kw>
+<kw name="A bidirectional RTP media session should be established" owner="voice_keywords">
+<doc>Verify RTP media session is established.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.346246" elapsed="0.000036"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Voice communication established through CPE NAT</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.346384" elapsed="0.000214"/>
+</kw>
+<kw name="Caller hangs up" owner="voice_keywords">
+<doc>Caller hangs up the call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.346694" elapsed="0.000035"/>
+</kw>
+<kw name="Verify SIP call terminated" owner="voice_keywords">
+<doc>Verify SIP server terminated the call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.346816" elapsed="0.000035"/>
+</kw>
+<kw name="Both phones should return to idle state" owner="voice_keywords">
+<doc>Verify both phones returned to idle state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.346941" elapsed="0.000033"/>
+</kw>
+<kw name="Cleanup SIP Phones After Test" owner="common" type="TEARDOWN">
+<kw name="Log" owner="BuiltIn">
+<arg>Cleaning up SIP phones...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.347832" elapsed="0.000334"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Phone hangs up" owner="voice_keywords">
+<arg>${phone}</arg>
+<doc>Hang up active call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.349061" elapsed="0.000080"/>
+</kw>
+<arg>Phone Hangs Up</arg>
+<arg>${phone}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.348565" elapsed="0.000631"/>
+</kw>
+<var name="${phone}"/>
+<status status="PASS" start="2026-02-04T06:55:59.348396" elapsed="0.000834"/>
+</iter>
+<var>${phone}</var>
+<value>@{phones}</value>
+<status status="PASS" start="2026-02-04T06:55:59.348263" elapsed="0.000998"/>
+</for>
+<kw name="Log" owner="BuiltIn">
+<arg>SIP phone cleanup complete</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.349418" elapsed="0.000178"/>
+</kw>
+<arg>${CALLER}</arg>
+<arg>${CALLEE}</arg>
+<doc>Cleanup any active SIP calls after test.
+Hangs up any phones that may still be in a call.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.347442" elapsed="0.002201"/>
+</kw>
+<doc>WAN phone calls LAN phone - tests NAT inbound traversal</doc>
+<tag>boardfarm-bdd</tag>
+<tag>call</tag>
+<tag>main-scenario</tag>
+<tag>nat-inbound</tag>
+<tag>UC-12348</tag>
+<tag>voice</tag>
+<status status="PASS" start="2026-02-04T06:55:59.341875" elapsed="0.007810"/>
+</test>
+<test id="s1-s5-t3" name="UC-12348-Main-V4: WAN Phone Calls WAN Phone 2 (Direct WAN)" line="73">
+<kw name="Register Phone On WAN Side" owner="voice">
+<kw name="Register phone with SIP server" owner="voice_keywords">
+<arg>${phone}</arg>
+<arg>${SIPCENTER}</arg>
+<doc>Register a phone with the SIP server.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.350506" elapsed="0.000059"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Phone ${number} registered on WAN side</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.350657" elapsed="0.000138"/>
+</kw>
+<arg>${WAN_PHONE}</arg>
+<arg>${WAN_PHONE_NUMBER}</arg>
+<doc>Register a SIP phone on the WAN side of the CPE.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.350310" elapsed="0.000530"/>
+</kw>
+<kw name="Register Phone On WAN Side" owner="voice">
+<kw name="Register phone with SIP server" owner="voice_keywords">
+<arg>${phone}</arg>
+<arg>${SIPCENTER}</arg>
+<doc>Register a phone with the SIP server.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.351153" elapsed="0.000055"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Phone ${number} registered on WAN side</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.351295" elapsed="0.000130"/>
+</kw>
+<arg>${WAN_PHONE2}</arg>
+<arg>${WAN_PHONE2_NUMBER}</arg>
+<doc>Register a SIP phone on the WAN side of the CPE.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.350960" elapsed="0.000502"/>
+</kw>
+<kw name="Set Caller And Callee" owner="voice">
+<kw name="Assign caller and callee roles" owner="voice_keywords">
+<arg>${caller}</arg>
+<arg>${callee}</arg>
+<doc>Assign caller and callee roles to phones.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.351810" elapsed="0.000054"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${CALLER}</arg>
+<arg>${caller}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.352093" elapsed="0.000220"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${CALLEE}</arg>
+<arg>${callee}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.352430" elapsed="0.000173"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Caller: ${caller}, Callee: ${callee}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.352696" elapsed="0.000138"/>
+</kw>
+<arg>${WAN_PHONE}</arg>
+<arg>${WAN_PHONE2}</arg>
+<doc>Set the caller and callee phones for the test.
+Also sets CALLER and CALLEE test variables for use in keywords.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.351595" elapsed="0.001283"/>
+</kw>
+<kw name="Caller calls callee" owner="voice_keywords">
+<doc>Caller dials the callee's number.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.352965" elapsed="0.000034"/>
+</kw>
+<kw name="The callee phone should start ringing" owner="voice_keywords">
+<doc>Alias for Verify phone is ringing.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.353110" elapsed="0.000033"/>
+</kw>
+<kw name="Callee answers call" owner="voice_keywords">
+<doc>Callee answers incoming call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.353218" elapsed="0.000035"/>
+</kw>
+<kw name="Both phones should be connected" owner="voice_keywords">
+<doc>Verify both phones are in connected state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.353356" elapsed="0.000053"/>
+</kw>
+<kw name="A bidirectional RTP media session should be established" owner="voice_keywords">
+<doc>Verify RTP media session is established.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.353517" elapsed="0.000032"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Voice communication established without NAT traversal</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.353648" elapsed="0.000203"/>
+</kw>
+<kw name="Caller hangs up" owner="voice_keywords">
+<doc>Caller hangs up the call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.353939" elapsed="0.000032"/>
+</kw>
+<kw name="Verify SIP call terminated" owner="voice_keywords">
+<doc>Verify SIP server terminated the call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.354103" elapsed="0.000032"/>
+</kw>
+<kw name="Both phones should return to idle state" owner="voice_keywords">
+<doc>Verify both phones returned to idle state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.354215" elapsed="0.000031"/>
+</kw>
+<kw name="Cleanup SIP Phones After Test" owner="common" type="TEARDOWN">
+<kw name="Log" owner="BuiltIn">
+<arg>Cleaning up SIP phones...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.354792" elapsed="0.000139"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Phone hangs up" owner="voice_keywords">
+<arg>${phone}</arg>
+<doc>Hang up active call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.355371" elapsed="0.000046"/>
+</kw>
+<arg>Phone Hangs Up</arg>
+<arg>${phone}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.355157" elapsed="0.000289"/>
+</kw>
+<var name="${phone}"/>
+<status status="PASS" start="2026-02-04T06:55:59.355078" elapsed="0.000393"/>
+</iter>
+<var>${phone}</var>
+<value>@{phones}</value>
+<status status="PASS" start="2026-02-04T06:55:59.354980" elapsed="0.000513"/>
+</for>
+<kw name="Log" owner="BuiltIn">
+<arg>SIP phone cleanup complete</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.355576" elapsed="0.000130"/>
+</kw>
+<arg>${CALLER}</arg>
+<arg>${CALLEE}</arg>
+<doc>Cleanup any active SIP calls after test.
+Hangs up any phones that may still be in a call.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.354439" elapsed="0.001304"/>
+</kw>
+<doc>WAN phone calls another WAN phone - direct WAN communication</doc>
+<tag>boardfarm-bdd</tag>
+<tag>call</tag>
+<tag>direct-wan</tag>
+<tag>main-scenario</tag>
+<tag>UC-12348</tag>
+<tag>voice</tag>
+<status status="PASS" start="2026-02-04T06:55:59.349889" elapsed="0.005887"/>
+</test>
+<test id="s1-s5-t4" name="UC-12348-3a: Invalid Phone Number" line="97">
+<kw name="Set Caller And Callee" owner="voice">
+<kw name="Assign caller and callee roles" owner="voice_keywords">
+<arg>${caller}</arg>
+<arg>${callee}</arg>
+<doc>Assign caller and callee roles to phones.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.356448" elapsed="0.000053"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${CALLER}</arg>
+<arg>${caller}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.356596" elapsed="0.000143"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${CALLEE}</arg>
+<arg>${callee}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.356834" elapsed="0.000134"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Caller: ${caller}, Callee: ${callee}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.357067" elapsed="0.000121"/>
+</kw>
+<arg>${WAN_PHONE}</arg>
+<arg>${WAN_PHONE2}</arg>
+<doc>Set the caller and callee phones for the test.
+Also sets CALLER and CALLEE test variables for use in keywords.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.356287" elapsed="0.000939"/>
+</kw>
+<kw name="Verify phone is idle" owner="voice_keywords">
+<arg>${CALLER}</arg>
+<doc>Verify phone is in idle state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.357312" elapsed="0.000045"/>
+</kw>
+<kw name="Dial Invalid Number" owner="voice">
+<kw name="Phone dials number" owner="voice_keywords">
+<arg>${phone}</arg>
+<arg>${number}</arg>
+<doc>Phone dials a specific number.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.357632" elapsed="0.000052"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Phone ${phone} dialed invalid number ${number}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.357769" elapsed="0.000130"/>
+</kw>
+<arg>${CALLER}</arg>
+<arg>9999</arg>
+<doc>Dial an unregistered/invalid phone number.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.357461" elapsed="0.000473"/>
+</kw>
+<kw name="Verify Invalid Number Response" owner="voice">
+<kw name="Log" owner="BuiltIn">
+<arg>Checking for 404 Not Found response</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.358190" elapsed="0.000129"/>
+</kw>
+<doc>Verify SIP server returns 404 for invalid number.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.358042" elapsed="0.000315"/>
+</kw>
+<kw name="Phone hangs up" owner="voice_keywords">
+<arg>${CALLER}</arg>
+<doc>Hang up active call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.358438" elapsed="0.000045"/>
+</kw>
+<kw name="Verify Caller Returns To Idle" owner="voice">
+<kw name="Wait for phone state" owner="voice_keywords">
+<arg>${caller}</arg>
+<arg>idle</arg>
+<arg>timeout=${timeout}</arg>
+<doc>Wait for phone to reach expected state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.358732" elapsed="0.000075"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Caller ${caller} returned to idle state</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.358898" elapsed="0.000136"/>
+</kw>
+<doc>Verify caller phone returns to idle state.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.358586" elapsed="0.000486"/>
+</kw>
+<kw name="Cleanup SIP Phones After Test" owner="common" type="TEARDOWN">
+<kw name="Log" owner="BuiltIn">
+<arg>Cleaning up SIP phones...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.359494" elapsed="0.000216"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Phone hangs up" owner="voice_keywords">
+<arg>${phone}</arg>
+<doc>Hang up active call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.360146" elapsed="0.000046"/>
+</kw>
+<arg>Phone Hangs Up</arg>
+<arg>${phone}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.359886" elapsed="0.000335"/>
+</kw>
+<var name="${phone}"/>
+<status status="PASS" start="2026-02-04T06:55:59.359812" elapsed="0.000433"/>
+</iter>
+<var>${phone}</var>
+<value>@{phones}</value>
+<status status="PASS" start="2026-02-04T06:55:59.359756" elapsed="0.000509"/>
+</for>
+<kw name="Log" owner="BuiltIn">
+<arg>SIP phone cleanup complete</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.360347" elapsed="0.000128"/>
+</kw>
+<arg>${CALLER}</arg>
+<arg>${CALLEE}</arg>
+<doc>Cleanup any active SIP calls after test.
+Hangs up any phones that may still be in a call.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.359316" elapsed="0.001196"/>
+</kw>
+<doc>Extension: Caller dials unregistered phone number</doc>
+<tag>boardfarm-bdd</tag>
+<tag>error</tag>
+<tag>invalid-number</tag>
+<tag>UC-12348</tag>
+<tag>voice</tag>
+<status status="PASS" start="2026-02-04T06:55:59.355938" elapsed="0.004607"/>
+</test>
+<test id="s1-s5-t5" name="UC-12348-8a: Callee Is Busy" line="113">
+<kw name="Set Caller And Callee" owner="voice">
+<kw name="Assign caller and callee roles" owner="voice_keywords">
+<arg>${caller}</arg>
+<arg>${callee}</arg>
+<doc>Assign caller and callee roles to phones.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.361172" elapsed="0.000052"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${CALLER}</arg>
+<arg>${caller}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.361317" elapsed="0.000141"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${CALLEE}</arg>
+<arg>${callee}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.361575" elapsed="0.000140"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Caller: ${caller}, Callee: ${callee}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.361807" elapsed="0.000125"/>
+</kw>
+<arg>${WAN_PHONE}</arg>
+<arg>${WAN_PHONE2}</arg>
+<doc>Set the caller and callee phones for the test.
+Also sets CALLER and CALLEE test variables for use in keywords.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.360987" elapsed="0.000981"/>
+</kw>
+<kw name="Verify phone is idle" owner="voice_keywords">
+<arg>${CALLER}</arg>
+<doc>Verify phone is in idle state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.362082" elapsed="0.000046"/>
+</kw>
+<kw name="Simulate Busy Callee" owner="voice">
+<kw name="Log" owner="BuiltIn">
+<arg>Callee ${callee} is in an active call (simulated busy state)</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.362422" elapsed="0.000135"/>
+</kw>
+<doc>Simulate callee being in an active call (busy state).</doc>
+<status status="PASS" start="2026-02-04T06:55:59.362257" elapsed="0.000337"/>
+</kw>
+<kw name="Caller calls callee" owner="voice_keywords">
+<doc>Caller dials the callee's number.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.362676" elapsed="0.000033"/>
+</kw>
+<kw name="Verify Busy Response" owner="voice">
+<kw name="Log" owner="BuiltIn">
+<arg>Checking for 486 Busy Here response</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.362951" elapsed="0.000142"/>
+</kw>
+<doc>Verify callee returns 486 Busy Here.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.362803" elapsed="0.000327"/>
+</kw>
+<kw name="Phone hangs up" owner="voice_keywords">
+<arg>${CALLER}</arg>
+<doc>Hang up active call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.363212" elapsed="0.000045"/>
+</kw>
+<kw name="Verify Caller Returns To Idle" owner="voice">
+<kw name="Wait for phone state" owner="voice_keywords">
+<arg>${caller}</arg>
+<arg>idle</arg>
+<arg>timeout=${timeout}</arg>
+<doc>Wait for phone to reach expected state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.363506" elapsed="0.000081"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Caller ${caller} returned to idle state</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.363682" elapsed="0.000165"/>
+</kw>
+<doc>Verify caller phone returns to idle state.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.363358" elapsed="0.000539"/>
+</kw>
+<kw name="Cleanup SIP Phones After Test" owner="common" type="TEARDOWN">
+<kw name="Log" owner="BuiltIn">
+<arg>Cleaning up SIP phones...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.364326" elapsed="0.000151"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Phone hangs up" owner="voice_keywords">
+<arg>${phone}</arg>
+<doc>Hang up active call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.365096" elapsed="0.000053"/>
+</kw>
+<arg>Phone Hangs Up</arg>
+<arg>${phone}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.364655" elapsed="0.000524"/>
+</kw>
+<var name="${phone}"/>
+<status status="PASS" start="2026-02-04T06:55:59.364580" elapsed="0.000624"/>
+</iter>
+<var>${phone}</var>
+<value>@{phones}</value>
+<status status="PASS" start="2026-02-04T06:55:59.364523" elapsed="0.000706"/>
+</for>
+<kw name="Log" owner="BuiltIn">
+<arg>SIP phone cleanup complete</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.365336" elapsed="0.000136"/>
+</kw>
+<arg>${CALLER}</arg>
+<arg>${CALLEE}</arg>
+<doc>Cleanup any active SIP calls after test.
+Hangs up any phones that may still be in a call.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.364116" elapsed="0.001393"/>
+</kw>
+<doc>Extension: Callee is already in an active call</doc>
+<tag>boardfarm-bdd</tag>
+<tag>busy</tag>
+<tag>error</tag>
+<tag>UC-12348</tag>
+<tag>voice</tag>
+<status status="PASS" start="2026-02-04T06:55:59.360695" elapsed="0.004846"/>
+</test>
+<test id="s1-s5-t6" name="UC-12348-11a: Callee Does Not Answer (Timeout)" line="130">
+<kw name="Set Caller And Callee" owner="voice">
+<kw name="Assign caller and callee roles" owner="voice_keywords">
+<arg>${caller}</arg>
+<arg>${callee}</arg>
+<doc>Assign caller and callee roles to phones.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.366173" elapsed="0.000052"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${CALLER}</arg>
+<arg>${caller}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.366315" elapsed="0.000142"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${CALLEE}</arg>
+<arg>${callee}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.366550" elapsed="0.000134"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Caller: ${caller}, Callee: ${callee}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.366774" elapsed="0.000123"/>
+</kw>
+<arg>${WAN_PHONE}</arg>
+<arg>${WAN_PHONE2}</arg>
+<doc>Set the caller and callee phones for the test.
+Also sets CALLER and CALLEE test variables for use in keywords.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.366015" elapsed="0.000919"/>
+</kw>
+<kw name="Verify phone is idle" owner="voice_keywords">
+<arg>${CALLER}</arg>
+<doc>Verify phone is in idle state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.367095" elapsed="0.000049"/>
+</kw>
+<kw name="Verify phone is idle" owner="voice_keywords">
+<arg>${CALLEE}</arg>
+<doc>Verify phone is in idle state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.367228" elapsed="0.000044"/>
+</kw>
+<kw name="Caller calls callee" owner="voice_keywords">
+<doc>Caller dials the callee's number.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.367351" elapsed="0.000031"/>
+</kw>
+<kw name="The callee phone should start ringing" owner="voice_keywords">
+<doc>Alias for Verify phone is ringing.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.367488" elapsed="0.000051"/>
+</kw>
+<kw name="Wait For Call Timeout" owner="voice">
+<kw name="Sleep" owner="BuiltIn">
+<arg>${timeout}s</arg>
+<arg>Waiting for answer timeout</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.367811" elapsed="0.000175"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Call timeout period elapsed</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.368125" elapsed="0.000156"/>
+</kw>
+<arg>${CALL_TIMEOUT}</arg>
+<doc>Wait for the no-answer timeout period.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.367655" elapsed="0.000674"/>
+</kw>
+<kw name="Verify Timeout Response" owner="voice">
+<kw name="Log" owner="BuiltIn">
+<arg>SIP server sent timeout response</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.368597" elapsed="0.000131"/>
+</kw>
+<doc>Verify SIP server sends timeout response.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.368434" elapsed="0.000332"/>
+</kw>
+<kw name="Phone hangs up" owner="voice_keywords">
+<arg>${CALLER}</arg>
+<doc>Hang up active call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.368851" elapsed="0.000070"/>
+</kw>
+<kw name="Verify Caller Returns To Idle" owner="voice">
+<kw name="Wait for phone state" owner="voice_keywords">
+<arg>${caller}</arg>
+<arg>idle</arg>
+<arg>timeout=${timeout}</arg>
+<doc>Wait for phone to reach expected state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.369249" elapsed="0.000077"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Caller ${caller} returned to idle state</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.369418" elapsed="0.000134"/>
+</kw>
+<doc>Verify caller phone returns to idle state.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.369090" elapsed="0.000499"/>
+</kw>
+<kw name="Cleanup SIP Phones After Test" owner="common" type="TEARDOWN">
+<kw name="Log" owner="BuiltIn">
+<arg>Cleaning up SIP phones...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.369943" elapsed="0.000171"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Phone hangs up" owner="voice_keywords">
+<arg>${phone}</arg>
+<doc>Hang up active call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.370510" elapsed="0.000047"/>
+</kw>
+<arg>Phone Hangs Up</arg>
+<arg>${phone}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.370296" elapsed="0.000290"/>
+</kw>
+<var name="${phone}"/>
+<status status="PASS" start="2026-02-04T06:55:59.370220" elapsed="0.000392"/>
+</iter>
+<var>${phone}</var>
+<value>@{phones}</value>
+<status status="PASS" start="2026-02-04T06:55:59.370161" elapsed="0.000473"/>
+</for>
+<kw name="Log" owner="BuiltIn">
+<arg>SIP phone cleanup complete</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.370719" elapsed="0.000128"/>
+</kw>
+<arg>${CALLER}</arg>
+<arg>${CALLEE}</arg>
+<doc>Cleanup any active SIP calls after test.
+Hangs up any phones that may still be in a call.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.369766" elapsed="0.001117"/>
+</kw>
+<doc>Extension: Callee does not answer within timeout period</doc>
+<tag>boardfarm-bdd</tag>
+<tag>error</tag>
+<tag>timeout</tag>
+<tag>UC-12348</tag>
+<tag>voice</tag>
+<status status="PASS" start="2026-02-04T06:55:59.365688" elapsed="0.005229"/>
+</test>
+<test id="s1-s5-t7" name="UC-12348-11b: Callee Rejects The Call" line="149">
+<kw name="Set Caller And Callee" owner="voice">
+<kw name="Assign caller and callee roles" owner="voice_keywords">
+<arg>${caller}</arg>
+<arg>${callee}</arg>
+<doc>Assign caller and callee roles to phones.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.371552" elapsed="0.000052"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${CALLER}</arg>
+<arg>${caller}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.371697" elapsed="0.000141"/>
+</kw>
+<kw name="Set Test Variable" owner="BuiltIn">
+<arg>${CALLEE}</arg>
+<arg>${callee}</arg>
+<doc>Makes a variable available everywhere within the scope of the current test.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.371933" elapsed="0.000171"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Caller: ${caller}, Callee: ${callee}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.372202" elapsed="0.000134"/>
+</kw>
+<arg>${WAN_PHONE}</arg>
+<arg>${WAN_PHONE2}</arg>
+<doc>Set the caller and callee phones for the test.
+Also sets CALLER and CALLEE test variables for use in keywords.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.371395" elapsed="0.000980"/>
+</kw>
+<kw name="Verify phone is idle" owner="voice_keywords">
+<arg>${CALLER}</arg>
+<doc>Verify phone is in idle state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.372464" elapsed="0.000047"/>
+</kw>
+<kw name="Verify phone is idle" owner="voice_keywords">
+<arg>${CALLEE}</arg>
+<doc>Verify phone is in idle state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.372594" elapsed="0.000044"/>
+</kw>
+<kw name="Caller calls callee" owner="voice_keywords">
+<doc>Caller dials the callee's number.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.372717" elapsed="0.000031"/>
+</kw>
+<kw name="The callee phone should start ringing" owner="voice_keywords">
+<doc>Alias for Verify phone is ringing.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.372824" elapsed="0.000030"/>
+</kw>
+<kw name="Phone rejects call" owner="voice_keywords">
+<arg>${CALLEE}</arg>
+<doc>Reject incoming call with 603 Decline response.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.372929" elapsed="0.000043"/>
+</kw>
+<kw name="Verify Rejection Response" owner="voice">
+<kw name="Log" owner="BuiltIn">
+<arg>SIP server sent rejection response</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.373231" elapsed="0.000136"/>
+</kw>
+<doc>Verify SIP server sends rejection response.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.373077" elapsed="0.000328"/>
+</kw>
+<kw name="Phone hangs up" owner="voice_keywords">
+<arg>${CALLER}</arg>
+<doc>Hang up active call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.373486" elapsed="0.000045"/>
+</kw>
+<kw name="Verify Caller Returns To Idle" owner="voice">
+<kw name="Wait for phone state" owner="voice_keywords">
+<arg>${caller}</arg>
+<arg>idle</arg>
+<arg>timeout=${timeout}</arg>
+<doc>Wait for phone to reach expected state.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.373828" elapsed="0.000085"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Caller ${caller} returned to idle state</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.374030" elapsed="0.000147"/>
+</kw>
+<doc>Verify caller phone returns to idle state.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.373635" elapsed="0.000644"/>
+</kw>
+<kw name="Cleanup SIP Phones After Test" owner="common" type="TEARDOWN">
+<kw name="Log" owner="BuiltIn">
+<arg>Cleaning up SIP phones...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.374707" elapsed="0.000148"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Phone hangs up" owner="voice_keywords">
+<arg>${phone}</arg>
+<doc>Hang up active call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.375257" elapsed="0.000046"/>
+</kw>
+<arg>Phone Hangs Up</arg>
+<arg>${phone}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.375042" elapsed="0.000291"/>
+</kw>
+<var name="${phone}"/>
+<status status="PASS" start="2026-02-04T06:55:59.374956" elapsed="0.000401"/>
+</iter>
+<var>${phone}</var>
+<value>@{phones}</value>
+<status status="PASS" start="2026-02-04T06:55:59.374899" elapsed="0.000479"/>
+</for>
+<kw name="Log" owner="BuiltIn">
+<arg>SIP phone cleanup complete</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.375461" elapsed="0.000131"/>
+</kw>
+<arg>${CALLER}</arg>
+<arg>${CALLEE}</arg>
+<doc>Cleanup any active SIP calls after test.
+Hangs up any phones that may still be in a call.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.374510" elapsed="0.001119"/>
+</kw>
+<doc>Extension: Callee actively rejects the incoming call</doc>
+<tag>boardfarm-bdd</tag>
+<tag>error</tag>
+<tag>rejected</tag>
+<tag>UC-12348</tag>
+<tag>voice</tag>
+<status status="PASS" start="2026-02-04T06:55:59.371080" elapsed="0.004582"/>
+</test>
+<kw name="Teardown Voice Test Environment" owner="voice" type="TEARDOWN">
+<kw name="Log" owner="BuiltIn">
+<arg>Tearing down voice test environment...</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.376090" elapsed="0.001539"/>
+</kw>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Phone hangs up" owner="voice_keywords">
+<arg>${LAN_PHONE}</arg>
+<doc>Hang up active call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.378343" elapsed="0.000102"/>
+</kw>
+<arg>Phone Hangs Up</arg>
+<arg>${LAN_PHONE}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.377843" elapsed="0.000661"/>
+</kw>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Phone hangs up" owner="voice_keywords">
+<arg>${WAN_PHONE}</arg>
+<doc>Hang up active call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.379082" elapsed="0.000063"/>
+</kw>
+<arg>Phone Hangs Up</arg>
+<arg>${WAN_PHONE}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.378697" elapsed="0.000485"/>
+</kw>
+<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
+<kw name="Phone hangs up" owner="voice_keywords">
+<arg>${WAN_PHONE2}</arg>
+<doc>Hang up active call.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.379554" elapsed="0.000056"/>
+</kw>
+<arg>Phone Hangs Up</arg>
+<arg>${WAN_PHONE2}</arg>
+<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.379288" elapsed="0.000358"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<arg>Voice test environment torn down</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-04T06:55:59.379741" elapsed="0.000208"/>
+</kw>
+<doc>Clean up voice test environment.</doc>
+<status status="PASS" start="2026-02-04T06:55:59.375971" elapsed="0.004031"/>
+</kw>
+<doc>UC-12348: User Makes a One-Way Call
+As a user, I want to make a voice call from one SIP phone to another
+so that I can establish voice communication.
+
+Corresponds to tests/features/UC-12348 User makes a one-way call.feature</doc>
+<status status="PASS" start="2026-02-04T06:55:59.307310" elapsed="0.072736"/>
 </suite>
 <doc>Boardfarm BDD Robot Framework Test Suites
 
@@ -538,24 +2646,54 @@ Test Suites:
 - user_makes_one_way_call.robot: UC-12348 Voice Call Tests
 - acs_gui_device_management.robot: UC-ACS-GUI-01 GUI Management
 - device_class_initialization.robot: Device Class Tests</doc>
-<meta name="Boardfarm Status">Deployed</meta>
-<meta name="Board Name">prplos-docker-1</meta>
-<status status="PASS" start="2026-02-02T17:55:03.940598" elapsed="230.675287"/>
+<status status="FAIL" start="2026-02-04T06:55:58.503337" elapsed="0.877920"/>
 </suite>
 <statistics>
 <total>
-<stat pass="1" fail="0" skip="0">All Tests</stat>
+<stat pass="10" fail="12" skip="0">All Tests</stat>
 </total>
 <tag>
-<stat pass="1" fail="0" skip="0">boardfarm-bdd</stat>
-<stat pass="1" fail="0" skip="0">main-scenario</stat>
-<stat pass="1" fail="0" skip="0">reboot</stat>
-<stat pass="1" fail="0" skip="0">smoke</stat>
-<stat pass="1" fail="0" skip="0">UC-12347</stat>
+<stat pass="0" fail="1" skip="0">acs</stat>
+<stat pass="0" fail="2" skip="0">auth</stat>
+<stat pass="10" fail="12" skip="0">boardfarm-bdd</stat>
+<stat pass="1" fail="0" skip="0">busy</stat>
+<stat pass="3" fail="0" skip="0">call</stat>
+<stat pass="0" fail="1" skip="0">configuration</stat>
+<stat pass="1" fail="0" skip="0">cpe</stat>
+<stat pass="0" fail="3" skip="0">device-init</stat>
+<stat pass="1" fail="0" skip="0">direct-wan</stat>
+<stat pass="4" fail="4" skip="0">error</stat>
+<stat pass="1" fail="0" skip="0">extension</stat>
+<stat pass="0" fail="8" skip="0">gui</stat>
+<stat pass="0" fail="1" skip="0">hello</stat>
+<stat pass="1" fail="0" skip="0">invalid-number</stat>
+<stat pass="4" fail="1" skip="0">main-scenario</stat>
+<stat pass="1" fail="0" skip="0">nat-inbound</stat>
+<stat pass="1" fail="0" skip="0">nat-outbound</stat>
+<stat pass="1" fail="1" skip="0">offline</stat>
+<stat pass="1" fail="0" skip="0">online</stat>
+<stat pass="0" fail="1" skip="0">parameters</stat>
+<stat pass="0" fail="1" skip="0">prplos</stat>
+<stat pass="2" fail="1" skip="0">reboot</stat>
+<stat pass="0" fail="1" skip="0">registration</stat>
+<stat pass="1" fail="0" skip="0">rejected</stat>
+<stat pass="0" fail="1" skip="0">rpi</stat>
+<stat pass="0" fail="2" skip="0">search</stat>
+<stat pass="2" fail="2" skip="0">smoke</stat>
+<stat pass="0" fail="2" skip="0">status</stat>
+<stat pass="1" fail="0" skip="0">timeout</stat>
+<stat pass="2" fail="0" skip="0">UC-12347</stat>
+<stat pass="7" fail="0" skip="0">UC-12348</stat>
+<stat pass="0" fail="8" skip="0">UC-ACS-GUI-01</stat>
+<stat pass="7" fail="0" skip="0">voice</stat>
 </tag>
 <suite>
-<stat name="Tests" id="s1" pass="1" fail="0" skip="0">Tests</stat>
-<stat name="Remote Cpe Reboot" id="s1-s1" pass="1" fail="0" skip="0">Tests.Remote Cpe Reboot</stat>
+<stat name="Tests" id="s1" pass="10" fail="12" skip="0">Tests</stat>
+<stat name="Acs Gui Device Management" id="s1-s1" pass="0" fail="8" skip="0">Tests.Acs Gui Device Management</stat>
+<stat name="Device Class Initialization" id="s1-s2" pass="0" fail="3" skip="0">Tests.Device Class Initialization</stat>
+<stat name="Hello" id="s1-s3" pass="1" fail="1" skip="0">Tests.Hello</stat>
+<stat name="Remote Cpe Reboot" id="s1-s4" pass="2" fail="0" skip="0">Tests.Remote Cpe Reboot</stat>
+<stat name="User Makes One Way Call" id="s1-s5" pass="7" fail="0" skip="0">Tests.User Makes One Way Call</stat>
 </suite>
 </statistics>
 <errors>

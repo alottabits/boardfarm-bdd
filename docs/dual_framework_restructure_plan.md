@@ -18,6 +18,13 @@ This document outlines the implementation plan to restructure `boardfarm-bdd/` t
 4. Enable independent CI/CD pipelines per framework
 5. Minimize migration disruption for existing pytest-bdd tests
 
+### Key Principles
+
+1. **Libraries are the single source of truth** - All keywords defined in `robot/libraries/*.py`
+2. **Tests contain no keyword definitions** - Test files call library keywords directly
+3. **Libraries are thin wrappers** - Delegate to `boardfarm3.use_cases`
+4. **Resource files for patterns only** - Setup/teardown and composite patterns, not duplicate keywords
+
 ---
 
 ## Current Structure
@@ -311,215 +318,133 @@ target-version = "py311"
 **Tasks**:
 
 5.1. Create `robot/tests/remote_cpe_reboot.robot`:
+
+**Important**: Tests call library keywords directly - NO local keyword definitions.
+
 ```robot
 *** Settings ***
 Documentation    UC-12347: Remote CPE Reboot
 ...              Remotely reboot the CPE device to restore connectivity,
 ...              apply configuration changes, or resolve operational issues.
 
-Library     BoardfarmLibrary
-Library     UseCaseLibrary
+Library     robotframework_boardfarm.BoardfarmLibrary
+Library     ../libraries/boardfarm_keywords.py
+Library     ../libraries/acs_keywords.py
+Library     ../libraries/cpe_keywords.py
+Library     ../libraries/background_keywords.py
+Library     ../libraries/operator_keywords.py
 Resource    ../resources/common.resource
 
-Suite Setup       Setup Testbed Connection
+Suite Setup       Setup Reboot Test Suite
 Suite Teardown    Teardown Testbed Connection
-Test Teardown     Cleanup After Test
+Test Teardown     Cleanup After Reboot Test    ${ACS}    ${CPE}    ${ADMIN_USER_INDEX}
 
 *** Variables ***
-${TEST_PASSWORD}    p@ssw0rd123!
+${TEST_PASSWORD}        p@ssw0rd123!
+${ADMIN_USER_INDEX}     ${None}
 
 *** Test Cases ***
 UC-12347-Main: Successful Remote Reboot
     [Documentation]    Main success scenario for remote CPE reboot
     [Tags]    UC-12347    reboot    smoke
 
-    # Background
-    Given A CPE Is Online And Fully Provisioned
-    And The User Sets The CPE GUI Password    ${TEST_PASSWORD}
+    # Background: Set CPE GUI password (call library keyword directly)
+    ${password_result}=    Set CPE GUI Password    ${ACS}    ${CPE}    ${TEST_PASSWORD}
+    Set Suite Variable    ${ADMIN_USER_INDEX}    ${password_result}[admin_user_index]
 
-    # Main scenario
-    When The Operator Initiates A Reboot Task On The ACS
-    And The CPE Sends Inform Message To ACS
-    Then The ACS Issues Reboot RPC To CPE
-    And The CPE Completes Boot Sequence
-    And The CPE Configuration Is Preserved
-    And The CPE Resumes Normal Operation
-
-UC-12347-3a: CPE Not Connected When Reboot Requested
-    [Documentation]    Extension: CPE offline when reboot requested
-    [Tags]    UC-12347    reboot    offline
-
-    # Background
-    Given A CPE Is Online And Fully Provisioned
-    And The User Sets The CPE GUI Password    ${TEST_PASSWORD}
-
-    # Extension scenario
-    Given The CPE TR069 Client Is Stopped
-    When The Operator Initiates A Reboot Task On The ACS
-    Then The ACS Queues The Reboot Task
-    When The CPE TR069 Client Is Started
-    And The CPE Sends Inform Message To ACS
-    Then The ACS Issues Queued Reboot RPC
-    And The CPE Completes Boot Sequence
-    And The CPE Configuration Is Preserved
+    # Main scenario: Call library keywords directly - no wrappers
+    ${reboot_result}=    The Operator Initiates A Reboot Task On The ACS For The CPE    ${ACS}    ${CPE}
+    ${reboot_timestamp}=    Set Variable    ${reboot_result}[test_start_timestamp]
+    
+    The ACS Sends A Connection Request To The CPE    ${ACS}    ${CPE}    since=${reboot_timestamp}
+    The CPE Sends An Inform Message To The ACS    ${ACS}    ${CPE}    since=${reboot_timestamp}
+    ${reboot_rpc_time}=    The ACS Responds To The Inform Message By Issuing The Reboot RPC    ${ACS}    ${CPE}    since=${reboot_timestamp}
+    The CPE Sends An Inform Message After Boot Completion    ${ACS}    ${CPE}    since=${reboot_rpc_time}
+    The CPE Resumes Normal Operation    ${ACS}    ${CPE}
+    Use Case Succeeds And All Success Guarantees Are Met    ${ACS}    ${CPE}
 
 *** Keywords ***
-A CPE Is Online And Fully Provisioned
+Setup Reboot Test Suite
+    [Documentation]    Suite setup - get devices and verify CPE is online.
     ${acs}=    Get Device By Type    ACS
     ${cpe}=    Get Device By Type    CPE
-    Set Suite Variable    ${ACS}
-    Set Suite Variable    ${CPE}
-    ${online}=    Acs Is Cpe Online    ${ACS}    ${CPE}
-    Should Be True    ${online}    CPE should be online
-
-The User Sets The CPE GUI Password
-    [Arguments]    ${password}
-    # Capture original config for cleanup
-    ${original}=    Acs Get Parameter Value    ${ACS}    ${CPE}
-    ...    Device.Users.User.1.Password
-    Set Suite Variable    ${ORIGINAL_PASSWORD}    ${original}
-    Acs Set Parameter Value    ${ACS}    ${CPE}
-    ...    Device.Users.User.1.Password    ${password}
-
-The Operator Initiates A Reboot Task On The ACS
-    ${timestamp}=    Get Current Timestamp
-    Set Suite Variable    ${REBOOT_TIMESTAMP}    ${timestamp}
-    Acs Initiate Reboot    ${ACS}    ${CPE}
-
-The CPE Sends Inform Message To ACS
-    ${result}=    Acs Wait For Inform Message    ${ACS}    ${CPE}
-    ...    since=${REBOOT_TIMESTAMP}    timeout=120
-    Should Be True    ${result}
-
-The ACS Issues Reboot RPC To CPE
-    ${reboot_time}=    Acs Wait For Reboot Rpc    ${ACS}    ${CPE}
-    ...    since=${REBOOT_TIMESTAMP}    timeout=90
-    Set Suite Variable    ${REBOOT_RPC_TIME}    ${reboot_time}
-
-The CPE Completes Boot Sequence
-    ${boot_time}=    Acs Wait For Boot Inform    ${ACS}    ${CPE}
-    ...    since=${REBOOT_RPC_TIME}    timeout=240
-    Should Not Be Equal    ${boot_time}    ${None}
-
-The CPE Configuration Is Preserved
-    ${current_password}=    Acs Get Parameter Value    ${ACS}    ${CPE}
-    ...    Device.Users.User.1.Password
-    # Password should still be set (encrypted value will differ but shouldn't be empty)
-    Should Not Be Empty    ${current_password}
-
-The CPE Resumes Normal Operation
-    ${online}=    Acs Is Cpe Online    ${ACS}    ${CPE}
-    Should Be True    ${online}
-
-The CPE TR069 Client Is Stopped
-    Cpe Stop Tr069 Client    ${CPE}
-    Sleep    2s    Wait for TR069 client to stop
-
-The CPE TR069 Client Is Started
-    Cpe Start Tr069 Client    ${CPE}
-    Sleep    5s    Wait for TR069 client to connect
-
-The ACS Queues The Reboot Task
-    Log    ACS has queued the reboot task (verified by subsequent execution)
-
-The ACS Issues Queued Reboot RPC
-    The ACS Issues Reboot RPC To CPE
-
-Get Current Timestamp
-    ${timestamp}=    Evaluate    __import__('datetime').datetime.now(__import__('datetime').timezone.utc)
-    RETURN    ${timestamp}
+    Set Suite Variable    ${ACS}    ${acs}
+    Set Suite Variable    ${CPE}    ${cpe}
+    ${baseline}=    A CPE Is Online And Fully Provisioned    ${ACS}    ${CPE}
+    Set Suite Variable    ${INITIAL_UPTIME}    ${baseline}[initial_uptime]
 ```
 
+**Note**: The test file has only ONE local keyword (suite setup) which initializes devices.
+All test logic uses library keywords directly.
+
 5.2. Create `robot/tests/user_makes_one_way_call.robot`:
+
+**Important**: Tests call library keywords directly - NO local keyword definitions.
+
 ```robot
 *** Settings ***
 Documentation    UC-12348: User Makes a One-Way Call
 ...              Test SIP phone call establishment and teardown.
 
-Library     BoardfarmLibrary
-Library     UseCaseLibrary
+Library     robotframework_boardfarm.BoardfarmLibrary
+Library     ../libraries/boardfarm_keywords.py
+Library     ../libraries/voice_keywords.py
 Resource    ../resources/common.resource
+Resource    ../resources/voice.resource
 
 Suite Setup       Setup Voice Test Environment
 Suite Teardown    Teardown Voice Test Environment
-Test Teardown     Cleanup SIP Phones
+Test Teardown     Cleanup SIP Phones After Test    ${CALLER}    ${CALLEE}
+
+*** Variables ***
+${CALL_TIMEOUT}    30
 
 *** Test Cases ***
 UC-12348-Main: Successful One-Way Call
     [Documentation]    User successfully makes a one-way voice call
     [Tags]    UC-12348    voice    call
 
-    Given Phone A And Phone B Are Registered
-    When Phone A Calls Phone B
-    Then Phone B Should Be Ringing
-    When Phone B Answers The Call
-    Then Both Phones Should Be Connected
-    When Phone A Hangs Up
-    Then The Call Should Be Terminated
+    # Setup: Call library keywords directly - no local wrappers
+    Register Phone On LAN Side    ${LAN_PHONE}    1000
+    Register Phone On WAN Side    ${WAN_PHONE}    2000
+    Set Caller And Callee    ${LAN_PHONE}    ${WAN_PHONE}
 
-*** Keywords ***
-Setup Voice Test Environment
-    ${acs}=    Get Device By Type    ACS
-    ${cpe}=    Get Device By Type    CPE
-    ${phone_a}=    Get Device By Type    SIPPhone    index=0
-    ${phone_b}=    Get Device By Type    SIPPhone    index=1
-    Set Suite Variable    ${ACS}
-    Set Suite Variable    ${CPE}
-    Set Suite Variable    ${PHONE_A}    ${phone_a}
-    Set Suite Variable    ${PHONE_B}    ${phone_b}
+    # Action: Call library keywords directly
+    Caller Calls Callee
 
-Teardown Voice Test Environment
-    Run Keyword And Ignore Error    Voice Shutdown Phone    ${PHONE_A}
-    Run Keyword And Ignore Error    Voice Shutdown Phone    ${PHONE_B}
+    # Verification: Call library keywords directly
+    The Callee Phone Should Start Ringing
+    Callee Answers Call
+    Both Phones Should Be Connected
+    A Bidirectional RTP Media Session Should Be Established
 
-Phone A And Phone B Are Registered
-    Voice Initialize Phone    ${PHONE_A}
-    Voice Initialize Phone    ${PHONE_B}
-    ${reg_a}=    Voice Is Phone Registered    ${PHONE_A}
-    ${reg_b}=    Voice Is Phone Registered    ${PHONE_B}
-    Should Be True    ${reg_a}    Phone A should be registered
-    Should Be True    ${reg_b}    Phone B should be registered
-
-Phone A Calls Phone B
-    Voice Call A Phone    ${PHONE_A}    ${PHONE_B}
-
-Phone B Should Be Ringing
-    ${ringing}=    Voice Is Call Ringing    ${PHONE_B}
-    Should Be True    ${ringing}    Phone B should be ringing
-
-Phone B Answers The Call
-    Voice Answer A Call    ${PHONE_B}
-
-Both Phones Should Be Connected
-    ${connected_a}=    Voice Is Call Connected    ${PHONE_A}
-    ${connected_b}=    Voice Is Call Connected    ${PHONE_B}
-    Should Be True    ${connected_a}    Phone A should be connected
-    Should Be True    ${connected_b}    Phone B should be connected
-
-Phone A Hangs Up
-    Voice Disconnect The Call    ${PHONE_A}
-
-The Call Should Be Terminated
-    Log    Call terminated successfully
-
-Cleanup SIP Phones
-    Run Keyword And Ignore Error    Voice Disconnect The Call    ${PHONE_A}
-    Run Keyword And Ignore Error    Voice Disconnect The Call    ${PHONE_B}
+    # Cleanup
+    Caller Hangs Up
+    Verify SIP Call Terminated
+    Both Phones Should Return To Idle State
 ```
 
+**Note**: The test file has ZERO local keyword definitions.
+All keywords come from `voice_keywords.py` library or `voice.resource` patterns.
+
 5.3. Create `robot/tests/hello.robot` (smoke test):
+
+**Important**: Tests call library keywords directly - NO local keyword definitions.
+
 ```robot
 *** Settings ***
 Documentation    Basic smoke test to verify testbed connectivity.
 
-Library     BoardfarmLibrary
-Library     UseCaseLibrary
+Library     robotframework_boardfarm.BoardfarmLibrary
+Library     ../libraries/boardfarm_keywords.py
+Library     ../libraries/acs_keywords.py
 
 *** Test Cases ***
 Verify Testbed Connectivity
     [Documentation]    Verify basic testbed connectivity
     [Tags]    smoke    connectivity
 
+    # Call library keywords directly
     ${acs}=    Get Device By Type    ACS
     ${cpe}=    Get Device By Type    CPE
     Should Not Be Equal    ${acs}    ${None}
@@ -531,11 +456,14 @@ Verify CPE Is Online
     [Documentation]    Verify CPE is online via ACS
     [Tags]    smoke    cpe
 
+    # Call library keywords directly
     ${acs}=    Get Device By Type    ACS
     ${cpe}=    Get Device By Type    CPE
-    ${online}=    Acs Is Cpe Online    ${acs}    ${cpe}
-    Should Be True    ${online}    CPE should be online
+    The CPE Is Online Via ACS    ${acs}    ${cpe}
 ```
+
+**Note**: The test file has ZERO local keyword definitions.
+All keywords come from libraries.
 
 5.4. Create additional test files for other features (similar pattern).
 
@@ -548,6 +476,15 @@ Verify CPE Is Online
 ### Phase 6: Create Robot Framework Resources (Day 4)
 
 **Objective**: Create shared Robot Framework resource files.
+
+**Important**: Resource files should only contain:
+- Suite setup/teardown patterns
+- Composite keywords that combine multiple library calls
+- Test cleanup patterns
+
+Resource files should **NOT**:
+- Duplicate or wrap library keywords with the same name (causes recursion)
+- Contain business logic (that belongs in libraries/use_cases)
 
 **Tasks**:
 
