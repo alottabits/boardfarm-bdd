@@ -1,23 +1,18 @@
 *** Settings ***
 Documentation    Shared variables for Robot Framework tests.
-...              This resource defines common variables used across test suites.
+...              This resource defines TRUE CONSTANTS only - values that do not change per testbed.
+...              
+...              IMPORTANT: Device-specific data (phone numbers, IP addresses, credentials,
+...              network subnets) must come from device objects, NOT from this file.
+...              See: boardfarm-bdd/docs/robot/best_practices.md
 ...              
 ...              Variable naming conventions:
-...              - ${UPPER_CASE}: Constants and configuration values
-...              - ${lower_case}: Computed or dynamic values (set at runtime)
+...              - ${UPPER_CASE}: Constants (timeouts, TR-069 paths, tags)
+...              - ${lower_case}: Computed or dynamic values (set at runtime from device objects)
 
 *** Variables ***
 # =============================================================================
-# Default Credentials
-# =============================================================================
-${DEFAULT_ACS_USERNAME}     admin
-${DEFAULT_ACS_PASSWORD}     admin
-${DEFAULT_CPE_USERNAME}     admin
-${DEFAULT_CPE_PASSWORD}     admin
-${TEST_PASSWORD}            p@ssw0rd123!
-
-# =============================================================================
-# Timeouts (in seconds)
+# Timeouts (in seconds) - Sensible defaults, can be overridden
 # =============================================================================
 ${DEFAULT_TIMEOUT}          30
 ${SHORT_TIMEOUT}            10
@@ -29,7 +24,7 @@ ${CALL_TIMEOUT}             30
 ${RING_TIMEOUT}             30
 
 # =============================================================================
-# TR-069 Parameter Paths
+# TR-069 Parameter Paths - Standard paths that don't change per testbed
 # =============================================================================
 # Device Info
 ${PARAM_SOFTWARE_VERSION}       Device.DeviceInfo.SoftwareVersion
@@ -56,28 +51,7 @@ ${PARAM_PERIODIC_INFORM}        Device.ManagementServer.PeriodicInformEnable
 ${PARAM_PERIODIC_INTERVAL}      Device.ManagementServer.PeriodicInformInterval
 
 # =============================================================================
-# SIP Phone Configuration
-# =============================================================================
-${LAN_PHONE_NUMBER}             1000
-${WAN_PHONE_NUMBER}             2000
-${WAN_PHONE2_NUMBER}            3000
-${SIP_DOMAIN}                   sipcenter
-
-# =============================================================================
-# Network Configuration
-# =============================================================================
-${LAN_SUBNET}                   192.168.1.0/24
-${WAN_SUBNET}                   10.0.0.0/24
-
-# =============================================================================
-# Test Configuration
-# =============================================================================
-# Note: Test data is provided dynamically by the Boardfarm testbed configuration.
-# Device-specific parameters are accessed via ACS/use_cases, not static files.
-# This follows the 4-layer architecture principle.
-
-# =============================================================================
-# Test Tags
+# Test Tags - Organizational metadata
 # =============================================================================
 ${TAG_SMOKE}                    smoke
 ${TAG_REBOOT}                   reboot
@@ -86,10 +60,24 @@ ${TAG_GUI}                      gui
 ${TAG_WIFI}                     wifi
 
 # =============================================================================
-# Status Values
+# Status Values - Standard status strings
 # =============================================================================
 ${STATUS_ONLINE}                online
 ${STATUS_OFFLINE}               offline
 ${STATUS_REBOOTING}             rebooting
 ${STATUS_REGISTERED}            registered
 ${STATUS_UNREGISTERED}          unregistered
+
+# =============================================================================
+# Default Test Values - Used when tests need to set test passwords etc.
+# =============================================================================
+# Note: This is a test password used for password change tests, not a real credential
+${TEST_PASSWORD}                p@ssw0rd123!
+
+# =============================================================================
+# REMOVED - These values should come from device objects, NOT static variables:
+# - Phone numbers: Use phone.number property
+# - SIP domain: Use sipcenter.domain or sipcenter.ipv4_addr
+# - Network subnets: Use device interface properties
+# - Credentials: Use device.username, device.password properties
+# =============================================================================

@@ -188,6 +188,7 @@ All libraries use `@library(scope="SUITE")` which means:
 - ✅ Define all keywords in libraries
 - ✅ Use `@keyword` decorator for scenario-aligned names
 - ✅ Delegate to `boardfarm3.use_cases`
+- ✅ Extract all device data from device object properties
 - ✅ Provide multiple aliases for flexibility
 - ✅ Include clear docstrings with "Maps to:" sections
 
@@ -196,4 +197,59 @@ All libraries use `@library(scope="SUITE")` which means:
 - ❌ Define keywords in `.robot` test files
 - ❌ Duplicate keywords between libraries and resource files
 - ❌ Put business logic in keyword libraries (use `use_cases`)
+- ❌ Hard-code testbed-specific values (phone numbers, IPs, credentials)
 - ❌ Create keywords that don't map to scenario steps
+
+---
+
+## Device Data Principles
+
+### All Data Comes From Device Objects
+
+Keywords should extract testbed-specific data from device objects, not accept hard-coded values:
+
+```python
+# ✅ CORRECT - Extract phone number from device object
+@keyword("Get phone number")
+def get_phone_number(self, phone: SIPPhone) -> str:
+    """Get phone number from device object.
+    
+    The number is configured in Boardfarm inventory, not hard-coded.
+    """
+    return str(phone.number)
+
+# ✅ CORRECT - Extract SIP server properties
+@keyword("Get SIP server address")
+def get_sip_server_address(self, sipcenter: SIPServer) -> str:
+    """Get SIP server IP from device object."""
+    return sipcenter.ipv4_addr
+```
+
+### Keyword Libraries Should Provide Helper Keywords
+
+Add keywords that help tests access device properties:
+
+```python
+@keyword("Get device property")
+def get_device_property(self, device, property_name: str):
+    """Get a property from a device object.
+    
+    Arguments:
+        device: Any Boardfarm device object
+        property_name: Name of the property to retrieve
+        
+    Returns:
+        Property value, or None if not found
+    """
+    return getattr(device, property_name, None)
+```
+
+### Device Property Reference
+
+| Device Type | Common Properties |
+|-------------|-------------------|
+| SIPPhone | `number`, `name`, `ipv4_addr` |
+| SIPServer | `ipv4_addr`, `domain`, `name` |
+| CPE | `sw.cpe_id`, `lan`, `wan`, `username`, `password` |
+| ACS | `ipv4_addr`, `username`, `password`, `nbi` |
+| LAN | `ipv4_addr`, `subnet`, `name` |

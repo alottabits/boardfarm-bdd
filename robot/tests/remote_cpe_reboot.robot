@@ -5,6 +5,11 @@ Documentation    UC-12347: Remote CPE Reboot
 ...              or resolve operational issues without physical access to the device.
 ...
 ...              Corresponds to tests/features/Remote CPE Reboot.feature
+...
+...              Device Requirements:
+...              - ACS (Auto Configuration Server)
+...              - CPE (Customer Premises Equipment)
+...              All device properties are obtained dynamically from device objects.
 
 Library     robotframework_boardfarm.BoardfarmLibrary
 Library     ../libraries/boardfarm_keywords.py
@@ -13,13 +18,14 @@ Library     ../libraries/cpe_keywords.py
 Library     ../libraries/background_keywords.py
 Library     ../libraries/operator_keywords.py
 Resource    ../resources/common.resource
+Resource    ../resources/variables.resource
 
 Suite Setup       Setup Reboot Test Suite
 Suite Teardown    Teardown Testbed Connection
 Test Teardown     Cleanup After Reboot Test    ${ACS}    ${CPE}    ${ADMIN_USER_INDEX}
 
 *** Variables ***
-${TEST_PASSWORD}        p@ssw0rd123!
+# Runtime state variable - not a constant
 ${ADMIN_USER_INDEX}     ${None}
 
 *** Test Cases ***
@@ -28,9 +34,10 @@ UC-12347-Main: Successful Remote Reboot
     ...    Given the operator initiates a reboot task on the ACS for the CPE,
     ...    the ACS sends a connection request, issues the Reboot RPC,
     ...    and the CPE completes the boot sequence and resumes normal operation.
+    ...    Requires: ACS, CPE
     [Tags]    UC-12347    reboot    smoke    main-scenario
 
-    # Background: Set CPE GUI password
+    # Background: Set CPE GUI password (using TEST_PASSWORD from variables.resource)
     ${password_result}=    Set CPE GUI Password    ${ACS}    ${CPE}    ${TEST_PASSWORD}
     Set Suite Variable    ${ADMIN_USER_INDEX}    ${password_result}[admin_user_index]
 
@@ -73,9 +80,10 @@ UC-12347-Main: Successful Remote Reboot
 UC-12347-3a: CPE Not Connected When Reboot Requested
     [Documentation]    Extension scenario: CPE is offline when reboot is requested.
     ...    The ACS queues the reboot task and executes it when the CPE comes online.
+    ...    Requires: ACS, CPE
     [Tags]    UC-12347    reboot    extension    offline
 
-    # Background: Set CPE GUI password
+    # Background: Set CPE GUI password (using TEST_PASSWORD from variables.resource)
     ${password_result}=    Set CPE GUI Password    ${ACS}    ${CPE}    ${TEST_PASSWORD}
     Set Suite Variable    ${ADMIN_USER_INDEX}    ${password_result}[admin_user_index]
 
@@ -121,6 +129,7 @@ UC-12347-3a: CPE Not Connected When Reboot Requested
 Setup Reboot Test Suite
     [Documentation]    Suite setup - get devices and verify CPE is online.
     ...    Captures baseline state for all tests in this suite.
+    ...    Devices are dynamically discovered from Boardfarm.
     ${acs}=    Get Device By Type    ACS
     ${cpe}=    Get Device By Type    CPE
     Set Suite Variable    ${ACS}    ${acs}

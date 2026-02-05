@@ -7,7 +7,9 @@ This directory contains Robot Framework tests for the boardfarm BDD test suite.
 1. **Libraries are the single source of truth** - All keywords are defined in Python libraries (`libraries/*.py`)
 2. **Tests contain no keyword definitions** - Test files (`.robot`) call library keywords directly
 3. **Libraries are thin wrappers** - Keyword libraries delegate to `boardfarm3.use_cases`
-4. **Resource files for patterns only** - Resources provide setup/teardown and composite patterns, not duplicate keywords
+4. **Device objects are the source of testbed data** - All device-specific data (IP addresses, phone numbers, credentials) comes from device object properties, not hard-coded variables
+5. **Tests check their own preconditions** - Tests verify required devices are available and skip if requirements aren't met
+6. **Resource files for patterns only** - Resources provide setup/teardown and true constants (timeouts, TR-069 paths), not testbed-specific configuration
 
 ## Directory Structure
 
@@ -22,7 +24,7 @@ robot/
 │   └── device_class_initialization.robot
 ├── resources/                  # Shared resource files
 │   ├── common.resource         # Setup/teardown, composite keywords
-│   ├── variables.resource      # Shared variables
+│   ├── variables.resource      # TRUE CONSTANTS ONLY (timeouts, TR-069 paths)
 │   ├── cleanup.resource        # Cleanup patterns
 │   └── voice.resource          # Voice test setup/teardown
 ├── libraries/                  # Python keyword libraries (SINGLE SOURCE OF TRUTH)
@@ -37,6 +39,69 @@ robot/
 │   └── README.md               # Keyword library documentation
 └── robot.yaml                  # Robot Framework configuration
 ```
+
+## Device Data Principles
+
+**All testbed-specific data comes from Boardfarm device objects**, not hard-coded variables.
+
+### The Role of BoardfarmListener
+
+The `BoardfarmListener` is a **thin interface** between Robot Framework and Boardfarm:
+- **Does**: Deploy devices at suite start, release at suite end
+- **Does NOT**: Make test selection decisions or filter tests
+
+### Tests Check Their Own Preconditions
+
+Tests are responsible for verifying that required devices are available:
+
+```robot
+*** Test Cases ***
+UC-12348: Voice Call Test
+    [Documentation]    Requires 2 SIP phones for caller/callee
+    [Tags]    voice    requires-2-phones
+    
+    # Check device availability FIRST
+    ${phones}=    Get Devices By Type    SIPPhone
+    ${phone_count}=    Get Length    ${phones}
+    Skip If    ${phone_count} < 2
+    ...    Test requires 2 SIP phones, testbed has ${phone_count}
+    
+    # Extract device properties FROM objects, not from variables
+    @{phone_list}=    Get Dictionary Values    ${phones}
+    ${caller}=    Set Variable    ${phone_list}[0]
+    ${callee}=    Set Variable    ${phone_list}[1]
+    
+    # Phone numbers come from the device object
+    ${caller_number}=    Evaluate    $caller.number
+    ${callee_number}=    Evaluate    $callee.number
+    
+    # Now proceed with test...
+```
+
+### What Should NOT Be Hard-Coded
+
+| Data | Correct Source |
+|------|----------------|
+| Phone numbers | `phone.number` property |
+| IP addresses | `device.ipv4_addr`, `device.ipv6_addr` |
+| SIP domain | `sipcenter.domain` or server properties |
+| Credentials | `device.username`, `device.password` |
+| Network subnets | Device interface properties |
+
+### What CAN Be in variables.resource
+
+| Data | Reason |
+|------|--------|
+| Timeouts | Sensible defaults (e.g., `${DEFAULT_TIMEOUT}=30`) |
+| TR-069 parameter paths | Standard paths that don't change per testbed |
+| Test tags | Organizational metadata |
+
+### Benefits
+
+- **Portability**: Tests work on any testbed without modification
+- **Transparency**: Requirements visible in test file (via `Skip If`)
+- **Clear reporting**: Robot Framework reports show exactly why tests were skipped
+- **No hidden magic**: No filtering happening behind the scenes
 
 ## Quick Start
 

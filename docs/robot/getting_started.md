@@ -163,7 +163,7 @@ UC-12347: Remote CPE Reboot
     [Documentation]    Remote reboot of CPE via ACS
     [Tags]    smoke    reboot
 
-    # Get devices
+    # Get devices dynamically
     ${acs}=    Get Device By Type    ACS
     ${cpe}=    Get Device By Type    CPE
 
@@ -176,6 +176,36 @@ UC-12347: Remote CPE Reboot
     # Then
     The CPE Should Have Rebooted    ${cpe}
 ```
+
+### Device Availability Checking
+
+Tests should verify required devices are available before proceeding:
+
+```robot
+*** Test Cases ***
+UC-12348: Voice Call Test
+    [Documentation]    Requires 2 SIP phones
+    [Tags]    voice    requires-2-phones
+    
+    # Check device availability FIRST
+    ${phones}=    Get Devices By Type    SIPPhone
+    ${phone_count}=    Get Length    ${phones}
+    Skip If    ${phone_count} < 2
+    ...    Test requires 2 SIP phones, testbed has ${phone_count}
+    
+    # Get device properties FROM objects (not from variables)
+    @{phone_list}=    Get Dictionary Values    ${phones}
+    ${caller}=    Set Variable    ${phone_list}[0]
+    ${callee}=    Set Variable    ${phone_list}[1]
+    ${caller_number}=    Evaluate    $caller.number
+    
+    # Now proceed with test...
+```
+
+This pattern ensures:
+- Tests are self-documenting about their requirements
+- Robot Framework reports show exactly why tests were skipped
+- Tests work on any testbed, gracefully skipping when needed
 
 ### Keyword Libraries
 
@@ -212,7 +242,7 @@ class AcsKeywords:
 
 ### Using Resources
 
-Import shared resources for common keywords:
+Import shared resources for common keywords and **true constants only**:
 
 ```robot
 *** Settings ***
@@ -224,9 +254,24 @@ Test With Resources
     # Uses keyword from common.resource
     Setup Testbed Connection
 
-    # Uses variable from variables.resource
+    # Uses CONSTANT from variables.resource (timeout, not device data)
     Log    Timeout: ${DEFAULT_TIMEOUT}
+    
+    # Device data comes FROM device objects, not from variables
+    ${cpe}=    Get Device By Type    CPE
+    ${cpe_id}=    Evaluate    $cpe.sw.cpe_id
 ```
+
+**Important**: Resource files should only contain:
+- Timeouts (e.g., `${DEFAULT_TIMEOUT}=30`)
+- TR-069 parameter paths (standard paths)
+- Test tags
+
+Resource files should **NOT** contain:
+- Phone numbers (use `phone.number`)
+- IP addresses (use `device.ipv4_addr`)
+- Credentials (use `device.username`, `device.password`)
+- Any testbed-specific configuration
 
 ## Architecture
 
@@ -236,6 +281,8 @@ Tests follow the 4-layer architecture:
 ┌─────────────────────────────────────────────────────────┐
 │  Robot Test Files (.robot)                              │
 │  - Test cases with scenario-aligned keywords            │
+│  - Check device availability, skip if not met           │
+│  - Extract device data FROM objects                     │
 └─────────────────────────────────────────────────────────┘
                           │
                           ▼
@@ -243,6 +290,7 @@ Tests follow the 4-layer architecture:
 │  Python Keyword Libraries (robot/libraries/)            │
 │  - @keyword decorator maps to scenario steps            │
 │  - Mirrors tests/step_defs/ structure                   │
+│  - Thin wrappers around boardfarm3.use_cases            │
 └─────────────────────────────────────────────────────────┘
                           │
                           ▼
@@ -258,6 +306,14 @@ Tests follow the 4-layer architecture:
 │  - Provided by boardfarm                                │
 └─────────────────────────────────────────────────────────┘
 ```
+
+### Role of BoardfarmListener
+
+The `BoardfarmListener` is a **thin interface** between Robot Framework and Boardfarm:
+- **Suite Start**: Deploys devices via Boardfarm hooks
+- **Suite End**: Releases devices
+
+The listener does **NOT** filter or select tests. Tests are responsible for checking their own preconditions and skipping themselves if requirements aren't met.
 
 ## Keyword Naming Convention
 

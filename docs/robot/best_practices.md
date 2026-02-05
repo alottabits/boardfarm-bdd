@@ -4,6 +4,9 @@ This guide documents important lessons learned and best practices for writing Ro
 
 ## Table of Contents
 
+- [Device Data and Dynamic Discovery](#device-data-and-dynamic-discovery)
+- [Resource File Organization](#resource-file-organization)
+- [Test Precondition Checking](#test-precondition-checking)
 - [Keyword Decorator Patterns](#keyword-decorator-patterns)
 - [Avoiding Recursive Keyword Calls](#avoiding-recursive-keyword-calls)
 - [Timing and Timestamp Filtering](#timing-and-timestamp-filtering)
@@ -11,6 +14,187 @@ This guide documents important lessons learned and best practices for writing Ro
 - [Password and Configuration Handling](#password-and-configuration-handling)
 - [Cleanup Best Practices](#cleanup-best-practices)
 - [GenieACS Task Behavior](#genieacs-task-behavior)
+
+---
+
+## Device Data and Dynamic Discovery
+
+### Principle: Device Objects Are the Single Source of Truth
+
+**All testbed-specific data must come from Boardfarm device objects**, not hard-coded variables or resource files. This ensures tests are portable across different testbeds.
+
+### Problem: Hard-Coded Device Configuration
+
+```robot
+*** Variables ***
+# ❌ WRONG - These values are testbed-specific
+${LAN_PHONE_NUMBER}     1000
+${WAN_PHONE_NUMBER}     2000
+${SIP_DOMAIN}           sipcenter
+${LAN_SUBNET}           192.168.1.0/24
+```
+
+These hard-coded values:
+- Won't match different testbeds
+- Require manual updates for each environment
+- Create hidden dependencies
+
+### Solution: Extract Data from Device Objects
+
+```robot
+*** Test Cases ***
+Test Voice Call
+    # ✅ CORRECT - Get devices dynamically
+    ${phones}=    Get Devices By Type    SIPPhone
+    @{phone_list}=    Get Dictionary Values    ${phones}
+    ${phone_a}=    Set Variable    ${phone_list}[0]
+    ${phone_b}=    Set Variable    ${phone_list}[1]
+    
+    # ✅ CORRECT - Extract properties FROM device objects
+    ${phone_a_number}=    Evaluate    $phone_a.number
+    ${phone_b_number}=    Evaluate    $phone_b.number
+    
+    # ✅ CORRECT - SIP server properties from device
+    ${sipcenter}=    Get Device By Type    SIPServer
+    ${sip_domain}=    Evaluate    $sipcenter.domain
+    ${sip_ip}=    Evaluate    $sipcenter.ipv4_addr
+```
+
+### Data Source Reference
+
+| Data Needed | Source |
+|-------------|--------|
+| Phone numbers | `phone.number` |
+| IP addresses | `device.ipv4_addr`, `device.ipv6_addr` |
+| SIP domain | `sipcenter.domain` or `sipcenter.name` |
+| Credentials | `device.username`, `device.password` |
+| Network interfaces | `cpe.lan`, `cpe.wan` properties |
+
+---
+
+## Resource File Organization
+
+### Principle: Resources Contain Only True Constants
+
+Resource files (`.resource`) should **only** contain:
+- Timeouts (sensible defaults)
+- TR-069 parameter paths (standard, don't change per testbed)
+- Test tags (organizational metadata)
+
+Resource files should **NOT** contain:
+- Phone numbers
+- IP addresses or subnets
+- Credentials
+- SIP domains
+- Any testbed-specific configuration
+
+### Example: Correct variables.resource
+
+```robot
+*** Variables ***
+# ✅ CORRECT - True constants only
+
+# Timeouts (sensible defaults)
+${DEFAULT_TIMEOUT}          30
+${REBOOT_TIMEOUT}           240
+${REGISTRATION_TIMEOUT}     60
+
+# TR-069 Standard Parameter Paths (don't change per testbed)
+${PARAM_UPTIME}             Device.DeviceInfo.UpTime
+${PARAM_SOFTWARE_VERSION}   Device.DeviceInfo.SoftwareVersion
+${PARAM_SERIAL_NUMBER}      Device.DeviceInfo.SerialNumber
+
+# Test Tags (organizational)
+${TAG_VOICE}                voice
+${TAG_REBOOT}               reboot
+${TAG_SMOKE}                smoke
+```
+
+---
+
+## Test Precondition Checking
+
+### Principle: Tests Check Their Own Requirements
+
+The **BoardfarmListener** is a thin interface that only handles testbed lifecycle (deploy/release). It does **NOT** filter or select tests.
+
+Tests are responsible for:
+1. Querying available devices
+2. Checking if requirements are met
+3. Skipping themselves if requirements aren't met
+
+### Pattern: Device Availability Check
+
+```robot
+*** Test Cases ***
+UC-12348-Main-V4: Three-Phone Call Test
+    [Documentation]    Requires 3 SIP phones
+    [Tags]    voice    requires-3-phones
+    
+    # Step 1: Check device availability
+    ${phones}=    Get Devices By Type    SIPPhone
+    ${phone_count}=    Get Length    ${phones}
+    
+    # Step 2: Skip if requirements not met
+    Skip If    ${phone_count} < 3
+    ...    Test requires 3 SIP phones, testbed has ${phone_count}
+    
+    # Step 3: Proceed with test (requirements verified)
+    @{phone_list}=    Get Dictionary Values    ${phones}
+    ${phone_a}=    Set Variable    ${phone_list}[0]
+    ${phone_b}=    Set Variable    ${phone_list}[1]
+    ${phone_c}=    Set Variable    ${phone_list}[2]
+    
+    # ... rest of test
+```
+
+### Benefits of This Approach
+
+1. **Self-documenting**: Requirements visible in test file
+2. **Clear reporting**: Robot Framework shows exactly why tests were skipped
+3. **No hidden magic**: No filtering in listeners or special tags
+4. **Portable**: Tests work on any testbed, gracefully skipping when needed
+
+### Pattern: Suite-Level Device Discovery
+
+For suites that require specific devices, check in Suite Setup:
+
+```robot
+*** Settings ***
+Suite Setup    Discover Voice Test Devices
+
+*** Keywords ***
+Discover Voice Test Devices
+    [Documentation]    Discover available SIP phones for voice tests.
+    ...    Skips entire suite if minimum requirements not met.
+    
+    ${phones}=    Get Devices By Type    SIPPhone
+    ${phone_count}=    Get Length    ${phones}
+    
+    IF    ${phone_count} < 2
+        Skip    Voice suite requires at least 2 SIP phones (found ${phone_count})
+    END
+    
+    # Store discovered devices as suite variables
+    @{phone_list}=    Get Dictionary Values    ${phones}
+    Set Suite Variable    ${PHONE_A}    ${phone_list}[0]
+    Set Suite Variable    ${PHONE_B}    ${phone_list}[1]
+    
+    # Extract and store properties FROM device objects
+    ${phone_a_number}=    Evaluate    $phone_list[0].number
+    ${phone_b_number}=    Evaluate    $phone_list[1].number
+    Set Suite Variable    ${PHONE_A_NUMBER}    ${phone_a_number}
+    Set Suite Variable    ${PHONE_B_NUMBER}    ${phone_b_number}
+    
+    # Optional third phone
+    IF    ${phone_count} >= 3
+        Set Suite Variable    ${PHONE_C}    ${phone_list}[2]
+        ${phone_c_number}=    Evaluate    $phone_list[2].number
+        Set Suite Variable    ${PHONE_C_NUMBER}    ${phone_c_number}
+    ELSE
+        Set Suite Variable    ${PHONE_C}    ${None}
+    END
+```
 
 ---
 
