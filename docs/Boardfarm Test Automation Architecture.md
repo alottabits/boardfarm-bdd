@@ -12,15 +12,20 @@
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Four-Layer Architecture](#four-layer-architecture)
-3. [Device Interface Model](#device-interface-model)
-4. [Interface Selection Pattern](#interface-selection-pattern)
-5. [pytest-bdd Integration](#pytest-bdd-integration)
-6. [Robot Framework Integration](#robot-framework-integration)
-7. [Writing New Test Scenarios](#writing-new-test-scenarios)
-8. [use_cases Module Reference](#use_cases-module-reference)
-9. [Best Practices](#best-practices)
-10. [Anti-Patterns to Avoid](#anti-patterns-to-avoid)
+2. [Layer Summary](#layer-summary)
+3. [Four-Layer Architecture](#four-layer-architecture)
+4. [Layer Structure Details](#layer-structure-details) (Templates, Device Classes, Lib)
+5. [Device Interface Model](#device-interface-model)
+6. [Interface Selection Pattern](#interface-selection-pattern)
+7. [Boardfarm Configuration Files](#boardfarm-configuration-files)
+8. [Test Artifacts](#test-artifacts)
+9. [Data Flow Diagram](#data-flow-diagram)
+10. [pytest-bdd Integration](#pytest-bdd-integration)
+11. [Robot Framework Integration](#robot-framework-integration)
+12. [Writing New Test Scenarios](#writing-new-test-scenarios)
+13. [use_cases Module Reference](#use_cases-module-reference)
+14. [Best Practices](#best-practices)
+15. [Anti-Patterns to Avoid](#anti-patterns-to-avoid)
 
 ---
 
@@ -33,6 +38,7 @@ This architecture provides a **framework-agnostic approach** to test automation 
 - **Test logic lives in Boardfarm use_cases** (single source of truth)
 - **Test definitions are thin wrappers** (pytest-bdd steps, Robot Framework keywords)
 - **Device operations are abstracted** through consistent interfaces
+- **Tests remain portable** across different testbed topologies and component instantiations (containerized "digital twins" vs. dedicated appliances)
 
 ### Key Benefits
 
@@ -46,9 +52,24 @@ This architecture provides a **framework-agnostic approach** to test automation 
 ### Core Principle
 
 ```
-Step Definition / Keyword  →  use_case function  →  Device Template
-      (THIN WRAPPER)           (BUSINESS LOGIC)      (DEVICE OPS)
+Tests → Step Defs/Keywords → Boardfarm Use Cases → Templates
+         (thin wrappers)     (business logic)      (device contract)
 ```
+
+Tests never call device implementations directly. They depend on **templates** and **boardfarm use cases** only.
+
+### Layer Summary
+
+| Layer | Location | Purpose | Depends On |
+|-------|----------|---------|------------|
+| **Templates** | `boardfarm3/templates/` | Abstract device contracts (ABCs) | — |
+| **Device Classes** | `boardfarm3/devices/` | Concrete implementations | Templates, Lib |
+| **Lib** | `boardfarm3/lib/` | Schema, helpers, adapters | — |
+| **Boardfarm Use Cases** | `boardfarm3/use_cases/` | Test operations (single source of truth) | Templates |
+| **pytest-bdd Step Definitions** | `tests/step_defs/` | Gherkin step implementations | Boardfarm Use Cases |
+| **Robot Keyword Libraries** | `robot/libraries/` | Robot keyword implementations | Boardfarm Use Cases |
+| **Configuration** | `bf_config/` | Inventory + env config | — |
+| **Test Artifacts** | `bf_config/*_artifacts/`, `tests/test_artifacts/` | Large/binary data referenced by config | — |
 
 ---
 
@@ -61,11 +82,11 @@ Step Definition / Keyword  →  use_case function  →  Device Template
 │ LAYER 1: Test Definition                                                │
 │                                                                         │
 │   pytest-bdd                         Robot Framework                    │
-│   ┌──────────────────────┐          ┌──────────────────────┐           │
-│   │ @given/@when/@then   │          │ *** Test Cases ***   │           │
-│   │ step functions       │          │ Keywords             │           │
-│   │ (.py files)          │          │ (.robot files)       │           │
-│   └──────────┬───────────┘          └──────────┬───────────┘           │
+│   ┌──────────────────────┐          ┌──────────────────────┐            │
+│   │ @given/@when/@then   │          │ *** Test Cases ***   │            │
+│   │ step functions       │          │ Keywords             │            │
+│   │ (.py files)          │          │ (.robot files)       │            │
+│   └──────────┬───────────┘          └──────────┬───────────┘            │
 │              │                                  │                       │
 └──────────────┼──────────────────────────────────┼───────────────────────┘
                │                                  │
@@ -82,7 +103,7 @@ Step Definition / Keyword  →  use_case function  →  Device Template
 │   │ tests/step_defs/     │          │ robot/libraries/     │           │
 │   │ - acs_steps.py       │          │ - acs_keywords.py    │           │
 │   │ - cpe_steps.py       │          │ - cpe_keywords.py    │           │
-│   └──────────┬───────────┘          └──────────┬───────────┘           │
+│   └──────────┬───────────┘          └───────────┬──────────┘           │
 │              │                                  │                       │
 └──────────────┼──────────────────────────────────┼───────────────────────┘
                │                                  │
@@ -131,12 +152,72 @@ Step Definition / Keyword  →  use_case function  →  Device Template
 
 ### Layer Responsibilities
 
-| Layer | Responsibility | Contains | Does NOT Contain |
-|-------|---------------|----------|------------------|
-| **Layer 1** | Test definition (human-readable) | Gherkin steps, Robot keywords | Business logic |
-| **Layer 2** | Framework integration | Parameter passing, fixtures | Business logic |
-| **Layer 3** | Test operations (business logic) | Retries, polling, validation | Device protocol details |
-| **Layer 4** | Device communication | Protocol implementations | Test-specific logic |
+| Layer       | Responsibility                   | Contains                      | Does NOT Contain        |
+| ----------- | -------------------------------- | ----------------------------- | ----------------------- |
+| **Layer 1** | Test definition (human-readable) | Gherkin steps, Robot keywords | Business logic          |
+| **Layer 2** | Framework integration            | Parameter passing, fixtures   | Business logic          |
+| **Layer 3** | Test operations (business logic) | Retries, polling, validation  | Device protocol details |
+| **Layer 4** | Device communication             | Protocol implementations      | Test-specific logic     |
+
+---
+
+## Layer Structure Details
+
+### Templates
+
+**Location:** `boardfarm3/templates/*.py`
+
+**Purpose:** Define the **contract** (abstract interface) that devices must implement. Boardfarm use cases and tests import templates, not concrete device classes.
+
+**Characteristics:**
+- Python ABCs with `@abstractmethod`
+- High-level, stable signatures
+- No transport or vendor specifics
+
+**Examples:** `WAN`, `LAN`, `ACS`, `CPE`, `SIPPhone`, `SIPServer`, `Provisioner`, `TrafficController`
+
+```python
+# boardfarm3/templates/sip_phone.py
+class SIPPhone(ABC):
+    @abstractmethod
+    def dial(self, number: str) -> None: ...
+
+    @abstractmethod
+    def answer(self) -> None: ...
+```
+
+**Guideline:** Add capabilities via new ABCs or optional mixins rather than changing existing signatures.
+
+### Device Classes
+
+**Location:** `boardfarm3/devices/*.py`
+
+**Purpose:** Concrete implementations of templates. Translate template methods into transport-specific actions (SSH, serial, HTTP, docker exec, etc.).
+
+**Characteristics:**
+- Inherit from template(s) and base device (`LinuxDevice`, `BoardfarmDevice`)
+- Receive merged config (`config`, `cmdline_args`) at construction
+- May implement device hooks for boot/provision lifecycle
+- Registered via `boardfarm_add_devices` hook (`type` → class mapping)
+
+**Example:** `PJSIPPhone(SIPPhone)`, `LinuxWAN(WAN)`, `GenieACS(ACS)`
+
+**Config flow:** Device receives **merged config** (inventory + env) from `parse_boardfarm_config()`. Device-specific keys (e.g. `impairment_profile`, `gui_fsm_graph_file`) come from this merged dict.
+
+### Lib
+
+**Location:** `boardfarm3/lib/*.py`
+
+**Purpose:** Shared utilities, schemas, and adapters that are **not** device implementations.
+
+**Contains:**
+- **Schemas:** Dataclasses, type definitions (e.g. `ImpairmentProfile`)
+- **Helpers:** Console-agnostic functions (e.g. `set_profile_via_tc`, `http_get`)
+- **Adapters:** Composable components (e.g. `LinuxTrafficControlAdapter`, `FsmGuiComponent`)
+
+**Does NOT contain:** Business logic that belongs in use cases, or device-specific I/O that belongs in device classes.
+
+**Example:** `lib/traffic_control.py` has `ImpairmentProfile`, `profile_from_dict`, `set_profile_via_tc`, `LinuxTrafficControlAdapter`.
 
 ---
 
@@ -290,6 +371,150 @@ def stop_tr069_client(board):
 | Testing GUI functionality | Explicitly pass `via="gui"` | Tests the specific interface |
 | Performance-critical | Use NBI | Web UI is slower |
 | Single-interface operation | No `via` parameter | Keeps API simple |
+
+---
+
+## Boardfarm Configuration Files
+
+Boardfarm uses **two** configuration files, merged at runtime.
+
+### Inventory Config
+
+**Location:** `bf_config/boardfarm_config_*.json`  
+**CLI:** `--inventory-config`
+
+**Purpose:** Device identity, connection details, topology.
+
+**Contains:**
+- Device list with `name`, `type`, `connection_type`, `ipaddr`, `port`, etc.
+- Topology-specific keys (e.g. `impairment_interface`, `wan_iface`)
+- **Paths to artifact files** when data is too large for inline config (see [Test Artifacts](#test-artifacts))
+
+**Structure (supports multi-testbed):** Top-level keys are testbed names; each value has `devices` array.
+
+### Environment Config
+
+**Location:** `bf_config/boardfarm_env_*.json`  
+**CLI:** `--env-config`
+
+**Purpose:** Per-device defaults, provisioning behavior, named presets.
+
+**Contains:**
+- `environment_def[device_name]`: Merged with each device's inventory entry
+- `environment_def.impairment_presets`: Optional named presets for BDD vocabulary
+- Provisioning mode, model, lan_clients, etc.
+
+### Merge Behavior
+
+`parse_boardfarm_config()` merges inventory + env via `jsonmerge.merge()`:
+- For each device, `environment_def[device_name]` is merged on top of inventory device config
+- Result: single merged config per device passed to device constructor
+
+**Guideline:** Prefer env config for per-device defaults and presets. Use inventory for connection/topology only.
+
+---
+
+## Test Artifacts
+
+**When to use:** When configuration data is **too large** or **binary** to fit inline in JSON config files.
+
+### Pattern: Config References Artifacts
+
+Config files stay small. Device config holds **paths** to artifact files. Devices load artifacts at runtime.
+
+```
+bf_config/
+├── boardfarm_config_prplos_rpi.json   # References paths
+├── boardfarm_env_example.json
+└── gui_artifacts/
+    └── genieacs/
+        ├── fsm_graph_expanded.json    # Large FSM graph
+        ├── fsm_graph_augmented.json
+        └── screenshots/               # Reference images
+            ├── references/
+            └── ...
+```
+
+### GUI Example: FSM Graphs and Screenshots
+
+The GenieACS GUI device uses artifacts because:
+- **FSM graphs** are large JSON files (states, transitions, fingerprints)
+- **Screenshots** are binary reference images for visual regression
+
+**Device config (inventory):**
+```json
+{
+  "name": "genieacs",
+  "type": "bf_acs",
+  "gui_fsm_graph_file": "bf_config/gui_artifacts/genieacs/fsm_graph_expanded.json",
+  "gui_screenshot_dir": "bf_config/gui_artifacts/genieacs/screenshots"
+}
+```
+
+**Artifact layout:**
+- `gui_artifacts/{device}/`: FSM graphs, selectors, navigation files
+- `gui_artifacts/{device}/screenshots/`: Visual regression references
+
+**Reference:** See `boardfarm3/lib/gui/README.md` in the boardfarm repository for FSM graph generation and GUI configuration.
+
+### tests/test_artifacts/
+
+**Location:** `tests/test_artifacts/`
+
+**Purpose:** Test data that is **not** device configuration—e.g. firmware images, metadata, fixtures for unit tests.
+
+**Use when:** Data is test-suite specific, not testbed-specific.
+
+**Example:** `metadata.json` for device compatibility info.
+
+### Decision: Config vs. Artifact
+
+| Data Type | Put In | Reason |
+|-----------|--------|--------|
+| Per-device defaults (small) | Env config | Fits in JSON, merged cleanly |
+| Connection details | Inventory | Topology/identity |
+| Large graphs, images | Artifacts + path in config | Too large for JSON |
+| Test-specific fixtures | `tests/test_artifacts/` | Not testbed config |
+| Named presets for BDD | Env config `impairment_presets` | Small, shared vocabulary |
+
+---
+
+## Data Flow Diagram
+
+```mermaid
+flowchart TB
+    subgraph Config
+        INV[Inventory JSON]
+        ENV[Env JSON]
+        MERGE[parse_boardfarm_config]
+        INV --> MERGE
+        ENV --> MERGE
+    end
+
+    subgraph Artifacts
+        ART[gui_artifacts/, test_artifacts/]
+    end
+
+    subgraph Boardfarm
+        DM[DeviceManager]
+        DEV[Device Classes]
+        UC[Use Cases]
+        TMP[Templates]
+    end
+
+    subgraph Tests
+        SD[Step Defs]
+        KW[Keywords]
+    end
+
+    MERGE --> DM
+    MERGE --> DEV
+    INV -.->|paths| ART
+    DEV --> TMP
+    UC --> TMP
+    SD --> UC
+    KW --> UC
+```
 
 ---
 
@@ -780,6 +1005,18 @@ value = acs_use_cases.get_parameter_value(acs, cpe, param)
 
 ## Appendix A: Quick Reference Card
 
+### Action-Oriented Quick Reference
+
+| I want to... | Do this |
+|--------------|---------|
+| Add a new device type | Create template (ABC), device class, register in `boardfarm_add_devices` |
+| Add a test operation | Add use case in `boardfarm3/use_cases/` |
+| Add a BDD step | Add step def in `tests/step_defs/` that calls use case |
+| Add a Robot keyword | Add keyword in `robot/libraries/` that calls use case |
+| Configure device defaults | Add to env config `environment_def[device_name]` |
+| Add large/binary data | Put in `bf_config/*_artifacts/`, reference path in device config |
+| Support multiple testbeds | Use inventory top-level keys or separate config files |
+
 ### pytest-bdd Step Pattern
 
 ```python
@@ -918,7 +1155,15 @@ def operation_name(
 
 ---
 
-**Document Version**: 1.1  
-**Last Updated**: January 26, 2026  
+## Related Documents
+
+- **[Traffic Management Components Architecture](./Traffic_Management_Components_Architecture.md)** — Example of template, device, lib, use case, config split for traffic control
+- **[Dual Framework Restructure Plan](./dual_framework_restructure_plan.md)** — pytest-bdd and Robot structure
+- **[Boardfarm Architecture](https://ketantewari.github.io/boardfarm/)** — Core framework overview
+
+---
+
+**Document Version**: 1.2  
+**Last Updated**: February 14, 2026  
 **Maintainer**: Test Automation Team  
 **Implementation Status**: ✅ Complete
