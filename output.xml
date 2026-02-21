@@ -1,1415 +1,350 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<robot generator="Robot 7.4.1 (Python 3.12.3 on linux)" generated="2026-02-04T10:03:10.175106" rpa="false" schemaversion="5">
+<robot generator="Robot 7.4.1 (Python 3.12.3 on linux)" generated="2026-02-16T07:17:51.061691" rpa="false" schemaversion="5">
 <suite id="s1" name="Tests" source="/home/rjvisser/projects/req-tst/boardfarm-bdd/robot/tests">
 <suite id="s1-s1" name="User Makes One Way Call" source="/home/rjvisser/projects/req-tst/boardfarm-bdd/robot/tests/user_makes_one_way_call.robot">
 <kw name="Setup Voice Test Environment" owner="voice" type="SETUP">
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:14.135940" level="INFO">Setting up voice test environment...</msg>
+<msg time="2026-02-16T07:19:24.345506" level="INFO">Setting up voice test environment...</msg>
 <arg>Setting up voice test environment...</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.135611" elapsed="0.000416"/>
+<status status="PASS" start="2026-02-16T07:19:24.345182" elapsed="0.000434"/>
 </kw>
 <kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
-<msg time="2026-02-04T10:03:14.136692" level="INFO">${acs} = &lt;boardfarm3.devices.genie_acs.GenieACS object at 0x722b667c9370&gt;</msg>
+<msg time="2026-02-16T07:19:24.346124" level="INFO">${acs} = &lt;boardfarm3.devices.genie_acs.GenieACS object at 0x79901a5f57f0&gt;</msg>
 <var>${acs}</var>
 <arg>ACS</arg>
 <doc>Get a device by its type name.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.136216" elapsed="0.000508"/>
+<status status="PASS" start="2026-02-16T07:19:24.345799" elapsed="0.000357"/>
 </kw>
 <kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
-<msg time="2026-02-04T10:03:14.137175" level="INFO">${cpe} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x722b667cb7a0&gt;</msg>
+<msg time="2026-02-16T07:19:24.346483" level="INFO">${cpe} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x799019737fb0&gt;</msg>
 <var>${cpe}</var>
 <arg>CPE</arg>
 <doc>Get a device by its type name.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.136907" elapsed="0.000307"/>
+<status status="PASS" start="2026-02-16T07:19:24.346280" elapsed="0.000229"/>
 </kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<msg time="2026-02-16T07:19:24.347009" level="INFO">${ACS} = &lt;boardfarm3.devices.genie_acs.GenieACS object at 0x79901a5f57f0&gt;</msg>
+<arg>${ACS}</arg>
+<arg>${acs}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-02-16T07:19:24.346631" elapsed="0.000421"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<msg time="2026-02-16T07:19:24.347407" level="INFO">${CPE} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x799019737fb0&gt;</msg>
+<arg>${CPE}</arg>
+<arg>${cpe}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-02-16T07:19:24.347159" elapsed="0.000287"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
 <kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
-<msg time="2026-02-04T10:03:14.137552" level="INFO">${sipcenter} = &lt;boardfarm3.devices.kamailio.SIPcenterKamailio5 object at 0x722b66bd6060&gt;</msg>
+<arg>SIPServer</arg>
+<doc>Get a device by its type name.</doc>
+<status status="PASS" start="2026-02-16T07:19:24.347904" elapsed="0.000138"/>
+</kw>
+<msg time="2026-02-16T07:19:24.348127" level="INFO">${sipcenter_result} = True</msg>
+<var>${sipcenter_result}</var>
+<arg>Get Device By Type</arg>
+<arg>SIPServer</arg>
+<doc>Runs the specified keyword and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-02-16T07:19:24.347556" elapsed="0.000598"/>
+</kw>
+<if>
+<branch type="IF" condition="not ${sipcenter_result}">
+<kw name="Log" owner="BuiltIn">
+<arg>WARNING: No SIPServer available - voice tests will be skipped</arg>
+<arg>level=WARN</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="NOT RUN" start="2026-02-16T07:19:24.348448" elapsed="0.000023"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<arg>${SIPCENTER}</arg>
+<arg>${None}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="NOT RUN" start="2026-02-16T07:19:24.348571" elapsed="0.000019"/>
+</kw>
+<status status="NOT RUN" start="2026-02-16T07:19:24.348256" elapsed="0.000362"/>
+</branch>
+<branch type="ELSE">
+<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<msg time="2026-02-16T07:19:24.348931" level="INFO">${sipcenter} = &lt;boardfarm3.devices.kamailio.SIPcenterKamailio5 object at 0x79901b0f13a0&gt;</msg>
 <var>${sipcenter}</var>
 <arg>SIPServer</arg>
 <doc>Get a device by its type name.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.137332" elapsed="0.000245"/>
-</kw>
-<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
-<msg time="2026-02-04T10:03:14.137921" level="INFO">${lan_phone} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66822930&gt;</msg>
-<var>${lan_phone}</var>
-<arg>SIPPhone</arg>
-<arg>index=0</arg>
-<doc>Get a device by its type name.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.137678" elapsed="0.000269"/>
-</kw>
-<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
-<msg time="2026-02-04T10:03:14.138238" level="INFO">${wan_phone} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</msg>
-<var>${wan_phone}</var>
-<arg>SIPPhone</arg>
-<arg>index=1</arg>
-<doc>Get a device by its type name.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.138047" elapsed="0.000214"/>
-</kw>
-<kw name="Get Device By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
-<msg time="2026-02-04T10:03:14.138584" level="INFO">${wan_phone2} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</msg>
-<var>${wan_phone2}</var>
-<arg>SIPPhone</arg>
-<arg>index=2</arg>
-<doc>Get a device by its type name.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.138359" elapsed="0.000250"/>
+<status status="PASS" start="2026-02-16T07:19:24.348741" elapsed="0.000214"/>
 </kw>
 <kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:14.139029" level="INFO">${ACS} = &lt;boardfarm3.devices.genie_acs.GenieACS object at 0x722b667c9370&gt;</msg>
-<arg>${ACS}</arg>
-<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.138725" elapsed="0.000344"/>
-</kw>
-<kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:14.139416" level="INFO">${CPE} = &lt;boardfarm3.devices.prplos_cpe.PrplDockerCPE object at 0x722b667cb7a0&gt;</msg>
-<arg>${CPE}</arg>
-<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.139168" elapsed="0.000309"/>
-</kw>
-<kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:14.139962" level="INFO">${SIPCENTER} = &lt;boardfarm3.devices.kamailio.SIPcenterKamailio5 object at 0x722b66bd6060&gt;</msg>
+<msg time="2026-02-16T07:19:24.349301" level="INFO">${SIPCENTER} = &lt;boardfarm3.devices.kamailio.SIPcenterKamailio5 object at 0x79901b0f13a0&gt;</msg>
 <arg>${SIPCENTER}</arg>
+<arg>${sipcenter}</arg>
 <doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.139576" elapsed="0.000453"/>
+<status status="PASS" start="2026-02-16T07:19:24.349056" elapsed="0.000284"/>
+</kw>
+<status status="PASS" start="2026-02-16T07:19:24.348647" elapsed="0.000724"/>
+</branch>
+<status status="PASS" start="2026-02-16T07:19:24.348224" elapsed="0.001170"/>
+</if>
+<kw name="Get Devices By Type" owner="robotframework_boardfarm.BoardfarmLibrary">
+<msg time="2026-02-16T07:19:24.349963" level="INFO">${phones} = {'lan_phone': &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x79901a647e00&gt;, 'wan_phone': &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x79901c259fa0&gt;, 'wan_phone2': &lt;boardfarm3.devices...</msg>
+<var>${phones}</var>
+<arg>SIPPhone</arg>
+<doc>Get all devices of a specific type.</doc>
+<status status="PASS" start="2026-02-16T07:19:24.349494" elapsed="0.000497"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<msg time="2026-02-16T07:19:24.350572" level="INFO">Length is 3.</msg>
+<msg time="2026-02-16T07:19:24.350652" level="INFO">${phone_count} = 3</msg>
+<var>${phone_count}</var>
+<arg>${phones}</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="PASS" start="2026-02-16T07:19:24.350091" elapsed="0.000594"/>
 </kw>
 <kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:14.140497" level="INFO">${LAN_PHONE} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66822930&gt;</msg>
+<msg time="2026-02-16T07:19:24.351833" level="INFO">${AVAILABLE_PHONES} = {'lan_phone': &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x79901a647e00&gt;, 'wan_phone': &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x79901c259fa0&gt;, 'wan_phone2': &lt;boardfarm3.devices...</msg>
+<arg>${AVAILABLE_PHONES}</arg>
+<arg>${phones}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-02-16T07:19:24.350830" elapsed="0.001048"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<msg time="2026-02-16T07:19:24.352239" level="INFO">${PHONE_COUNT} = 3</msg>
+<arg>${PHONE_COUNT}</arg>
+<arg>${phone_count}</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-02-16T07:19:24.351996" elapsed="0.000282"/>
+</kw>
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-02-16T07:19:24.352579" level="INFO">Found 3 SIP phone(s) in testbed</msg>
+<arg>Found ${phone_count} SIP phone(s) in testbed</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-02-16T07:19:24.352374" elapsed="0.000244"/>
+</kw>
+<kw name="Set Variable If" owner="BuiltIn">
+<msg time="2026-02-16T07:19:24.353090" level="FAIL">Dictionary '${phones}' has no key '0'.</msg>
+<var>${lan_phone}</var>
+<arg>${phone_count} &gt; 0</arg>
+<arg>${phones}[0]</arg>
+<arg>${None}</arg>
+<doc>Sets variable based on the given condition.</doc>
+<status status="FAIL" start="2026-02-16T07:19:24.352725" elapsed="0.000406">Dictionary '${phones}' has no key '0'.</status>
+</kw>
+<kw name="Set Variable If" owner="BuiltIn">
+<var>${wan_phone}</var>
+<arg>${phone_count} &gt; 1</arg>
+<arg>${phones}[1]</arg>
+<arg>${None}</arg>
+<doc>Sets variable based on the given condition.</doc>
+<status status="NOT RUN" start="2026-02-16T07:19:24.353250" elapsed="0.000020"/>
+</kw>
+<kw name="Set Variable If" owner="BuiltIn">
+<var>${wan_phone2}</var>
+<arg>${phone_count} &gt; 2</arg>
+<arg>${phones}[2]</arg>
+<arg>${None}</arg>
+<doc>Sets variable based on the given condition.</doc>
+<status status="NOT RUN" start="2026-02-16T07:19:24.353367" elapsed="0.000017"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
 <arg>${LAN_PHONE}</arg>
 <arg>${lan_phone}</arg>
 <doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.140209" elapsed="0.000332"/>
+<status status="NOT RUN" start="2026-02-16T07:19:24.353477" elapsed="0.000017"/>
 </kw>
 <kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:14.140918" level="INFO">${WAN_PHONE} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</msg>
 <arg>${WAN_PHONE}</arg>
 <arg>${wan_phone}</arg>
 <doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.140652" elapsed="0.000309"/>
+<status status="NOT RUN" start="2026-02-16T07:19:24.353582" elapsed="0.000016"/>
 </kw>
 <kw name="Set Suite Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:14.141367" level="INFO">${WAN_PHONE2} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</msg>
 <arg>${WAN_PHONE2}</arg>
 <arg>${wan_phone2}</arg>
 <doc>Makes a variable available everywhere within the scope of the current suite.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.141105" elapsed="0.000308"/>
+<status status="NOT RUN" start="2026-02-16T07:19:24.353808" elapsed="0.000027"/>
 </kw>
+<if>
+<branch type="IF" condition="$SIPCENTER is not None">
 <kw name="The SIP server is running and operational" owner="voice_keywords">
-<msg time="2026-02-04T10:03:14.208768" level="INFO">✓ SIP server is running: Running</msg>
 <arg>${SIPCENTER}</arg>
 <doc>Verify SIP server (Kamailio) is running.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.141508" elapsed="0.067353"/>
+<status status="NOT RUN" start="2026-02-16T07:19:24.354001" elapsed="0.000017"/>
 </kw>
+<status status="NOT RUN" start="2026-02-16T07:19:24.353900" elapsed="0.000145"/>
+</branch>
+<status status="NOT RUN" start="2026-02-16T07:19:24.353882" elapsed="0.000184"/>
+</if>
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:14.209335" level="INFO">Voice test environment initialized</msg>
-<arg>Voice test environment initialized</arg>
+<arg>Voice test environment initialized: ${phone_count} phones available</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.209045" elapsed="0.000343"/>
+<status status="NOT RUN" start="2026-02-16T07:19:24.354152" elapsed="0.000017"/>
 </kw>
-<doc>Initialize voice test environment with SIP phones.
-Sets suite variables: ACS, CPE, SIPCENTER, LAN_PHONE, WAN_PHONE, WAN_PHONE2</doc>
-<status status="PASS" start="2026-02-04T10:03:14.134845" elapsed="0.074677"/>
+<doc>Initialize voice test environment with SIP phones.</doc>
+<status status="FAIL" start="2026-02-16T07:19:24.344369" elapsed="0.009903">Dictionary '${phones}' has no key '0'.</status>
 </kw>
-<test id="s1-s1-t1" name="UC-12348-Main-V1: LAN Phone Calls WAN Phone (NAT Outbound)" line="25">
-<kw name="Register Phone On LAN Side" owner="voice">
-<kw name="Register phone with SIP server" owner="voice_keywords">
-<msg time="2026-02-04T10:03:16.637097" level="INFO">✓ Phone lan_phone (number 1000) is registered</msg>
-<arg>${phone}</arg>
-<arg>${SIPCENTER}</arg>
-<arg>name=lan_phone</arg>
-<doc>Register a phone with the SIP server.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.210626" elapsed="2.426587"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:16.637966" level="INFO">Phone 1000 registered on LAN side</msg>
-<arg>Phone ${number} registered on LAN side</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:16.637483" elapsed="0.000562"/>
-</kw>
-<arg>${LAN_PHONE}</arg>
-<arg>${LAN_PHONE_NUMBER}</arg>
-<doc>Register a SIP phone on the LAN side of the CPE.</doc>
-<status status="PASS" start="2026-02-04T10:03:14.210240" elapsed="2.427921"/>
-</kw>
-<kw name="Register Phone On WAN Side" owner="voice">
-<kw name="Register phone with SIP server" owner="voice_keywords">
-<msg time="2026-02-04T10:03:19.070150" level="INFO">✓ Phone wan_phone (number 2000) is registered</msg>
-<arg>${phone}</arg>
-<arg>${SIPCENTER}</arg>
-<doc>Register a phone with the SIP server.</doc>
-<status status="PASS" start="2026-02-04T10:03:16.639958" elapsed="2.430448"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:19.072022" level="INFO">Phone 2000 registered on WAN side</msg>
-<arg>Phone ${number} registered on WAN side</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:19.070879" elapsed="0.001251"/>
-</kw>
-<arg>${WAN_PHONE}</arg>
-<arg>${WAN_PHONE_NUMBER}</arg>
-<doc>Register a SIP phone on the WAN side of the CPE.</doc>
-<status status="PASS" start="2026-02-04T10:03:16.638569" elapsed="2.433969"/>
-</kw>
-<kw name="Set Caller And Callee" owner="voice">
-<kw name="Assign caller and callee roles" owner="voice_keywords">
-<msg time="2026-02-04T10:03:19.073872" level="INFO">✓ Assigned roles: caller=lan_phone, callee=wan_phone</msg>
-<arg>${caller}</arg>
-<arg>${callee}</arg>
-<doc>Assign caller and callee roles to phones.</doc>
-<status status="PASS" start="2026-02-04T10:03:19.073378" elapsed="0.000563"/>
-</kw>
-<kw name="Set Test Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:19.074708" level="INFO">${CALLER} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66822930&gt;</msg>
-<arg>${CALLER}</arg>
-<arg>${caller}</arg>
-<doc>Makes a variable available everywhere within the scope of the current test.</doc>
-<status status="PASS" start="2026-02-04T10:03:19.074143" elapsed="0.000633"/>
-</kw>
-<kw name="Set Test Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:19.075336" level="INFO">${CALLEE} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</msg>
-<arg>${CALLEE}</arg>
-<arg>${callee}</arg>
-<doc>Makes a variable available everywhere within the scope of the current test.</doc>
-<status status="PASS" start="2026-02-04T10:03:19.074974" elapsed="0.000406"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:19.075899" level="INFO">Caller: &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66822930&gt;, Callee: &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</msg>
-<arg>Caller: ${caller}, Callee: ${callee}</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:19.075568" elapsed="0.000411"/>
-</kw>
-<arg>${LAN_PHONE}</arg>
-<arg>${WAN_PHONE}</arg>
-<doc>Set the caller and callee phones for the test.
-Also sets CALLER and CALLEE test variables for use in keywords.</doc>
-<status status="PASS" start="2026-02-04T10:03:19.072968" elapsed="0.003192"/>
-</kw>
-<kw name="Caller calls callee" owner="voice_keywords">
-<msg time="2026-02-04T10:03:19.309034" level="INFO">Phone lan_phone dialing 2000...
-✓ Phone lan_phone dialed 2000</msg>
-<doc>Caller dials the callee's number.</doc>
-<status status="PASS" start="2026-02-04T10:03:19.076370" elapsed="0.232868"/>
-</kw>
-<kw name="The callee phone should start ringing" owner="voice_keywords">
-<msg time="2026-02-04T10:03:19.373532" level="INFO">✓ Phone wan_phone reached ringing state</msg>
-<doc>Alias for Verify phone is ringing.</doc>
-<status status="PASS" start="2026-02-04T10:03:19.309752" elapsed="0.064024"/>
-</kw>
-<kw name="Callee answers call" owner="voice_keywords">
-<msg time="2026-02-04T10:03:19.719324" level="INFO">Phone wan_phone answering call...
-✓ Phone wan_phone answered call</msg>
-<doc>Callee answers incoming call.</doc>
-<status status="PASS" start="2026-02-04T10:03:19.374165" elapsed="0.345279"/>
-</kw>
-<kw name="Both phones should be connected" owner="voice_keywords">
-<msg time="2026-02-04T10:03:19.838368" level="INFO">✓ Phone lan_phone reached connected state
-✓ Phone wan_phone reached connected state</msg>
-<doc>Verify both phones are in connected state.</doc>
-<status status="PASS" start="2026-02-04T10:03:19.719690" elapsed="0.118825"/>
-</kw>
-<kw name="A bidirectional RTP media session should be established" owner="voice_keywords">
-<msg time="2026-02-04T10:03:19.945995" level="INFO">✓ Bidirectional RTP media session established</msg>
-<doc>Verify RTP media session is established.</doc>
-<status status="PASS" start="2026-02-04T10:03:19.838866" elapsed="0.107231"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:19.948225" level="INFO">Voice communication established through CPE NAT</msg>
-<arg>Voice communication established through CPE NAT</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:19.946863" elapsed="0.001648"/>
-</kw>
-<kw name="Caller hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:20.109966" level="INFO">Phone lan_phone hanging up...
-✓ Phone lan_phone hung up</msg>
-<doc>Caller hangs up the call.</doc>
-<status status="PASS" start="2026-02-04T10:03:19.948804" elapsed="0.161425"/>
-</kw>
-<kw name="Verify SIP call terminated" owner="voice_keywords">
-<msg time="2026-02-04T10:03:20.202813" level="INFO">✓ SIP server terminated call (0 active calls)</msg>
-<doc>Verify SIP server terminated the call.</doc>
-<status status="PASS" start="2026-02-04T10:03:20.110933" elapsed="0.091976"/>
-</kw>
-<kw name="Both phones should return to idle state" owner="voice_keywords">
-<msg time="2026-02-04T10:03:20.335067" level="INFO">✓ Phone lan_phone reached idle state
-✓ Phone wan_phone reached idle state</msg>
-<doc>Verify both phones returned to idle state.</doc>
-<status status="PASS" start="2026-02-04T10:03:20.203159" elapsed="0.132037"/>
-</kw>
-<kw name="Cleanup SIP Phones After Test" owner="common" type="TEARDOWN">
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:20.336297" level="INFO">Cleaning up SIP phones...</msg>
-<arg>Cleaning up SIP phones...</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:20.336032" elapsed="0.000316"/>
-</kw>
-<for flavor="IN">
-<iter>
-<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:20.501125" level="INFO">Phone lan_phone hanging up...
-✓ Phone lan_phone hung up</msg>
-<arg>${phone}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:03:20.337162" elapsed="0.164303"/>
-</kw>
-<arg>Phone Hangs Up</arg>
-<arg>${phone}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:03:20.336739" elapsed="0.164977"/>
-</kw>
-<var name="${phone}">&lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66822930&gt;</var>
-<status status="PASS" start="2026-02-04T10:03:20.336619" elapsed="0.165233"/>
-</iter>
-<iter>
-<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:20.657629" level="INFO">Phone wan_phone hanging up...
-✓ Phone wan_phone hung up</msg>
-<arg>${phone}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:03:20.503728" elapsed="0.154006"/>
-</kw>
-<arg>Phone Hangs Up</arg>
-<arg>${phone}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:03:20.502866" elapsed="0.154945"/>
-</kw>
-<var name="${phone}">&lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</var>
-<status status="PASS" start="2026-02-04T10:03:20.502355" elapsed="0.155512"/>
-</iter>
-<var>${phone}</var>
-<value>@{phones}</value>
-<status status="PASS" start="2026-02-04T10:03:20.336454" elapsed="0.321481"/>
-</for>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:20.658531" level="INFO">SIP phone cleanup complete</msg>
-<arg>SIP phone cleanup complete</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:20.658191" elapsed="0.000386"/>
-</kw>
-<arg>${CALLER}</arg>
-<arg>${CALLEE}</arg>
-<doc>Cleanup any active SIP calls after test.
-Hangs up any phones that may still be in a call.</doc>
-<status status="PASS" start="2026-02-04T10:03:20.335640" elapsed="0.322995"/>
-</kw>
-<doc>LAN phone calls WAN phone - tests NAT outbound traversal</doc>
+<test id="s1-s1-t1" name="UC-12348-Main-V1: LAN Phone Calls WAN Phone (NAT Outbound)" line="34">
+<doc>LAN phone calls WAN phone - tests NAT outbound traversal
+Requires: 2 SIP phones, SIPServer</doc>
 <tag>boardfarm-bdd</tag>
 <tag>call</tag>
 <tag>main-scenario</tag>
 <tag>nat-outbound</tag>
 <tag>UC-12348</tag>
 <tag>voice</tag>
-<status status="PASS" start="2026-02-04T10:03:14.209626" elapsed="6.449115"/>
+<status status="FAIL" start="2026-02-16T07:19:24.354356" elapsed="0.000556">Parent suite setup failed:
+Dictionary '${phones}' has no key '0'.</status>
 </test>
-<test id="s1-s1-t2" name="UC-12348-Main-V3: WAN Phone Calls LAN Phone (NAT Inbound)" line="49">
-<kw name="Register Phone On WAN Side" owner="voice">
-<kw name="Register phone with SIP server" owner="voice_keywords">
-<msg time="2026-02-04T10:03:23.117507" level="INFO">✓ Phone wan_phone (number 2000) is registered</msg>
-<arg>${phone}</arg>
-<arg>${SIPCENTER}</arg>
-<doc>Register a phone with the SIP server.</doc>
-<status status="PASS" start="2026-02-04T10:03:20.660107" elapsed="2.457539"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:23.118123" level="INFO">Phone 2000 registered on WAN side</msg>
-<arg>Phone ${number} registered on WAN side</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:23.117819" elapsed="0.000354"/>
-</kw>
-<arg>${WAN_PHONE}</arg>
-<arg>${WAN_PHONE_NUMBER}</arg>
-<doc>Register a SIP phone on the WAN side of the CPE.</doc>
-<status status="PASS" start="2026-02-04T10:03:20.659616" elapsed="2.458615"/>
-</kw>
-<kw name="Register Phone On LAN Side" owner="voice">
-<kw name="Register phone with SIP server" owner="voice_keywords">
-<msg time="2026-02-04T10:03:25.565277" level="INFO">✓ Phone lan_phone (number 1000) is registered</msg>
-<arg>${phone}</arg>
-<arg>${SIPCENTER}</arg>
-<arg>name=lan_phone</arg>
-<doc>Register a phone with the SIP server.</doc>
-<status status="PASS" start="2026-02-04T10:03:23.118709" elapsed="2.446838"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:25.567121" level="INFO">Phone 1000 registered on LAN side</msg>
-<arg>Phone ${number} registered on LAN side</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:25.566052" elapsed="0.001250"/>
-</kw>
-<arg>${LAN_PHONE}</arg>
-<arg>${LAN_PHONE_NUMBER}</arg>
-<doc>Register a SIP phone on the LAN side of the CPE.</doc>
-<status status="PASS" start="2026-02-04T10:03:23.118427" elapsed="2.449140"/>
-</kw>
-<kw name="Set Caller And Callee" owner="voice">
-<kw name="Assign caller and callee roles" owner="voice_keywords">
-<msg time="2026-02-04T10:03:25.570362" level="INFO">✓ Assigned roles: caller=wan_phone, callee=lan_phone</msg>
-<arg>${caller}</arg>
-<arg>${callee}</arg>
-<doc>Assign caller and callee roles to phones.</doc>
-<status status="PASS" start="2026-02-04T10:03:25.569537" elapsed="0.000883"/>
-</kw>
-<kw name="Set Test Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:25.570965" level="INFO">${CALLER} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</msg>
-<arg>${CALLER}</arg>
-<arg>${caller}</arg>
-<doc>Makes a variable available everywhere within the scope of the current test.</doc>
-<status status="PASS" start="2026-02-04T10:03:25.570550" elapsed="0.000483"/>
-</kw>
-<kw name="Set Test Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:25.571610" level="INFO">${CALLEE} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66822930&gt;</msg>
-<arg>${CALLEE}</arg>
-<arg>${callee}</arg>
-<doc>Makes a variable available everywhere within the scope of the current test.</doc>
-<status status="PASS" start="2026-02-04T10:03:25.571205" elapsed="0.000451"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:25.572109" level="INFO">Caller: &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;, Callee: &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66822930&gt;</msg>
-<arg>Caller: ${caller}, Callee: ${callee}</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:25.571772" elapsed="0.000382"/>
-</kw>
-<arg>${WAN_PHONE}</arg>
-<arg>${LAN_PHONE}</arg>
-<doc>Set the caller and callee phones for the test.
-Also sets CALLER and CALLEE test variables for use in keywords.</doc>
-<status status="PASS" start="2026-02-04T10:03:25.568266" elapsed="0.003954"/>
-</kw>
-<kw name="Caller calls callee" owner="voice_keywords">
-<msg time="2026-02-04T10:03:25.798029" level="INFO">Phone wan_phone dialing 1000...
-✓ Phone wan_phone dialed 1000</msg>
-<doc>Caller dials the callee's number.</doc>
-<status status="PASS" start="2026-02-04T10:03:25.572444" elapsed="0.225684"/>
-</kw>
-<kw name="The callee phone should start ringing" owner="voice_keywords">
-<msg time="2026-02-04T10:03:25.860151" level="INFO">✓ Phone lan_phone reached ringing state</msg>
-<doc>Alias for Verify phone is ringing.</doc>
-<status status="PASS" start="2026-02-04T10:03:25.798377" elapsed="0.061895"/>
-</kw>
-<kw name="Callee answers call" owner="voice_keywords">
-<msg time="2026-02-04T10:03:26.207985" level="INFO">Phone lan_phone answering call...
-✓ Phone lan_phone answered call</msg>
-<doc>Callee answers incoming call.</doc>
-<status status="PASS" start="2026-02-04T10:03:25.860590" elapsed="0.347484"/>
-</kw>
-<kw name="Both phones should be connected" owner="voice_keywords">
-<msg time="2026-02-04T10:03:26.338132" level="INFO">✓ Phone wan_phone reached connected state
-✓ Phone lan_phone reached connected state</msg>
-<doc>Verify both phones are in connected state.</doc>
-<status status="PASS" start="2026-02-04T10:03:26.208294" elapsed="0.129930"/>
-</kw>
-<kw name="A bidirectional RTP media session should be established" owner="voice_keywords">
-<msg time="2026-02-04T10:03:26.443768" level="INFO">✓ Bidirectional RTP media session established</msg>
-<doc>Verify RTP media session is established.</doc>
-<status status="PASS" start="2026-02-04T10:03:26.338536" elapsed="0.105347"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:26.444512" level="INFO">Voice communication established through CPE NAT</msg>
-<arg>Voice communication established through CPE NAT</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:26.444139" elapsed="0.000434"/>
-</kw>
-<kw name="Caller hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:26.615244" level="INFO">Phone wan_phone hanging up...
-✓ Phone wan_phone hung up</msg>
-<doc>Caller hangs up the call.</doc>
-<status status="PASS" start="2026-02-04T10:03:26.444762" elapsed="0.170868"/>
-</kw>
-<kw name="Verify SIP call terminated" owner="voice_keywords">
-<msg time="2026-02-04T10:03:26.691996" level="INFO">✓ SIP server terminated call (0 active calls)</msg>
-<doc>Verify SIP server terminated the call.</doc>
-<status status="PASS" start="2026-02-04T10:03:26.616550" elapsed="0.075815"/>
-</kw>
-<kw name="Both phones should return to idle state" owner="voice_keywords">
-<msg time="2026-02-04T10:03:26.813826" level="INFO">✓ Phone wan_phone reached idle state
-✓ Phone lan_phone reached idle state</msg>
-<doc>Verify both phones returned to idle state.</doc>
-<status status="PASS" start="2026-02-04T10:03:26.692862" elapsed="0.121065"/>
-</kw>
-<kw name="Cleanup SIP Phones After Test" owner="common" type="TEARDOWN">
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:26.814975" level="INFO">Cleaning up SIP phones...</msg>
-<arg>Cleaning up SIP phones...</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:26.814736" elapsed="0.000287"/>
-</kw>
-<for flavor="IN">
-<iter>
-<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:26.983374" level="INFO">Phone wan_phone hanging up...
-✓ Phone wan_phone hung up</msg>
-<arg>${phone}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:03:26.815605" elapsed="0.167880"/>
-</kw>
-<arg>Phone Hangs Up</arg>
-<arg>${phone}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:03:26.815320" elapsed="0.168235"/>
-</kw>
-<var name="${phone}">&lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</var>
-<status status="PASS" start="2026-02-04T10:03:26.815226" elapsed="0.168365"/>
-</iter>
-<iter>
-<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:27.143811" level="INFO">Phone lan_phone hanging up...
-✓ Phone lan_phone hung up</msg>
-<arg>${phone}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:03:26.984281" elapsed="0.159631"/>
-</kw>
-<arg>Phone Hangs Up</arg>
-<arg>${phone}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:03:26.983930" elapsed="0.160050"/>
-</kw>
-<var name="${phone}">&lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66822930&gt;</var>
-<status status="PASS" start="2026-02-04T10:03:26.983725" elapsed="0.160348"/>
-</iter>
-<var>${phone}</var>
-<value>@{phones}</value>
-<status status="PASS" start="2026-02-04T10:03:26.815081" elapsed="0.329041"/>
-</for>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:27.144732" level="INFO">SIP phone cleanup complete</msg>
-<arg>SIP phone cleanup complete</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:27.144300" elapsed="0.000634"/>
-</kw>
-<arg>${CALLER}</arg>
-<arg>${CALLEE}</arg>
-<doc>Cleanup any active SIP calls after test.
-Hangs up any phones that may still be in a call.</doc>
-<status status="PASS" start="2026-02-04T10:03:26.814366" elapsed="0.330818"/>
-</kw>
-<doc>WAN phone calls LAN phone - tests NAT inbound traversal</doc>
+<test id="s1-s1-t2" name="UC-12348-Main-V3: WAN Phone Calls LAN Phone (NAT Inbound)" line="62">
+<doc>WAN phone calls LAN phone - tests NAT inbound traversal
+Requires: 2 SIP phones, SIPServer</doc>
 <tag>boardfarm-bdd</tag>
 <tag>call</tag>
 <tag>main-scenario</tag>
 <tag>nat-inbound</tag>
 <tag>UC-12348</tag>
 <tag>voice</tag>
-<status status="PASS" start="2026-02-04T10:03:20.659057" elapsed="6.486496"/>
+<status status="FAIL" start="2026-02-16T07:19:24.355220" elapsed="0.000395">Parent suite setup failed:
+Dictionary '${phones}' has no key '0'.</status>
 </test>
-<test id="s1-s1-t3" name="UC-12348-Main-V4: WAN Phone Calls WAN Phone 2 (Direct WAN)" line="73">
-<kw name="Register Phone On WAN Side" owner="voice">
-<kw name="Register phone with SIP server" owner="voice_keywords">
-<msg time="2026-02-04T10:03:29.600365" level="INFO">✓ Phone wan_phone (number 2000) is registered</msg>
-<arg>${phone}</arg>
-<arg>${SIPCENTER}</arg>
-<doc>Register a phone with the SIP server.</doc>
-<status status="PASS" start="2026-02-04T10:03:27.150672" elapsed="2.449832"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:29.601184" level="INFO">Phone 2000 registered on WAN side</msg>
-<arg>Phone ${number} registered on WAN side</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:29.600764" elapsed="0.000473"/>
-</kw>
-<arg>${WAN_PHONE}</arg>
-<arg>${WAN_PHONE_NUMBER}</arg>
-<doc>Register a SIP phone on the WAN side of the CPE.</doc>
-<status status="PASS" start="2026-02-04T10:03:27.149259" elapsed="2.452066"/>
-</kw>
-<kw name="Register Phone On WAN Side" owner="voice">
-<kw name="Register phone with SIP server" owner="voice_keywords">
-<msg time="2026-02-04T10:03:32.047033" level="INFO">✓ Phone wan_phone2 (number 3000) is registered</msg>
-<arg>${phone}</arg>
-<arg>${SIPCENTER}</arg>
-<doc>Register a phone with the SIP server.</doc>
-<status status="PASS" start="2026-02-04T10:03:29.602048" elapsed="2.445259"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:32.049248" level="INFO">Phone 3000 registered on WAN side</msg>
-<arg>Phone ${number} registered on WAN side</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:32.047967" elapsed="0.001521"/>
-</kw>
-<arg>${WAN_PHONE2}</arg>
-<arg>${WAN_PHONE2_NUMBER}</arg>
-<doc>Register a SIP phone on the WAN side of the CPE.</doc>
-<status status="PASS" start="2026-02-04T10:03:29.601664" elapsed="2.448140"/>
-</kw>
-<kw name="Set Caller And Callee" owner="voice">
-<kw name="Assign caller and callee roles" owner="voice_keywords">
-<msg time="2026-02-04T10:03:32.052855" level="INFO">✓ Assigned roles: caller=wan_phone, callee=wan_phone2</msg>
-<arg>${caller}</arg>
-<arg>${callee}</arg>
-<doc>Assign caller and callee roles to phones.</doc>
-<status status="PASS" start="2026-02-04T10:03:32.052047" elapsed="0.000995"/>
-</kw>
-<kw name="Set Test Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:32.053621" level="INFO">${CALLER} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</msg>
-<arg>${CALLER}</arg>
-<arg>${caller}</arg>
-<doc>Makes a variable available everywhere within the scope of the current test.</doc>
-<status status="PASS" start="2026-02-04T10:03:32.053304" elapsed="0.000363"/>
-</kw>
-<kw name="Set Test Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:32.054071" level="INFO">${CALLEE} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</msg>
-<arg>${CALLEE}</arg>
-<arg>${callee}</arg>
-<doc>Makes a variable available everywhere within the scope of the current test.</doc>
-<status status="PASS" start="2026-02-04T10:03:32.053789" elapsed="0.000327"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:32.054487" level="INFO">Caller: &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;, Callee: &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</msg>
-<arg>Caller: ${caller}, Callee: ${callee}</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:32.054230" elapsed="0.000305"/>
-</kw>
-<arg>${WAN_PHONE}</arg>
-<arg>${WAN_PHONE2}</arg>
-<doc>Set the caller and callee phones for the test.
-Also sets CALLER and CALLEE test variables for use in keywords.</doc>
-<status status="PASS" start="2026-02-04T10:03:32.050663" elapsed="0.003927"/>
-</kw>
-<kw name="Caller calls callee" owner="voice_keywords">
-<msg time="2026-02-04T10:03:32.276772" level="INFO">Phone wan_phone dialing 3000...
-✓ Phone wan_phone dialed 3000</msg>
-<doc>Caller dials the callee's number.</doc>
-<status status="PASS" start="2026-02-04T10:03:32.054758" elapsed="0.222163"/>
-</kw>
-<kw name="The callee phone should start ringing" owner="voice_keywords">
-<msg time="2026-02-04T10:03:32.346511" level="INFO">✓ Phone wan_phone2 reached ringing state</msg>
-<doc>Alias for Verify phone is ringing.</doc>
-<status status="PASS" start="2026-02-04T10:03:32.277271" elapsed="0.069359"/>
-</kw>
-<kw name="Callee answers call" owner="voice_keywords">
-<msg time="2026-02-04T10:03:32.689383" level="INFO">Phone wan_phone2 answering call...
-✓ Phone wan_phone2 answered call</msg>
-<doc>Callee answers incoming call.</doc>
-<status status="PASS" start="2026-02-04T10:03:32.346938" elapsed="0.342552"/>
-</kw>
-<kw name="Both phones should be connected" owner="voice_keywords">
-<msg time="2026-02-04T10:03:32.806893" level="INFO">✓ Phone wan_phone reached connected state
-✓ Phone wan_phone2 reached connected state</msg>
-<doc>Verify both phones are in connected state.</doc>
-<status status="PASS" start="2026-02-04T10:03:32.689707" elapsed="0.117294"/>
-</kw>
-<kw name="A bidirectional RTP media session should be established" owner="voice_keywords">
-<msg time="2026-02-04T10:03:32.917378" level="INFO">✓ Bidirectional RTP media session established</msg>
-<doc>Verify RTP media session is established.</doc>
-<status status="PASS" start="2026-02-04T10:03:32.807270" elapsed="0.110275"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:32.918055" level="INFO">Voice communication established without NAT traversal</msg>
-<arg>Voice communication established without NAT traversal</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:32.917796" elapsed="0.000309"/>
-</kw>
-<kw name="Caller hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:33.083987" level="INFO">Phone wan_phone hanging up...
-✓ Phone wan_phone hung up</msg>
-<doc>Caller hangs up the call.</doc>
-<status status="PASS" start="2026-02-04T10:03:32.918301" elapsed="0.165798"/>
-</kw>
-<kw name="Verify SIP call terminated" owner="voice_keywords">
-<msg time="2026-02-04T10:03:33.169019" level="INFO">✓ SIP server terminated call (0 active calls)</msg>
-<doc>Verify SIP server terminated the call.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.084360" elapsed="0.084773"/>
-</kw>
-<kw name="Both phones should return to idle state" owner="voice_keywords">
-<msg time="2026-02-04T10:03:33.290968" level="INFO">✓ Phone wan_phone reached idle state
-✓ Phone wan_phone2 reached idle state</msg>
-<doc>Verify both phones returned to idle state.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.169344" elapsed="0.121702"/>
-</kw>
-<kw name="Cleanup SIP Phones After Test" owner="common" type="TEARDOWN">
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:33.291948" level="INFO">Cleaning up SIP phones...</msg>
-<arg>Cleaning up SIP phones...</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.291736" elapsed="0.000253"/>
-</kw>
-<for flavor="IN">
-<iter>
-<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:33.461740" level="INFO">Phone wan_phone hanging up...
-✓ Phone wan_phone hung up</msg>
-<arg>${phone}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.292621" elapsed="0.169407"/>
-</kw>
-<arg>Phone Hangs Up</arg>
-<arg>${phone}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.292333" elapsed="0.169921"/>
-</kw>
-<var name="${phone}">&lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</var>
-<status status="PASS" start="2026-02-04T10:03:33.292245" elapsed="0.170138"/>
-</iter>
-<iter>
-<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:33.622918" level="INFO">Phone wan_phone2 hanging up...
-✓ Phone wan_phone2 hung up</msg>
-<arg>${phone}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.464636" elapsed="0.158430"/>
-</kw>
-<arg>Phone Hangs Up</arg>
-<arg>${phone}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.463357" elapsed="0.159827"/>
-</kw>
-<var name="${phone}">&lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</var>
-<status status="PASS" start="2026-02-04T10:03:33.462900" elapsed="0.160355"/>
-</iter>
-<var>${phone}</var>
-<value>@{phones}</value>
-<status status="PASS" start="2026-02-04T10:03:33.292098" elapsed="0.331229"/>
-</for>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:33.624024" level="INFO">SIP phone cleanup complete</msg>
-<arg>SIP phone cleanup complete</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.623594" elapsed="0.000519"/>
-</kw>
-<arg>${CALLER}</arg>
-<arg>${CALLEE}</arg>
-<doc>Cleanup any active SIP calls after test.
-Hangs up any phones that may still be in a call.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.291371" elapsed="0.332829"/>
-</kw>
-<doc>WAN phone calls another WAN phone - direct WAN communication</doc>
+<test id="s1-s1-t3" name="UC-12348-Main-V4: WAN Phone Calls WAN Phone 2 (Direct WAN)" line="90">
+<doc>WAN phone calls another WAN phone - direct WAN communication
+Requires: 3 SIP phones, SIPServer</doc>
 <tag>boardfarm-bdd</tag>
 <tag>call</tag>
 <tag>direct-wan</tag>
 <tag>main-scenario</tag>
 <tag>UC-12348</tag>
 <tag>voice</tag>
-<status status="PASS" start="2026-02-04T10:03:27.146645" elapsed="6.477696"/>
+<status status="FAIL" start="2026-02-16T07:19:24.355888" elapsed="0.000371">Parent suite setup failed:
+Dictionary '${phones}' has no key '0'.</status>
 </test>
-<test id="s1-s1-t4" name="UC-12348-3a: Invalid Phone Number" line="97">
-<kw name="Set Caller And Callee" owner="voice">
-<kw name="Assign caller and callee roles" owner="voice_keywords">
-<msg time="2026-02-04T10:03:33.626245" level="INFO">✓ Assigned roles: caller=wan_phone, callee=wan_phone2</msg>
-<arg>${caller}</arg>
-<arg>${callee}</arg>
-<doc>Assign caller and callee roles to phones.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.625855" elapsed="0.000480"/>
-</kw>
-<kw name="Set Test Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:33.627165" level="INFO">${CALLER} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</msg>
-<arg>${CALLER}</arg>
-<arg>${caller}</arg>
-<doc>Makes a variable available everywhere within the scope of the current test.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.626581" elapsed="0.000646"/>
-</kw>
-<kw name="Set Test Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:33.627726" level="INFO">${CALLEE} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</msg>
-<arg>${CALLEE}</arg>
-<arg>${callee}</arg>
-<doc>Makes a variable available everywhere within the scope of the current test.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.627366" elapsed="0.000419"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:33.628230" level="INFO">Caller: &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;, Callee: &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</msg>
-<arg>Caller: ${caller}, Callee: ${callee}</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.627918" elapsed="0.000369"/>
-</kw>
-<arg>${WAN_PHONE}</arg>
-<arg>${WAN_PHONE2}</arg>
-<doc>Set the caller and callee phones for the test.
-Also sets CALLER and CALLEE test variables for use in keywords.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.625304" elapsed="0.003054"/>
-</kw>
-<kw name="Verify phone is idle" owner="voice_keywords">
-<msg time="2026-02-04T10:03:33.688069" level="INFO">✓ Phone wan_phone is in idle state</msg>
-<arg>${CALLER}</arg>
-<doc>Verify phone is in idle state.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.628545" elapsed="0.059611"/>
-</kw>
-<kw name="Dial Invalid Number" owner="voice">
-<kw name="Phone dials number" owner="voice_keywords">
-<msg time="2026-02-04T10:03:33.926292" level="INFO">Phone wan_phone calling 9999...
-✓ Phone wan_phone called 9999</msg>
-<arg>${phone}</arg>
-<arg>${number}</arg>
-<doc>Phone dials a specific number.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.688785" elapsed="0.237603"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:33.926954" level="INFO">Phone &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt; dialed invalid number 9999</msg>
-<arg>Phone ${phone} dialed invalid number ${number}</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.926588" elapsed="0.000416"/>
-</kw>
-<arg>${CALLER}</arg>
-<arg>9999</arg>
-<doc>Dial an unregistered/invalid phone number.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.688408" elapsed="0.238671"/>
-</kw>
-<kw name="Verify Invalid Number Response" owner="voice">
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:33.927993" level="INFO">Checking for 404 Not Found response</msg>
-<arg>Checking for 404 Not Found response</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.927770" elapsed="0.000592"/>
-</kw>
-<doc>Verify SIP server returns 404 for invalid number.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.927375" elapsed="0.001069"/>
-</kw>
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:34.092033" level="INFO">Phone wan_phone hanging up...
-✓ Phone wan_phone hung up</msg>
-<arg>${CALLER}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:03:33.928608" elapsed="0.163686"/>
-</kw>
-<kw name="Verify Caller Returns To Idle" owner="voice">
-<kw name="Wait for phone state" owner="voice_keywords">
-<msg time="2026-02-04T10:03:34.153075" level="INFO">✓ Phone wan_phone reached idle state</msg>
-<arg>${caller}</arg>
-<arg>idle</arg>
-<arg>timeout=${timeout}</arg>
-<doc>Wait for phone to reach expected state.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.094544" elapsed="0.058662"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:34.153994" level="INFO">Caller &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt; returned to idle state</msg>
-<arg>Caller ${caller} returned to idle state</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.153476" elapsed="0.000578"/>
-</kw>
-<doc>Verify caller phone returns to idle state.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.093122" elapsed="0.061004"/>
-</kw>
-<kw name="Cleanup SIP Phones After Test" owner="common" type="TEARDOWN">
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:34.155073" level="INFO">Cleaning up SIP phones...</msg>
-<arg>Cleaning up SIP phones...</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.154823" elapsed="0.000309"/>
-</kw>
-<for flavor="IN">
-<iter>
-<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:34.323526" level="INFO">Phone wan_phone hanging up...
-✓ Phone wan_phone hung up</msg>
-<arg>${phone}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.155917" elapsed="0.167783"/>
-</kw>
-<arg>Phone Hangs Up</arg>
-<arg>${phone}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.155598" elapsed="0.168182"/>
-</kw>
-<var name="${phone}">&lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</var>
-<status status="PASS" start="2026-02-04T10:03:34.155447" elapsed="0.168369"/>
-</iter>
-<iter>
-<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:34.494892" level="INFO">Phone wan_phone2 hanging up...
-✓ Phone wan_phone2 hung up</msg>
-<arg>${phone}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.324495" elapsed="0.170495"/>
-</kw>
-<arg>Phone Hangs Up</arg>
-<arg>${phone}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.324115" elapsed="0.170949"/>
-</kw>
-<var name="${phone}">&lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</var>
-<status status="PASS" start="2026-02-04T10:03:34.323965" elapsed="0.171150"/>
-</iter>
-<var>${phone}</var>
-<value>@{phones}</value>
-<status status="PASS" start="2026-02-04T10:03:34.155212" elapsed="0.339949"/>
-</for>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:34.495700" level="INFO">SIP phone cleanup complete</msg>
-<arg>SIP phone cleanup complete</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.495314" elapsed="0.000481"/>
-</kw>
-<arg>${CALLER}</arg>
-<arg>${CALLEE}</arg>
-<doc>Cleanup any active SIP calls after test.
-Hangs up any phones that may still be in a call.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.154488" elapsed="0.341368"/>
-</kw>
-<doc>Extension: Caller dials unregistered phone number</doc>
+<test id="s1-s1-t4" name="UC-12348-3a: Invalid Phone Number" line="118">
+<doc>Extension: Caller dials unregistered phone number
+Requires: 2 SIP phones (caller only used, but setup needs 2)</doc>
 <tag>boardfarm-bdd</tag>
 <tag>error</tag>
 <tag>invalid-number</tag>
 <tag>UC-12348</tag>
 <tag>voice</tag>
-<status status="PASS" start="2026-02-04T10:03:33.624734" elapsed="0.871232"/>
+<status status="FAIL" start="2026-02-16T07:19:24.356503" elapsed="0.000357">Parent suite setup failed:
+Dictionary '${phones}' has no key '0'.</status>
 </test>
-<test id="s1-s1-t5" name="UC-12348-8a: Callee Is Busy" line="113">
-<kw name="Set Caller And Callee" owner="voice">
-<kw name="Assign caller and callee roles" owner="voice_keywords">
-<msg time="2026-02-04T10:03:34.497558" level="INFO">✓ Assigned roles: caller=wan_phone, callee=wan_phone2</msg>
-<arg>${caller}</arg>
-<arg>${callee}</arg>
-<doc>Assign caller and callee roles to phones.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.497224" elapsed="0.000394"/>
-</kw>
-<kw name="Set Test Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:34.498180" level="INFO">${CALLER} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</msg>
-<arg>${CALLER}</arg>
-<arg>${caller}</arg>
-<doc>Makes a variable available everywhere within the scope of the current test.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.497812" elapsed="0.000410"/>
-</kw>
-<kw name="Set Test Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:34.498655" level="INFO">${CALLEE} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</msg>
-<arg>${CALLEE}</arg>
-<arg>${callee}</arg>
-<doc>Makes a variable available everywhere within the scope of the current test.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.498349" elapsed="0.000345"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:34.499020" level="INFO">Caller: &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;, Callee: &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</msg>
-<arg>Caller: ${caller}, Callee: ${callee}</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.498794" elapsed="0.000270"/>
-</kw>
-<arg>${WAN_PHONE}</arg>
-<arg>${WAN_PHONE2}</arg>
-<doc>Set the caller and callee phones for the test.
-Also sets CALLER and CALLEE test variables for use in keywords.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.496785" elapsed="0.002328"/>
-</kw>
-<kw name="Verify phone is idle" owner="voice_keywords">
-<msg time="2026-02-04T10:03:34.556576" level="INFO">✓ Phone wan_phone is in idle state</msg>
-<arg>${CALLER}</arg>
-<doc>Verify phone is in idle state.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.499276" elapsed="0.057391"/>
-</kw>
-<kw name="Simulate Busy Callee" owner="voice">
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:34.557567" level="INFO">Callee &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt; is in an active call (simulated busy state)</msg>
-<arg>Callee ${callee} is in an active call (simulated busy state)</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.557257" elapsed="0.000359"/>
-</kw>
-<doc>Simulate callee being in an active call (busy state).</doc>
-<status status="PASS" start="2026-02-04T10:03:34.556908" elapsed="0.000766"/>
-</kw>
-<kw name="Caller calls callee" owner="voice_keywords">
-<msg time="2026-02-04T10:03:34.788738" level="INFO">Phone wan_phone dialing 3000...
-✓ Phone wan_phone dialed 3000</msg>
-<doc>Caller dials the callee's number.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.557837" elapsed="0.231014"/>
-</kw>
-<kw name="Verify Busy Response" owner="voice">
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:34.790810" level="INFO">Checking for 486 Busy Here response</msg>
-<arg>Checking for 486 Busy Here response</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.789820" elapsed="0.001081"/>
-</kw>
-<doc>Verify callee returns 486 Busy Here.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.789144" elapsed="0.001836"/>
-</kw>
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:34.982929" level="INFO">Phone wan_phone hanging up...
-✓ Phone wan_phone hung up</msg>
-<arg>${CALLER}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.791151" elapsed="0.191993"/>
-</kw>
-<kw name="Verify Caller Returns To Idle" owner="voice">
-<kw name="Wait for phone state" owner="voice_keywords">
-<msg time="2026-02-04T10:03:35.041532" level="INFO">✓ Phone wan_phone reached idle state</msg>
-<arg>${caller}</arg>
-<arg>idle</arg>
-<arg>timeout=${timeout}</arg>
-<doc>Wait for phone to reach expected state.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.984817" elapsed="0.056844"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:35.042468" level="INFO">Caller &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt; returned to idle state</msg>
-<arg>Caller ${caller} returned to idle state</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.041938" elapsed="0.000615"/>
-</kw>
-<doc>Verify caller phone returns to idle state.</doc>
-<status status="PASS" start="2026-02-04T10:03:34.983797" elapsed="0.058854"/>
-</kw>
-<kw name="Cleanup SIP Phones After Test" owner="common" type="TEARDOWN">
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:35.043963" level="INFO">Cleaning up SIP phones...</msg>
-<arg>Cleaning up SIP phones...</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.043654" elapsed="0.000385"/>
-</kw>
-<for flavor="IN">
-<iter>
-<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:35.208667" level="INFO">Phone wan_phone hanging up...
-✓ Phone wan_phone hung up</msg>
-<arg>${phone}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.045246" elapsed="0.163825"/>
-</kw>
-<arg>Phone Hangs Up</arg>
-<arg>${phone}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.044499" elapsed="0.164823"/>
-</kw>
-<var name="${phone}">&lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</var>
-<status status="PASS" start="2026-02-04T10:03:35.044341" elapsed="0.165152"/>
-</iter>
-<iter>
-<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:03:35.380148" level="INFO">Phone wan_phone2 hanging up...
-✓ Phone wan_phone2 hung up</msg>
-<arg>${phone}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.212331" elapsed="0.168036"/>
-</kw>
-<arg>Phone Hangs Up</arg>
-<arg>${phone}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.211047" elapsed="0.169579"/>
-</kw>
-<var name="${phone}">&lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</var>
-<status status="PASS" start="2026-02-04T10:03:35.210223" elapsed="0.170516"/>
-</iter>
-<var>${phone}</var>
-<value>@{phones}</value>
-<status status="PASS" start="2026-02-04T10:03:35.044125" elapsed="0.336778"/>
-</for>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:35.381697" level="INFO">SIP phone cleanup complete</msg>
-<arg>SIP phone cleanup complete</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.381372" elapsed="0.000394"/>
-</kw>
-<arg>${CALLER}</arg>
-<arg>${CALLEE}</arg>
-<doc>Cleanup any active SIP calls after test.
-Hangs up any phones that may still be in a call.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.043083" elapsed="0.338775"/>
-</kw>
-<doc>Extension: Callee is already in an active call</doc>
+<test id="s1-s1-t5" name="UC-12348-8a: Callee Is Busy" line="138">
+<doc>Extension: Callee is already in an active call
+Requires: 2 SIP phones</doc>
 <tag>boardfarm-bdd</tag>
 <tag>busy</tag>
 <tag>error</tag>
 <tag>UC-12348</tag>
 <tag>voice</tag>
-<status status="PASS" start="2026-02-04T10:03:34.496238" elapsed="0.885728"/>
+<status status="FAIL" start="2026-02-16T07:19:24.357082" elapsed="0.000297">Parent suite setup failed:
+Dictionary '${phones}' has no key '0'.</status>
 </test>
-<test id="s1-s1-t6" name="UC-12348-11a: Callee Does Not Answer (Timeout)" line="130">
-<kw name="Set Caller And Callee" owner="voice">
-<kw name="Assign caller and callee roles" owner="voice_keywords">
-<msg time="2026-02-04T10:03:35.383271" level="INFO">✓ Assigned roles: caller=wan_phone, callee=wan_phone2</msg>
-<arg>${caller}</arg>
-<arg>${callee}</arg>
-<doc>Assign caller and callee roles to phones.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.383065" elapsed="0.000251"/>
-</kw>
-<kw name="Set Test Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:35.383772" level="INFO">${CALLER} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</msg>
-<arg>${CALLER}</arg>
-<arg>${caller}</arg>
-<doc>Makes a variable available everywhere within the scope of the current test.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.383463" elapsed="0.000351"/>
-</kw>
-<kw name="Set Test Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:03:35.384169" level="INFO">${CALLEE} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</msg>
-<arg>${CALLEE}</arg>
-<arg>${callee}</arg>
-<doc>Makes a variable available everywhere within the scope of the current test.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.383919" elapsed="0.000305"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:03:35.384620" level="INFO">Caller: &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;, Callee: &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</msg>
-<arg>Caller: ${caller}, Callee: ${callee}</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.384337" elapsed="0.000332"/>
-</kw>
-<arg>${WAN_PHONE}</arg>
-<arg>${WAN_PHONE2}</arg>
-<doc>Set the caller and callee phones for the test.
-Also sets CALLER and CALLEE test variables for use in keywords.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.382793" elapsed="0.001935"/>
-</kw>
-<kw name="Verify phone is idle" owner="voice_keywords">
-<msg time="2026-02-04T10:03:35.438195" level="INFO">✓ Phone wan_phone is in idle state</msg>
-<arg>${CALLER}</arg>
-<doc>Verify phone is in idle state.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.384894" elapsed="0.053387"/>
-</kw>
-<kw name="Verify phone is idle" owner="voice_keywords">
-<msg time="2026-02-04T10:03:35.497801" level="INFO">✓ Phone wan_phone2 is in idle state</msg>
-<arg>${CALLEE}</arg>
-<doc>Verify phone is in idle state.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.438490" elapsed="0.059582"/>
-</kw>
-<kw name="Caller calls callee" owner="voice_keywords">
-<msg time="2026-02-04T10:03:35.729326" level="INFO">Phone wan_phone dialing 3000...
-✓ Phone wan_phone dialed 3000</msg>
-<doc>Caller dials the callee's number.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.498766" elapsed="0.230749"/>
-</kw>
-<kw name="The callee phone should start ringing" owner="voice_keywords">
-<msg time="2026-02-04T10:03:35.790968" level="INFO">✓ Phone wan_phone2 reached ringing state</msg>
-<doc>Alias for Verify phone is ringing.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.729764" elapsed="0.061285"/>
-</kw>
-<kw name="Wait For Call Timeout" owner="voice">
-<kw name="Sleep" owner="BuiltIn">
-<msg time="2026-02-04T10:04:05.792138" level="INFO">Slept 30 seconds.</msg>
-<msg time="2026-02-04T10:04:05.792214" level="INFO">Waiting for answer timeout</msg>
-<arg>${timeout}s</arg>
-<arg>Waiting for answer timeout</arg>
-<doc>Pauses the test executed for the given time.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.791672" elapsed="30.000606"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:04:05.792763" level="INFO">Call timeout period elapsed</msg>
-<arg>Call timeout period elapsed</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:04:05.792472" elapsed="0.000341"/>
-</kw>
-<arg>${CALL_TIMEOUT}</arg>
-<doc>Wait for the no-answer timeout period.</doc>
-<status status="PASS" start="2026-02-04T10:03:35.791280" elapsed="30.001598"/>
-</kw>
-<kw name="Verify Timeout Response" owner="voice">
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:04:05.793671" level="INFO">SIP server sent timeout response</msg>
-<arg>SIP server sent timeout response</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:04:05.793412" elapsed="0.000323"/>
-</kw>
-<doc>Verify SIP server sends timeout response.</doc>
-<status status="PASS" start="2026-02-04T10:04:05.793089" elapsed="0.000700"/>
-</kw>
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:04:05.962410" level="INFO">Phone wan_phone hanging up...
-✓ Phone wan_phone hung up</msg>
-<arg>${CALLER}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:04:05.794040" elapsed="0.168464"/>
-</kw>
-<kw name="Verify Caller Returns To Idle" owner="voice">
-<kw name="Wait for phone state" owner="voice_keywords">
-<msg time="2026-02-04T10:04:06.023232" level="INFO">✓ Phone wan_phone reached idle state</msg>
-<arg>${caller}</arg>
-<arg>idle</arg>
-<arg>timeout=${timeout}</arg>
-<doc>Wait for phone to reach expected state.</doc>
-<status status="PASS" start="2026-02-04T10:04:05.964125" elapsed="0.059187"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:04:06.023791" level="INFO">Caller &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt; returned to idle state</msg>
-<arg>Caller ${caller} returned to idle state</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.023485" elapsed="0.000352"/>
-</kw>
-<doc>Verify caller phone returns to idle state.</doc>
-<status status="PASS" start="2026-02-04T10:04:05.962748" elapsed="0.061155"/>
-</kw>
-<kw name="Cleanup SIP Phones After Test" owner="common" type="TEARDOWN">
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:04:06.024693" level="INFO">Cleaning up SIP phones...</msg>
-<arg>Cleaning up SIP phones...</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.024495" elapsed="0.000241"/>
-</kw>
-<for flavor="IN">
-<iter>
-<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:04:06.191259" level="INFO">Phone wan_phone hanging up...
-✓ Phone wan_phone hung up</msg>
-<arg>${phone}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.025226" elapsed="0.166386"/>
-</kw>
-<arg>Phone Hangs Up</arg>
-<arg>${phone}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.024996" elapsed="0.166865"/>
-</kw>
-<var name="${phone}">&lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</var>
-<status status="PASS" start="2026-02-04T10:04:06.024910" elapsed="0.167081"/>
-</iter>
-<iter>
-<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:04:06.351414" level="INFO">Phone wan_phone2 hanging up...
-✓ Phone wan_phone2 hung up</msg>
-<arg>${phone}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.193651" elapsed="0.157854"/>
-</kw>
-<arg>Phone Hangs Up</arg>
-<arg>${phone}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.192908" elapsed="0.158656"/>
-</kw>
-<var name="${phone}">&lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</var>
-<status status="PASS" start="2026-02-04T10:04:06.192446" elapsed="0.159147"/>
-</iter>
-<var>${phone}</var>
-<value>@{phones}</value>
-<status status="PASS" start="2026-02-04T10:04:06.024795" elapsed="0.326835"/>
-</for>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:04:06.352017" level="INFO">SIP phone cleanup complete</msg>
-<arg>SIP phone cleanup complete</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.351771" elapsed="0.000287"/>
-</kw>
-<arg>${CALLER}</arg>
-<arg>${CALLEE}</arg>
-<doc>Cleanup any active SIP calls after test.
-Hangs up any phones that may still be in a call.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.024176" elapsed="0.327945"/>
-</kw>
-<doc>Extension: Callee does not answer within timeout period</doc>
+<test id="s1-s1-t6" name="UC-12348-11a: Callee Does Not Answer (Timeout)" line="159">
+<doc>Extension: Callee does not answer within timeout period
+Requires: 2 SIP phones</doc>
 <tag>boardfarm-bdd</tag>
 <tag>error</tag>
 <tag>timeout</tag>
 <tag>UC-12348</tag>
 <tag>voice</tag>
-<status status="PASS" start="2026-02-04T10:03:35.382291" elapsed="30.969927"/>
+<status status="FAIL" start="2026-02-16T07:19:24.357550" elapsed="0.000338">Parent suite setup failed:
+Dictionary '${phones}' has no key '0'.</status>
 </test>
-<test id="s1-s1-t7" name="UC-12348-11b: Callee Rejects The Call" line="149">
-<kw name="Set Caller And Callee" owner="voice">
-<kw name="Assign caller and callee roles" owner="voice_keywords">
-<msg time="2026-02-04T10:04:06.353318" level="INFO">✓ Assigned roles: caller=wan_phone, callee=wan_phone2</msg>
-<arg>${caller}</arg>
-<arg>${callee}</arg>
-<doc>Assign caller and callee roles to phones.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.353139" elapsed="0.000219"/>
-</kw>
-<kw name="Set Test Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:04:06.353832" level="INFO">${CALLER} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</msg>
-<arg>${CALLER}</arg>
-<arg>${caller}</arg>
-<doc>Makes a variable available everywhere within the scope of the current test.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.353492" elapsed="0.000404"/>
-</kw>
-<kw name="Set Test Variable" owner="BuiltIn">
-<msg time="2026-02-04T10:04:06.354293" level="INFO">${CALLEE} = &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</msg>
-<arg>${CALLEE}</arg>
-<arg>${callee}</arg>
-<doc>Makes a variable available everywhere within the scope of the current test.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.354037" elapsed="0.000297"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:04:06.354956" level="INFO">Caller: &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;, Callee: &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</msg>
-<arg>Caller: ${caller}, Callee: ${callee}</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.354453" elapsed="0.000548"/>
-</kw>
-<arg>${WAN_PHONE}</arg>
-<arg>${WAN_PHONE2}</arg>
-<doc>Set the caller and callee phones for the test.
-Also sets CALLER and CALLEE test variables for use in keywords.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.352867" elapsed="0.002200"/>
-</kw>
-<kw name="Verify phone is idle" owner="voice_keywords">
-<msg time="2026-02-04T10:04:06.408298" level="INFO">✓ Phone wan_phone is in idle state</msg>
-<arg>${CALLER}</arg>
-<doc>Verify phone is in idle state.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.355259" elapsed="0.053118"/>
-</kw>
-<kw name="Verify phone is idle" owner="voice_keywords">
-<msg time="2026-02-04T10:04:06.471131" level="INFO">✓ Phone wan_phone2 is in idle state</msg>
-<arg>${CALLEE}</arg>
-<doc>Verify phone is in idle state.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.408606" elapsed="0.062643"/>
-</kw>
-<kw name="Caller calls callee" owner="voice_keywords">
-<msg time="2026-02-04T10:04:06.711984" level="INFO">Phone wan_phone dialing 3000...
-✓ Phone wan_phone dialed 3000</msg>
-<doc>Caller dials the callee's number.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.471467" elapsed="0.240616"/>
-</kw>
-<kw name="The callee phone should start ringing" owner="voice_keywords">
-<msg time="2026-02-04T10:04:06.792880" level="INFO">✓ Phone wan_phone2 reached ringing state</msg>
-<doc>Alias for Verify phone is ringing.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.712303" elapsed="0.080660"/>
-</kw>
-<kw name="Phone rejects call" owner="voice_keywords">
-<msg time="2026-02-04T10:04:07.058544" level="INFO">Phone wan_phone2 rejecting call...
-✓ Phone wan_phone2 reached idle state
-✓ Phone wan_phone2 rejected call with 603 Decline</msg>
-<arg>${CALLEE}</arg>
-<doc>Reject incoming call with 603 Decline response.</doc>
-<status status="PASS" start="2026-02-04T10:04:06.793156" elapsed="0.265475"/>
-</kw>
-<kw name="Verify Rejection Response" owner="voice">
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:04:07.059475" level="INFO">SIP server sent rejection response</msg>
-<arg>SIP server sent rejection response</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.059166" elapsed="0.000371"/>
-</kw>
-<doc>Verify SIP server sends rejection response.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.058862" elapsed="0.000731"/>
-</kw>
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:04:07.229446" level="INFO">Phone wan_phone hanging up...
-✓ Phone wan_phone hung up</msg>
-<arg>${CALLER}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.059744" elapsed="0.169969"/>
-</kw>
-<kw name="Verify Caller Returns To Idle" owner="voice">
-<kw name="Wait for phone state" owner="voice_keywords">
-<msg time="2026-02-04T10:04:07.291388" level="INFO">✓ Phone wan_phone reached idle state</msg>
-<arg>${caller}</arg>
-<arg>idle</arg>
-<arg>timeout=${timeout}</arg>
-<doc>Wait for phone to reach expected state.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.232281" elapsed="0.059217"/>
-</kw>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:04:07.291985" level="INFO">Caller &lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt; returned to idle state</msg>
-<arg>Caller ${caller} returned to idle state</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.291667" elapsed="0.000366"/>
-</kw>
-<doc>Verify caller phone returns to idle state.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.230568" elapsed="0.061527"/>
-</kw>
-<kw name="Cleanup SIP Phones After Test" owner="common" type="TEARDOWN">
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:04:07.293058" level="INFO">Cleaning up SIP phones...</msg>
-<arg>Cleaning up SIP phones...</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.292820" elapsed="0.000281"/>
-</kw>
-<for flavor="IN">
-<iter>
-<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:04:07.461235" level="INFO">Phone wan_phone hanging up...
-✓ Phone wan_phone hung up</msg>
-<arg>${phone}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.293668" elapsed="0.167681"/>
-</kw>
-<arg>Phone Hangs Up</arg>
-<arg>${phone}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.293377" elapsed="0.168071"/>
-</kw>
-<var name="${phone}">&lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b6688bb60&gt;</var>
-<status status="PASS" start="2026-02-04T10:04:07.293281" elapsed="0.168209"/>
-</iter>
-<iter>
-<kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:04:07.633176" level="INFO">Phone wan_phone2 hanging up...
-✓ Phone wan_phone2 hung up</msg>
-<arg>${phone}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.462211" elapsed="0.171307"/>
-</kw>
-<arg>Phone Hangs Up</arg>
-<arg>${phone}</arg>
-<doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.461808" elapsed="0.171950"/>
-</kw>
-<var name="${phone}">&lt;boardfarm3.devices.pjsip_phone.PJSIPPhone object at 0x722b66d595e0&gt;</var>
-<status status="PASS" start="2026-02-04T10:04:07.461646" elapsed="0.172244"/>
-</iter>
-<var>${phone}</var>
-<value>@{phones}</value>
-<status status="PASS" start="2026-02-04T10:04:07.293152" elapsed="0.340879"/>
-</for>
-<kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:04:07.635578" level="INFO">SIP phone cleanup complete</msg>
-<arg>SIP phone cleanup complete</arg>
-<doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.634552" elapsed="0.001221"/>
-</kw>
-<arg>${CALLER}</arg>
-<arg>${CALLEE}</arg>
-<doc>Cleanup any active SIP calls after test.
-Hangs up any phones that may still be in a call.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.292502" elapsed="0.343513"/>
-</kw>
-<doc>Extension: Callee actively rejects the incoming call</doc>
+<test id="s1-s1-t7" name="UC-12348-11b: Callee Rejects The Call" line="182">
+<doc>Extension: Callee actively rejects the incoming call
+Requires: 2 SIP phones</doc>
 <tag>boardfarm-bdd</tag>
 <tag>error</tag>
 <tag>rejected</tag>
 <tag>UC-12348</tag>
 <tag>voice</tag>
-<status status="PASS" start="2026-02-04T10:04:06.352475" elapsed="1.283835"/>
+<status status="FAIL" start="2026-02-16T07:19:24.358129" elapsed="0.000325">Parent suite setup failed:
+Dictionary '${phones}' has no key '0'.</status>
 </test>
 <kw name="Teardown Voice Test Environment" owner="voice" type="TEARDOWN">
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:04:07.639152" level="INFO">Tearing down voice test environment...</msg>
+<msg time="2026-02-16T07:19:24.359408" level="INFO">Tearing down voice test environment...</msg>
 <arg>Tearing down voice test environment...</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.638297" elapsed="0.001054"/>
+<status status="PASS" start="2026-02-16T07:19:24.359232" elapsed="0.000217"/>
 </kw>
+<if>
+<branch type="IF" condition="$LAN_PHONE is not None">
 <kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:04:07.808375" level="INFO">Phone lan_phone hanging up...
-✓ Phone lan_phone hung up</msg>
-<arg>${LAN_PHONE}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.641202" elapsed="0.167507"/>
-</kw>
 <arg>Phone Hangs Up</arg>
 <arg>${LAN_PHONE}</arg>
 <doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.639883" elapsed="0.169074"/>
+<status status="NOT RUN" start="2026-02-16T07:19:24.360072" elapsed="0.000020"/>
 </kw>
+<msg time="2026-02-16T07:19:24.360128" level="FAIL">Invalid IF condition: Evaluating expression '$LAN_PHONE is not None' failed: Variable '$LAN_PHONE' not found.</msg>
+<status status="FAIL" start="2026-02-16T07:19:24.359511" elapsed="0.000647">Invalid IF condition: Evaluating expression '$LAN_PHONE is not None' failed: Variable '$LAN_PHONE' not found.</status>
+</branch>
+<status status="FAIL" start="2026-02-16T07:19:24.359494" elapsed="0.000692">Invalid IF condition: Evaluating expression '$LAN_PHONE is not None' failed: Variable '$LAN_PHONE' not found.</status>
+</if>
+<if>
+<branch type="IF" condition="$WAN_PHONE is not None">
 <kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:04:07.975660" level="INFO">Phone wan_phone hanging up...
-✓ Phone wan_phone hung up</msg>
-<arg>${WAN_PHONE}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.810818" elapsed="0.165135"/>
-</kw>
 <arg>Phone Hangs Up</arg>
 <arg>${WAN_PHONE}</arg>
 <doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.809537" elapsed="0.166658"/>
+<status status="NOT RUN" start="2026-02-16T07:19:24.360735" elapsed="0.000020"/>
 </kw>
+<msg time="2026-02-16T07:19:24.360788" level="FAIL">Invalid IF condition: Evaluating expression '$WAN_PHONE is not None' failed: Variable '$WAN_PHONE' not found.</msg>
+<status status="FAIL" start="2026-02-16T07:19:24.360243" elapsed="0.000589">Invalid IF condition: Evaluating expression '$WAN_PHONE is not None' failed: Variable '$WAN_PHONE' not found.</status>
+</branch>
+<status status="FAIL" start="2026-02-16T07:19:24.360229" elapsed="0.000641">Invalid IF condition: Evaluating expression '$WAN_PHONE is not None' failed: Variable '$WAN_PHONE' not found.</status>
+</if>
+<if>
+<branch type="IF" condition="$WAN_PHONE2 is not None">
 <kw name="Run Keyword And Ignore Error" owner="BuiltIn">
-<kw name="Phone hangs up" owner="voice_keywords">
-<msg time="2026-02-04T10:04:08.145978" level="INFO">Phone wan_phone2 hanging up...
-✓ Phone wan_phone2 hung up</msg>
-<arg>${WAN_PHONE2}</arg>
-<doc>Hang up active call.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.978154" elapsed="0.167952"/>
-</kw>
 <arg>Phone Hangs Up</arg>
 <arg>${WAN_PHONE2}</arg>
 <doc>Runs the given keyword with the given arguments and ignores possible error.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.976796" elapsed="0.169404"/>
+<status status="NOT RUN" start="2026-02-16T07:19:24.361539" elapsed="0.000020"/>
 </kw>
+<msg time="2026-02-16T07:19:24.361593" level="FAIL">Invalid IF condition: Evaluating expression '$WAN_PHONE2 is not None' failed: Variable '$WAN_PHONE2' not found.</msg>
+<status status="FAIL" start="2026-02-16T07:19:24.360926" elapsed="0.000695">Invalid IF condition: Evaluating expression '$WAN_PHONE2 is not None' failed: Variable '$WAN_PHONE2' not found.</status>
+</branch>
+<status status="FAIL" start="2026-02-16T07:19:24.360911" elapsed="0.000735">Invalid IF condition: Evaluating expression '$WAN_PHONE2 is not None' failed: Variable '$WAN_PHONE2' not found.</status>
+</if>
 <kw name="Log" owner="BuiltIn">
-<msg time="2026-02-04T10:04:08.146816" level="INFO">Voice test environment torn down</msg>
+<msg time="2026-02-16T07:19:24.361939" level="INFO">Voice test environment torn down</msg>
 <arg>Voice test environment torn down</arg>
 <doc>Logs the given message with the given level.</doc>
-<status status="PASS" start="2026-02-04T10:04:08.146451" elapsed="0.000430"/>
+<status status="PASS" start="2026-02-16T07:19:24.361741" elapsed="0.000237"/>
 </kw>
-<doc>Clean up voice test environment.</doc>
-<status status="PASS" start="2026-02-04T10:04:07.638082" elapsed="0.508883"/>
+<doc>Clean up voice test environment.
+Safely hangs up any active calls on available phones.</doc>
+<status status="FAIL" start="2026-02-16T07:19:24.359060" elapsed="0.003023">Several failures occurred:
+
+1) Invalid IF condition: Evaluating expression '$LAN_PHONE is not None' failed: Variable '$LAN_PHONE' not found.
+
+2) Invalid IF condition: Evaluating expression '$WAN_PHONE is not None' failed: Variable '$WAN_PHONE' not found.
+
+3) Invalid IF condition: Evaluating expression '$WAN_PHONE2 is not None' failed: Variable '$WAN_PHONE2' not found.</status>
 </kw>
 <doc>UC-12348: User Makes a One-Way Call
 As a user, I want to make a voice call from one SIP phone to another
 so that I can establish voice communication.
 
-Corresponds to tests/features/UC-12348 User makes a one-way call.feature</doc>
-<status status="PASS" start="2026-02-04T10:03:14.068678" elapsed="54.078334"/>
+Corresponds to tests/features/UC-12348 User makes a one-way call.feature
+
+Device Requirements:
+- Most tests require 2 SIP phones minimum
+- UC-12348-Main-V4 requires 3 SIP phones
+- All phone numbers are obtained from device object properties</doc>
+<status status="FAIL" start="2026-02-16T07:19:24.248551" elapsed="0.113640">Suite setup failed:
+Dictionary '${phones}' has no key '0'.
+
+Also suite teardown failed:
+Several failures occurred:
+
+1) Invalid IF condition: Evaluating expression '$LAN_PHONE is not None' failed: Variable '$LAN_PHONE' not found.
+
+2) Invalid IF condition: Evaluating expression '$WAN_PHONE is not None' failed: Variable '$WAN_PHONE' not found.
+
+3) Invalid IF condition: Evaluating expression '$WAN_PHONE2 is not None' failed: Variable '$WAN_PHONE2' not found.</status>
 </suite>
 <doc>Boardfarm BDD Robot Framework Test Suites
 
@@ -1427,30 +362,30 @@ Test Suites:
 - device_class_initialization.robot: Device Class Tests</doc>
 <meta name="Boardfarm Status">Deployed</meta>
 <meta name="Board Name">prplos-docker-1</meta>
-<status status="PASS" start="2026-02-04T10:03:10.673143" elapsed="57.474854"/>
+<status status="FAIL" start="2026-02-16T07:17:51.773480" elapsed="92.589480"/>
 </suite>
 <statistics>
 <total>
-<stat pass="7" fail="0" skip="0">All Tests</stat>
+<stat pass="0" fail="7" skip="0">All Tests</stat>
 </total>
 <tag>
-<stat pass="7" fail="0" skip="0">boardfarm-bdd</stat>
-<stat pass="1" fail="0" skip="0">busy</stat>
-<stat pass="3" fail="0" skip="0">call</stat>
-<stat pass="1" fail="0" skip="0">direct-wan</stat>
-<stat pass="4" fail="0" skip="0">error</stat>
-<stat pass="1" fail="0" skip="0">invalid-number</stat>
-<stat pass="3" fail="0" skip="0">main-scenario</stat>
-<stat pass="1" fail="0" skip="0">nat-inbound</stat>
-<stat pass="1" fail="0" skip="0">nat-outbound</stat>
-<stat pass="1" fail="0" skip="0">rejected</stat>
-<stat pass="1" fail="0" skip="0">timeout</stat>
-<stat pass="7" fail="0" skip="0">UC-12348</stat>
-<stat pass="7" fail="0" skip="0">voice</stat>
+<stat pass="0" fail="7" skip="0">boardfarm-bdd</stat>
+<stat pass="0" fail="1" skip="0">busy</stat>
+<stat pass="0" fail="3" skip="0">call</stat>
+<stat pass="0" fail="1" skip="0">direct-wan</stat>
+<stat pass="0" fail="4" skip="0">error</stat>
+<stat pass="0" fail="1" skip="0">invalid-number</stat>
+<stat pass="0" fail="3" skip="0">main-scenario</stat>
+<stat pass="0" fail="1" skip="0">nat-inbound</stat>
+<stat pass="0" fail="1" skip="0">nat-outbound</stat>
+<stat pass="0" fail="1" skip="0">rejected</stat>
+<stat pass="0" fail="1" skip="0">timeout</stat>
+<stat pass="0" fail="7" skip="0">UC-12348</stat>
+<stat pass="0" fail="7" skip="0">voice</stat>
 </tag>
 <suite>
-<stat name="Tests" id="s1" pass="7" fail="0" skip="0">Tests</stat>
-<stat name="User Makes One Way Call" id="s1-s1" pass="7" fail="0" skip="0">Tests.User Makes One Way Call</stat>
+<stat name="Tests" id="s1" pass="0" fail="7" skip="0">Tests</stat>
+<stat name="User Makes One Way Call" id="s1-s1" pass="0" fail="7" skip="0">Tests.User Makes One Way Call</stat>
 </suite>
 </statistics>
 <errors>

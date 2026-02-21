@@ -1,1997 +1,559 @@
 # Technical Brief: Automated End-User Quality of Experience (QoE) Verification Framework
 
-**Date:** February 06, 2026  
-**Version:** 2.6  
+**Date:** February 07, 2026  
+**Version:** 3.0  
 **Status:** Draft
 
 ### Related Documents
+
 - [Testbed Network Topology](./Testbed%20Network%20Topology.md) - Base Raikou + Boardfarm topology reference
+- [Traffic Management Components Architecture](./Traffic_Management_Components_Architecture.md) - Boardfarm traffic control / network impairment design
 
 ---
 
 ## 1. Executive Summary
 
-This document defines a standardized framework for verifying end-user Quality of Experience (QoE) across network infrastructure devices. By combining **Boardfarm testbed orchestration** with **Raikou container networking**, we create a deterministic environment where network conditions can be precisely controlled and user experience can be measured objectively.
+This document defines a standardized framework for verifying end-user Quality of Experience (QoE) across network infrastructure devices. The framework combines **Boardfarm testbed orchestration** with flexible **Traffic Control** capabilities to create a deterministic environment where network conditions are precisely controlled and user experience is measured objectively.
 
 ### Key Value Propositions
 
-1. **Deterministic Reproduction**: Every network issue can be reproduced exactly by replaying recorded impairment profiles
-2. **DUT-Agnostic**: Framework supports any device providing network access (cable modems, SD-WAN appliances, routers, firewalls)
-3. **User-Centric Metrics**: Focus on actual user experience (page load time, video quality, call clarity) rather than just network counters
-4. **Automated Verification**: Programmatic assertion of QoE thresholds against Service Level Objectives (SLOs)
-
-### Scope
-
-The framework validates QoE for three primary service categories:
-- **Productivity Applications**: Office 365, Google Workspace, SaaS platforms
-- **Video Streaming**: Netflix, YouTube, Disney+, live streaming
-- **Real-Time Communication**: Video conferencing (Teams, Zoom), VoIP
-
-### Scalable Architecture: Simple to Complex
-
-The framework is designed to support both simple single-path scenarios and complex multi-path SD-WAN configurations:
-
-| Scenario | DUT Type | WAN Topology | Impairment Points |
-|----------|----------|--------------|-------------------|
-| **Simple** | Basic Router, Cable Modem | Single WAN path | One impairment point on `rtr-wan` bridge |
-| **Complex** | SD-WAN / ApplicationGateway | Multiple WAN paths (WAN1, WAN2, LTE) | Independent impairment per path via dedicated bridges |
-
-This approach ensures the same testing methodology scales from verifying a simple home router to validating complex SD-WAN failover policies on enterprise-grade ApplicationGateway devices.
+1. **User-Centric Metrics**: Shifts focus from network counters (throughput, ping) to actual user experience (page load time, video resolution, call clarity).
+2. **Test Portability**: Automated test cases run unchanged across different testbed implementations (functional testbed with physical DUT + containerized surroundings vs. full physical pre-production labs).
+3. **Deterministic Reproduction**: Every network issue can be reproduced exactly by replaying recorded impairment profiles.
+4. **DUT-Agnostic**: Framework supports any device providing network access (cable modems, SD-WAN appliances, routers, firewalls).
+5. **Automated Verification**: Programmatic assertion of QoE thresholds against Service Level Objectives (SLOs).
 
 ---
 
-## 2. Testbed Architecture
+## 2. QoE Testing Concept
 
-This framework extends the existing Raikou + Boardfarm testbed topology (see [Testbed Network Topology](./Testbed%20Network%20Topology.md)) with QoE measurement capabilities.
+The framework approaches verification from a user-centric perspective: **A Client connected to a Network accessing Services.**
 
-### 2.1 Topology Overview
+### 2.1 The Conceptual Model
 
-The testbed creates a controlled environment with the Device Under Test (DUT) positioned between simulated ISP infrastructure (North-side) and simulated end-users (South-side). The **Network Factory** component operates **north of the Router** (on the `rtr-wan` bridge) to simulate WAN/backbone conditions such as internet latency, backbone congestion, and CDN distance.
+To determine system behavior, we introduce **Traffic Control** as a fundamental part of the network. By varying traffic conditions (latency, loss, bandwidth), we stress the Device Under Test (DUT) and measure the impact on the user's experience.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                         QoE Verification Testbed                                 │
-│                    (Extension of Raikou + Boardfarm Topology)                    │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                  │
-│  ┌───────────────────────────────────────────────────────────────────────────┐  │
-│  │              NORTH-SIDE: Infrastructure Services (Simulated Internet)      │  │
-│  │                                                                            │  │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐   │  │
-│  │  │ WAN         │  │ DHCP        │  │ ACS         │  │ SIP Center      │   │  │
-│  │  │ Container   │  │ Container   │  │ Container   │  │                 │   │  │
-│  │  │ 172.25.1.2  │  │ 172.25.1.20 │  │ 172.25.1.40 │  │ 172.25.1.5      │   │  │
-│  │  │ DNS/HTTP/   │  │ DHCP/Prov.  │  │ TR-069      │  │ Voice Services  │   │  │
-│  │  │ CDN/SaaS    │  │             │  │             │  │                 │   │  │
-│  │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └────────┬────────┘   │  │
-│  │         └────────────────┴────────────────┴──────────────────┘            │  │
-│  │                                   │                                        │  │
-│  │                    ┌──────────────▼──────────────┐                         │  │
-│  │                    │      NETWORK FACTORY        │                         │  │
-│  │                    │   (on rtr-wan OVS bridge)   │                         │  │
-│  │                    │   - Latency / Jitter (tc)   │  ← Simulates internet   │  │
-│  │                    │   - Packet Loss (netem)     │    backbone conditions  │  │
-│  │                    │   - Bandwidth Limits        │                         │  │
-│  │                    │   - Blackout / Brownout     │                         │  │
-│  │                    └──────────────┬──────────────┘                         │  │
-│  │                                   │                                        │  │
-│  │                      rtr-wan bridge (172.25.1.0/24)                        │  │
-│  │                                   │                                        │  │
-│  │                    ┌──────────────▼──────────────┐                         │  │
-│  │                    │     Router Container        │                         │  │
-│  │                    │     (ISP Edge Gateway)      │                         │  │
-│  │                    │     eth1: 172.25.1.1        │                         │  │
-│  │                    │     NAT + FRR Routing       │                         │  │
-│  │                    │     cpe: 10.1.1.1           │                         │  │
-│  │                    └──────────────┬──────────────┘                         │  │
-│  └───────────────────────────────────┼───────────────────────────────────────┘  │
-│                                      │                                          │
-│                           cpe-rtr bridge (10.1.1.0/24)                          │
-│                                      │                                          │
-│                           ┌──────────▼──────────┐                               │
-│                           │  DEVICE UNDER TEST  │                               │
-│                           │  (DUT / CPE)        │                               │
-│                           │  eth1: 10.1.1.x     │                               │
-│                           │  - Cable Modem      │                               │
-│                           │  - SD-WAN Appliance │                               │
-│                           │  - PrplOS Gateway   │                               │
-│                           │  - SD-WAN Device    │                               │
-│                           │  eth0: br-lan       │                               │
-│                           └──────────┬──────────┘                               │
-│                                      │                                          │
-│  ┌───────────────────────────────────┼───────────────────────────────────────┐  │
-│  │              SOUTH-SIDE: Client Devices (LAN Simulation)                   │  │
-│  │                         lan-cpe bridge (br-lan)                            │  │
-│  │                                   │                                        │  │
-│  │    ┌──────────────────────────────┼──────────────────────────────┐         │  │
-│  │    │                              │                              │         │  │
-│  │  ┌─▼───────────┐  ┌───────────────▼───────────┐  ┌───────────────▼──────┐  │  │
-│  │  │ LAN         │  │ Browser User              │  │ LAN Phone            │  │  │
-│  │  │ Container   │  │ (Playwright)              │  │ (SIP Client)         │  │  │
-│  │  │ DHCP Client │  │ - Productivity            │  │ Number: 1000         │  │  │
-│  │  │ HTTP Proxy  │  │ - Video Streaming         │  │                      │  │  │
-│  │  │             │  │ - Conferencing            │  │                      │  │  │
-│  │  └─────────────┘  └───────────────────────────┘  └──────────────────────┘  │  │
-│  └────────────────────────────────────────────────────────────────────────────┘  │
-│                                                                                  │
-└─────────────────────────────────────────────────────────────────────────────────┘
-```
+![Top Level QoE](../Excalidraw/Top_level_QoE.excalidraw.svg)
 
-### 2.2 North-Side: Infrastructure Services (ISP + Simulated Internet)
+1. **SUT**: The system / device being verified (SD-WAN appliance, Router, Gateway).
+2. **Traffic Control**: The active network element applying impairments (the "knobs" we turn).
+3. **Services**: Self-hosted instances of real-world applications (Streaming, Conferencing, SaaS).
 
-The north-side consists of two logical layers on the `rtr-wan` bridge (172.25.1.0/24):
+*   **Industry Alignment**: This "Control Loop" (Stimulate → Execute → Measure → Verify) aligns with **AIOps** and **Intent-Based Networking** standards.
+*   **Zero-Trust Impacts**: Modern SUTs often perform Deep Packet Inspection (DPI) or SSL Decryption. This adds processing overhead (CPU/Memory stress) that can degrade QoE even if the network link is pristine.
+*   **Critical Variable**: **SUT Resource Utilization** (CPU/RAM) is a co-factor in QoE measurement.
 
-#### ISP Edge (Router Container)
+### 2.2 The Control Loop
 
-| Component | IP Address | Role |
-|-----------|------------|------|
-| **Router** | 172.25.1.1 (wan), 10.1.1.1 (cpe) | ISP edge gateway - NAT, FRR routing |
-
-The Router is the boundary between "customer network" and "internet". It performs NAT and routing, representing the ISP's customer-facing equipment.
-
-#### Simulated Internet Services (North of Router)
-
-| Component | IP Address | Services | QoE Role |
-|-----------|------------|----------|----------|
-| **WAN Container** | 172.25.1.2 | DNS, HTTP, TFTP, FTP | CDN, SaaS endpoints, general internet |
-| **DHCP Container** | 172.25.1.20 | DHCP, provisioning | ISP provisioning (DOCSIS, TR-069 bootstrap) |
-| **ACS Container** | 172.25.1.40 | TR-069 | Device management verification |
-| **SIP Center** | 172.25.1.5 | SIP registrar | VoIP/conferencing backend |
-
-These containers represent internet services that the end-user accesses through the ISP. The **Network Factory** applies impairments to traffic between the Router and these services.
-
-#### Self-Hosted QoE Service Infrastructure
-
-To ensure **deterministic and reproducible** QoE measurements, all backend services must be self-hosted within the testbed. Using public internet services (actual Netflix, YouTube, Teams) would introduce uncontrolled variables that undermine reproducibility.
-
-**Design Principle:** Each QoE domain (productivity, streaming, conferencing) requires dedicated service simulators that provide realistic behavior while remaining fully controlled.
-
-##### Productivity Services (Mock SaaS)
-
-**Purpose:** Measure page load times, TTFB, file upload/download performance
-
-| Service | Implementation | Metrics Enabled |
-|---------|----------------|-----------------|
-| **Web Server** | nginx with static HTML/CSS/JS bundles | Page Load Time, DOM Content Loaded |
-| **Mock SaaS API** | Flask/FastAPI with realistic response sizes | TTFB, Transaction Time |
-| **File Transfer** | nginx with upload endpoint (configurable delays) | Upload/Download throughput |
-| **TLS Termination** | Self-signed certificates | TLS handshake timing |
-
-**WAN Container Enhancement:**
-```
-WAN Container (172.25.1.2):
-├── nginx serving "Office 365-like" static pages
-│   ├── /login - Mock login page with JS bundle
-│   ├── /dashboard - Complex page with multiple resources
-│   └── /upload - File upload endpoint
-├── Mock API endpoints returning realistic JSON payloads
-└── Configurable response delays for SLA testing
-```
-
-##### Streaming Services (HLS/DASH Video)
-
-**Purpose:** Measure adaptive bitrate behavior, rebuffering, startup time, resolution changes
-
-| Service | Implementation | Metrics Enabled |
-|---------|----------------|-----------------|
-| **HLS/DASH Server** | nginx-vod-module or pre-packaged segments | Startup Time, Rebuffer Ratio |
-| **Multi-Bitrate Content** | Pre-encoded test videos (Big Buck Bunny) | Resolution Changes, ABR behavior |
-| **CDN Simulator** | nginx with configurable chunk delays | CDN latency simulation |
-
-**Streaming Container (NEW - 172.25.1.10):**
-```
-Streaming Container:
-├── nginx-vod-module (on-the-fly HLS/DASH packaging)
-│   OR nginx serving pre-packaged segments
-├── Test video content at multiple bitrates:
-│   ├── 360p  @ 0.5 Mbps  (low quality fallback)
-│   ├── 720p  @ 2.5 Mbps  (standard definition)
-│   ├── 1080p @ 5.0 Mbps  (high definition)
-│   └── 4K    @ 15 Mbps   (ultra high definition)
-├── HLS manifests (.m3u8) with proper segment durations
-└── DASH manifests (.mpd) for cross-platform testing
-```
-
-**Content Preparation (using FFmpeg):**
-```bash
-# Encode test video at multiple bitrates for HLS
-ffmpeg -i source.mp4 \
-  -c:v libx264 -b:v 500k  -s 640x360  -hls_time 4 -hls_list_size 0 360p.m3u8 \
-  -c:v libx264 -b:v 2500k -s 1280x720 -hls_time 4 -hls_list_size 0 720p.m3u8 \
-  -c:v libx264 -b:v 5000k -s 1920x1080 -hls_time 4 -hls_list_size 0 1080p.m3u8
-
-# Generate master playlist for adaptive streaming
-cat > master.m3u8 << EOF
-#EXTM3U
-#EXT-X-STREAM-INF:BANDWIDTH=500000,RESOLUTION=640x360
-360p.m3u8
-#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720
-720p.m3u8
-#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080
-1080p.m3u8
-EOF
-```
-
-##### Conferencing Services (WebRTC/VoIP)
-
-**Purpose:** Measure RTT, jitter, packet loss, MOS score, video resolution
-
-| Service | Implementation | Metrics Enabled |
-|---------|----------------|-----------------|
-| **WebRTC Server** | Jitsi Meet or Mediasoup | RTT, Jitter, Packet Loss via getStats() |
-| **STUN/TURN** | coturn | NAT traversal, relay metrics |
-| **Media Bot** | Automated call participant | Consistent call partner for testing |
-| **SIP Server** | Kamailio (existing SIP Center) | Traditional VoIP metrics |
-
-**Conferencing Container (NEW - 172.25.1.15):**
-```
-Conferencing Container:
-├── Jitsi Meet (self-hosted)
-│   ├── Jicofo (conference focus)
-│   ├── Jitsi Videobridge (media routing)
-│   └── Prosody (XMPP signaling)
-├── coturn (STUN/TURN server)
-│   ├── STUN on port 3478
-│   └── TURN on port 3478 (TCP/UDP)
-├── Media Bot (automated call participant)
-│   ├── Joins calls automatically
-│   ├── Sends test audio/video patterns
-│   └── Provides consistent call partner
-└── Integration with existing SIP Center for VoIP
-```
-
-**Why Jitsi Meet?**
-- Fully open source and self-hostable
-- WebRTC-based (matches Teams/Zoom architecture)
-- Exposes all WebRTC `getStats()` metrics
-- Can run headless for automated testing
-
-##### DNS Configuration for Service Discovery
-
-The WAN container's DNS must resolve test domains to local service IPs. This allows the Playwright browser to navigate to familiar URLs while hitting local services:
-
-```bind
-; /etc/bind/zones/test.local.zone
-; QoE Test Domains - resolve to self-hosted services
-
-; Productivity (Mock SaaS)
-office365.test.local.     IN A  172.25.1.2
-sharepoint.test.local.    IN A  172.25.1.2
-docs.test.local.          IN A  172.25.1.2
-salesforce.test.local.    IN A  172.25.1.2
-
-; Video Streaming
-youtube.test.local.       IN A  172.25.1.10
-netflix.test.local.       IN A  172.25.1.10
-twitch.test.local.        IN A  172.25.1.10
-vimeo.test.local.         IN A  172.25.1.10
-
-; Conferencing
-teams.test.local.         IN A  172.25.1.15
-zoom.test.local.          IN A  172.25.1.15
-meet.test.local.          IN A  172.25.1.15
-
-; STUN/TURN
-stun.test.local.          IN A  172.25.1.15
-turn.test.local.          IN A  172.25.1.15
-```
-
-##### Extended WAN Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    NORTH-SIDE: Self-Hosted QoE Services                      │
-│                         (rtr-wan bridge: 172.25.1.0/24)                      │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌───────────────────┐  ┌───────────────────┐  ┌─────────────────────────┐  │
-│  │ WAN Container     │  │ Streaming         │  │ Conferencing            │  │
-│  │ 172.25.1.2        │  │ Container         │  │ Container               │  │
-│  │                   │  │ 172.25.1.10       │  │ 172.25.1.15             │  │
-│  │ • DNS (bind9)     │  │                   │  │                         │  │
-│  │ • nginx (web)     │  │ • nginx-vod       │  │ • Jitsi Meet            │  │
-│  │ • Mock SaaS API   │  │ • HLS/DASH        │  │ • coturn (STUN/TURN)    │  │
-│  │ • File transfer   │  │ • Multi-bitrate   │  │ • WebRTC signaling      │  │
-│  │                   │  │   test videos     │  │ • Media bot             │  │
-│  └───────────────────┘  └───────────────────┘  └─────────────────────────┘  │
-│                                                                              │
-│  ┌───────────────────┐  ┌───────────────────┐  ┌─────────────────────────┐  │
-│  │ DHCP Container    │  │ ACS Container     │  │ SIP Center              │  │
-│  │ 172.25.1.20       │  │ 172.25.1.40       │  │ 172.25.1.5              │  │
-│  │ (existing)        │  │ (existing)        │  │ (existing - VoIP)       │  │
-│  └───────────────────┘  └───────────────────┘  └─────────────────────────┘  │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-##### Implementation Priority
-
-| Priority | Container | Complexity | Value | Dependencies |
-|----------|-----------|------------|-------|--------------|
-| **1** | Enhanced WAN (Mock SaaS) | Low | Medium | Extends existing container |
-| **2** | Streaming (HLS/DASH) | Medium | High | New container, video encoding |
-| **3** | Conferencing (Jitsi) | High | High | New container, complex setup |
-
-**Traffic Flow:**
-1. LAN client sends request through DUT
-2. DUT forwards to Router (`10.1.1.1`) on `cpe-rtr` bridge
-3. Router applies NAT (source → `172.25.1.1`) and forwards to `rtr-wan` bridge
-4. **Network Factory applies impairments** (latency, loss, bandwidth)
-5. WAN services receive impaired request and respond
-6. Response traverses Network Factory (impairments applied)
-7. Router de-NATs and forwards to DUT → LAN client
-
-### 2.3 Network Factory: Architecture Overview
-
-The **Network Factory** capability is implemented through the collaboration of two components:
-
-1. **Raikou (Infrastructure Layer)**: Creates the OVS bridges, veth pairs, and provides the low-level tc/netem execution environment
-2. **Boardfarm ISPGateway.impairment (Device Layer)**: Exposes impairment control as a property of the Router device, following existing Boardfarm patterns
-
-This separation of concerns ensures:
-- Raikou handles network topology creation and container orchestration
-- Boardfarm standardizes the interface for test cases to control impairments
-- Test cases use `router.impairment.set_profile("degraded")` without knowing tc/netem details
-
-#### Technical Implementation: tc/netem on Veth Interfaces
-
-**Important:** Linux `tc`/`netem` rules cannot be applied directly to OVS bridges. OVS bridges are software switches that don't support the standard Linux queuing discipline interface.
-
-Instead, impairments are applied to the **veth interfaces** that connect containers to OVS bridges:
-
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                     How Raikou Connects Containers to Bridges                 │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                               │
-│   ┌─────────────────┐              ┌─────────────────┐                       │
-│   │  Router         │              │  WAN Services   │                       │
-│   │  Container      │              │  Container      │                       │
-│   │                 │              │                 │                       │
-│   │   eth1          │              │   eth1          │                       │
-│   └────────┬────────┘              └────────┬────────┘                       │
-│            │                                │                                │
-│   ┌────────▼────────┐              ┌────────▼────────┐                       │
-│   │  veth_c         │              │  veth_c         │  ← Container side     │
-│   │  (inside netns) │              │  (inside netns) │                       │
-│   └────────┬────────┘              └────────┬────────┘                       │
-│            │ veth pair                      │ veth pair                      │
-│   ┌────────▼────────┐              ┌────────▼────────┐                       │
-│   │  veth_l         │              │  veth_l         │  ← Host side          │
-│   │  (host netns)   │              │  (host netns)   │    tc/netem HERE      │
-│   └────────┬────────┘              └────────┬────────┘                       │
-│            │                                │                                │
-│            └────────────────┬───────────────┘                                │
-│                             │                                                │
-│                    ┌────────▼────────┐                                       │
-│                    │  rtr-wan        │                                       │
-│                    │  OVS Bridge     │                                       │
-│                    └─────────────────┘                                       │
-│                                                                               │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
-
-**Raikou's veth creation** (from `util/ovs-docker`):
-```bash
-# Create a veth pair
-ip link add "${PORTNAME}_l" type veth peer name "${PORTNAME}_c"
-
-# Add host-side veth to OVS bridge  
-ovs-vsctl add-port "$BRIDGE" "${PORTNAME}_l"
-
-# Move container-side veth into container namespace
-ip link set "${PORTNAME}_c" netns "$PID"
-ip netns exec "$PID" ip link set dev "${PORTNAME}_c" name "eth1"
-```
-
-**Impairment application**: tc/netem rules are applied to the **host-side veth** (`${PORTNAME}_l`):
-```bash
-# Find Router's eth1 veth port on rtr-wan bridge
-PORT=$(ovs-vsctl --data=bare --no-heading --columns=name find interface \
-    external_ids:container_id="router" \
-    external_ids:container_iface="eth1")
-
-# Apply impairment to Router's uplink
-tc qdisc add dev ${PORT} root netem delay 100ms 20ms loss 2%
-```
-
-#### Why Raikou as Network Factory?
-
-| Benefit | Description |
-|---------|-------------|
-| **Unified Management** | Single API for topology and impairment control |
-| **Existing Infrastructure** | Raikou already tracks all veth interfaces and their metadata |
-| **Multi-Path Ready** | Create multiple bridges with independent impairments |
-| **Consistent Cleanup** | Impairments automatically removed when containers are destroyed |
-
-#### Placement: North of Router
-
-Traffic flow with impairments:
-```
-Internet Services (WAN/CDN/SaaS) ←──[veth with tc/netem]──→ OVS Bridge ←──→ Router (eth1)
-```
-
-**Why this placement (north of Router)?**
-- **Simulates real-world conditions**: Latency to distant servers, backbone congestion, and CDN issues occur in the internet backbone, not the last mile
-- **Router is the ISP edge**: The Router container represents the customer-facing ISP equipment; impairments should affect what the ISP "sees" from the internet
-- **Comprehensive testing**: All traffic to/from WAN services (DNS, HTTP, streaming, VoIP) passes through the impairment zone
-- **Realistic scenarios**: When testing "satellite latency" or "congested backbone", the impairment should be between ISP and internet, not between customer and ISP
-
-**Alternative: Last-Mile Impairment**
-
-For scenarios requiring last-mile simulation (e.g., DSL line quality, cable plant issues), impairments can alternatively be applied to veth interfaces on the `cpe-rtr` bridge between the DUT and Router. This is a secondary use case.
-
-### 2.4 Multi-Path Topology (SD-WAN / ApplicationGateway)
-
-For advanced DUTs with multiple WAN interfaces (ApplicationGateway devices such as SD-WAN appliances), the topology extends to support **independent impairment per path**:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                Multi-Path QoE Testbed (SD-WAN / ApplicationGateway)              │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                  │
-│  ┌───────────────────────────────────────────────────────────────────────────┐  │
-│  │                    NORTH-SIDE: Simulated Internet Services                 │  │
-│  │                                                                            │  │
-│  │    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                   │  │
-│  │    │ WAN/CDN     │    │ DNS/DHCP    │    │ SaaS/Cloud  │                   │  │
-│  │    │ Services    │    │ Services    │    │ Services    │                   │  │
-│  │    └──────┬──────┘    └──────┬──────┘    └──────┬──────┘                   │  │
-│  │           └─────────────────┬┴───────────────────┘                         │  │
-│  │                             │                                              │  │
-│  │  ┌──────────────────────────┼──────────────────────────┐                   │  │
-│  │  │                          │                          │                   │  │
-│  │  │                          │                          │                   │  │
-│  │  ▼                          ▼                          ▼                   │  │
-│  │ ┌────────────────┐  ┌────────────────┐  ┌────────────────┐                 │  │
-│  │ │ wan1-bridge    │  │ wan2-bridge    │  │ lte-bridge     │                 │  │
-│  │ │ ┌────────────┐ │  │ ┌────────────┐ │  │ ┌────────────┐ │                 │  │
-│  │ │ │ tc/netem   │ │  │ │ tc/netem   │ │  │ │ tc/netem   │ │                 │  │
-│  │ │ │ "fiber"    │ │  │ │ "cable"    │ │  │ │ "4g_mobile"│ │                 │  │
-│  │ │ │ 10ms/0%    │ │  │ │ 25ms/0.5%  │ │  │ │ 80ms/1%   │ │                 │  │
-│  │ │ └────────────┘ │  │ └────────────┘ │  │ └────────────┘ │                 │  │
-│  │ └───────┬────────┘  └───────┬────────┘  └───────┬────────┘                 │  │
-│  │         │                   │                   │                          │  │
-│  └─────────┼───────────────────┼───────────────────┼──────────────────────────┘  │
-│            │                   │                   │                             │
-│            │                   │                   │                             │
-│            ▼                   ▼                   ▼                             │
-│       ┌─────────────────────────────────────────────────────┐                    │
-│       │              MERAKI MX / SD-WAN DEVICE              │                    │
-│       │                    (DUT)                            │                    │
-│       │                                                     │                    │
-│       │    WAN1 (eth1)    WAN2 (eth2)    LTE (usb0)        │                    │
-│       │    Primary        Secondary      Failover          │                    │
-│       │                                                     │                    │
-│       │    ┌─────────────────────────────────────────┐      │                    │
-│       │    │         SD-WAN Policy Engine            │      │                    │
-│       │    │   • Path selection based on SLA         │      │                    │
-│       │    │   • Application-aware routing           │      │                    │
-│       │    │   • Automatic failover                  │      │                    │
-│       │    └─────────────────────────────────────────┘      │                    │
-│       │                                                     │                    │
-│       │                      LAN                            │                    │
-│       └───────────────────────┬─────────────────────────────┘                    │
-│                               │                                                  │
-│  ┌────────────────────────────┼────────────────────────────────────────────────┐ │
-│  │              SOUTH-SIDE: Client Devices (LAN Simulation)                    │ │
-│  │                        lan-cpe bridge                                       │ │
-│  │    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                    │ │
-│  │    │ Browser     │    │ Browser     │    │ SIP Phone   │                    │ │
-│  │    │ User 1      │    │ User 2      │    │ (VoIP)      │                    │ │
-│  │    └─────────────┘    └─────────────┘    └─────────────┘                    │ │
-│  └─────────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                  │
-└─────────────────────────────────────────────────────────────────────────────────┘
-```
-
-**Multi-Path Test Scenarios:**
-
-| Scenario | Path Configuration | Expected Behavior |
-|----------|--------------------|-------------------|
-| **WAN1 Degradation** | WAN1: `congested_peak`, WAN2: `pristine` | Traffic shifts to WAN2 |
-| **WAN1 Blackout** | WAN1: link down, WAN2: `pristine` | Immediate failover to WAN2 |
-| **All Paths Degraded** | WAN1: `degraded`, WAN2: `degraded`, LTE: `4g_mobile` | Best-effort routing, voice prioritized to LTE |
-| **Voice Priority** | All paths: `congested_peak` | VoIP stays on lowest-latency path |
-
-This multi-path architecture enables verification of SD-WAN policy decisions under controlled, reproducible conditions.
-
-### 2.5 South-Side: Client Devices (LAN Simulation)
-
-Simulated users connect to the DUT LAN via the `lan-cpe` OVS bridge, appearing as distinct devices:
-
-| Component | Connection | Purpose |
-|-----------|------------|---------|
-| **LAN Container** | eth1 → lan-cpe bridge | Existing test client (DHCP, HTTP proxy) |
-| **Browser User** | eth1 → lan-cpe bridge | Playwright-based QoE measurement |
-| **LAN Phone** | eth1 → lan-cpe bridge | SIP client (number 1000) |
-
-**Networking Strategy:**
-
-For the DUT to apply per-client policies (e.g., QoS, firewall rules), each simulated user must appear as a distinct physical device on the LAN:
-
-| Requirement | Solution |
-|-------------|----------|
-| Unique MAC address per user | Raikou assigns dedicated MAC via OVS |
-| Unique IP from LAN subnet | DHCP from DUT or static assignment |
-| Distinct client identity | DUT sees separate devices, not NAT'd host |
-
-### 2.6 Device Under Test (DUT) Abstraction
-
-The framework treats the DUT as a replaceable component. The default is the PrplOS CPE, but it can be substituted with any device providing network access:
-
-| Capability | Description | Examples |
-|------------|-------------|----------|
-| **Routing** | Forward traffic between LAN and WAN | All devices |
-| **NAT** | Translate private IPs to public | Most devices |
-| **QoS** | Prioritize traffic classes | ApplicationGateway, enterprise routers |
-| **Firewall** | Filter traffic by rules/policies | All security appliances |
-| **DPI** | Classify traffic by application | ApplicationGateway, next-gen firewalls |
-| **SD-WAN** | Multi-path routing, failover | ApplicationGateway (Meraki, Viptela, Fortinet, etc.) |
-
-**DUT Interface Requirements:**
-- **eth0 (LAN)**: Connected to `lan-cpe` bridge
-- **eth1 (WAN)**: Connected to `cpe-rtr` bridge, obtains IP via DHCP from Router
-
-Device-specific verification is handled through Boardfarm's device templates (see Section 2.7).
-
-### 2.7 Boardfarm Device Architecture
-
-The QoE framework introduces new device types in Boardfarm to properly model the different classes of network equipment in the testbed. This follows Boardfarm's established pattern of **templates** (abstract interfaces) and **device implementations** (concrete classes).
-
-#### 2.7.1 Device Type Separation: CPE vs ApplicationGateway
-
-A critical architectural decision is the recognition that **CPE** (Customer Premises Equipment) and **ApplicationGateway** (SD-WAN/L7 appliances) are fundamentally different device types:
-
-| Aspect | CPE (Cable Modem/Router) | ApplicationGateway (SD-WAN, NGFW) |
-|--------|--------------------------|-----------------------------------|
-| **OSI Layer** | L2/L3 (Data Link/Network) | L3-L7 (Network through Application) |
-| **Primary Function** | Basic connectivity, NAT, DHCP | Application-aware routing, DPI, SD-WAN |
-| **Management Protocol** | TR-069/CWMP, SNMP, CLI | Cloud Dashboard API, REST, vendor-specific |
-| **Traffic Handling** | IP packets, port-based rules | Deep packet inspection, app classification |
-| **QoS Capabilities** | Basic queue management | Application-aware traffic shaping |
-| **Network Position** | Edge of ISP network (bridge mode or NAT) | Customer's intelligent gateway |
-| **Examples** | Cable modems, residential gateways | Meraki MX, Cisco Viptela, Fortinet, Palo Alto |
-
-**Rationale:** Extending the CPE template to accommodate ApplicationGateway functionality would be architecturally incorrect. An ApplicationGateway device sits *behind* or *instead of* a basic CPE, providing intelligent application services. The device capabilities are fundamentally different.
-
-#### 2.7.2 New Template: ApplicationGateway
-
-Following Boardfarm's sub-component pattern (like `cpe.hw`, `cpe.sw`, `acs.nbi`, `acs.gui`), the ApplicationGateway template exposes functional sub-components:
-
-```python
-# boardfarm3/templates/app_gateway.py
-
-from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from boardfarm3.templates.app_gateway.app_gateway_mgmt import AppGatewayMgmt
-    from boardfarm3.templates.app_gateway.app_gateway_wan import AppGatewayWan
-    from boardfarm3.templates.app_gateway.app_gateway_traffic import AppGatewayTraffic
-    from boardfarm3.templates.app_gateway.app_gateway_policy import AppGatewayPolicy
-
-
-class ApplicationGateway(ABC):
-    """Template for L7-capable network appliances (SD-WAN, NGFW, etc.)
-    
-    Represents devices that provide:
-    - Application identification and classification
-    - Traffic shaping based on application awareness
-    - Multi-path WAN with intelligent path selection
-    - Security services (IPS, content filtering, etc.)
-    
-    Examples: Meraki MX, Cisco Viptela, Fortinet SD-WAN, Palo Alto Prisma
-    """
-    
-    @property
-    @abstractmethod
-    def config(self) -> dict:
-        """Device configuration from inventory."""
-        raise NotImplementedError
-    
-    @property
-    @abstractmethod
-    def mgmt(self) -> AppGatewayMgmt:
-        """Management interface (API, console if available)."""
-        raise NotImplementedError
-    
-    @property
-    @abstractmethod
-    def wan(self) -> AppGatewayWan:
-        """WAN interfaces and SD-WAN path management."""
-        raise NotImplementedError
-    
-    @property
-    @abstractmethod
-    def traffic(self) -> AppGatewayTraffic:
-        """Traffic analytics and application classification."""
-        raise NotImplementedError
-    
-    @property
-    @abstractmethod
-    def policy(self) -> AppGatewayPolicy:
-        """QoS, security, and traffic shaping policies."""
-        raise NotImplementedError
-```
-
-**Sub-Component Templates:**
-
-| Sub-Component | Purpose | Key Methods |
-|---------------|---------|-------------|
-| `mgmt` | Management interface (API connectivity, device status) | `is_online()`, `reboot()`, `get_system_status()` |
-| `wan` | WAN interface and path management | `get_uplinks()`, `get_active_uplink()`, `get_failover_config()` |
-| `traffic` | Traffic analytics and classification | `get_client_applications()`, `get_traffic_classification()` |
-| `policy` | QoS and security policy management | `get_traffic_shaping_rules()`, `get_applied_policy()` |
-
-**Device Implementation Example:**
-
-Each vendor requires a concrete implementation of the `ApplicationGateway` template. The implementation wraps the vendor-specific API (REST, Dashboard, CLI, etc.):
-
-```python
-# boardfarm3/devices/example_sdwan.py
-
-class ExampleSDWAN(ApplicationGateway):
-    """Example SD-WAN / ApplicationGateway device implementation.
-    
-    Real implementations would include:
-    - MerakiMX (Meraki Dashboard API)
-    - ViptelaSDWAN (vManage API)
-    - FortiGateSDWAN (FortiOS REST API)
-    - PaloAltoPrisma (Prisma SD-WAN API)
-    """
-    
-    def __init__(self, config: dict, cmdline_args):
-        self._config = config
-        self._mgmt = VendorMgmt(self)      # Vendor-specific management
-        self._wan = VendorWan(self)        # WAN interface control
-        self._traffic = VendorTraffic(self) # Traffic analytics
-        self._policy = VendorPolicy(self)  # Policy management
-    
-    @property
-    def mgmt(self) -> VendorMgmt:
-        return self._mgmt
-    
-    @property
-    def wan(self) -> VendorWan:
-        return self._wan
-    
-    @property
-    def traffic(self) -> VendorTraffic:
-        return self._traffic
-    
-    @property
-    def policy(self) -> VendorPolicy:
-        return self._policy
-```
-
-#### 2.7.3 Router Template with Impairment Property
-
-Following the existing Boardfarm pattern where `wan.firewall` provides firewall control as a sub-component, the **Router** (ISP Gateway) device template includes an `impairment` property for tc/netem control:
-
-```python
-# boardfarm3/templates/isp_gateway.py
-
-from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from boardfarm3.lib.boardfarm_pexpect import BoardfarmPexpect
-    from boardfarm3.lib.networking import IptablesFirewall, NetworkImpairment
-
-
-class ISPGateway(ABC):
-    """ISP Gateway / Router template.
-    
-    Represents the ISP edge router that connects WAN infrastructure
-    to the DUT. Includes impairment control for simulating network conditions.
-    """
-    
-    @property
-    @abstractmethod
-    def console(self) -> BoardfarmPexpect:
-        """Device console."""
-        raise NotImplementedError
-    
-    @property
-    @abstractmethod
-    def iface_dut(self) -> str:
-        """Interface facing DUT."""
-        raise NotImplementedError
-    
-    @property
-    @abstractmethod
-    def firewall(self) -> IptablesFirewall:
-        """Firewall component for traffic filtering."""
-        raise NotImplementedError
-    
-    @property
-    @abstractmethod
-    def impairment(self) -> NetworkImpairment:
-        """Network impairment component for tc/netem control.
-        
-        Apply impairments on the DUT-facing interface to simulate
-        various network conditions (latency, jitter, loss, bandwidth).
-        
-        Usage:
-            router.impairment.set_profile("cable_degraded")
-            router.impairment.set_delay("50ms", jitter="10ms")
-            router.impairment.clear()
-        """
-        raise NotImplementedError
-```
-
-**NetworkImpairment Component:**
-
-```python
-# boardfarm3/lib/networking.py (addition)
-
-class NetworkImpairment:
-    """Network impairment control using tc/netem.
-    
-    Similar pattern to IptablesFirewall - wraps console commands
-    for managing traffic control rules on a specific interface.
-    """
-    
-    PROFILES = {
-        "pristine": {"delay": "5ms", "jitter": "1ms", "loss": "0%"},
-        "fiber_pristine": {"delay": "10ms", "jitter": "2ms", "loss": "0%"},
-        "cable_typical": {"delay": "20ms", "jitter": "5ms", "loss": "0.1%"},
-        "cable_degraded": {"delay": "50ms", "jitter": "15ms", "loss": "1%"},
-        "lte_variable": {"delay": "80ms", "jitter": "30ms", "loss": "2%"},
-        "congested": {"delay": "150ms", "jitter": "50ms", "loss": "5%"},
-        "total_failure": {"loss": "100%"},
-    }
-    
-    def __init__(self, console: BoardfarmPexpect, interface: str):
-        self._console = console
-        self._interface = interface
-        self._current_profile: str | None = None
-    
-    def set_profile(self, profile: str) -> None:
-        """Apply a named impairment profile."""
-        if profile not in self.PROFILES:
-            raise ValueError(f"Unknown profile: {profile}")
-        settings = self.PROFILES[profile]
-        self.clear()
-        
-        netem_opts = []
-        if "delay" in settings:
-            delay_str = f"delay {settings['delay']}"
-            if "jitter" in settings:
-                delay_str += f" {settings['jitter']}"
-            netem_opts.append(delay_str)
-        if "loss" in settings:
-            netem_opts.append(f"loss {settings['loss']}")
-        
-        if netem_opts:
-            self._console.execute_command(
-                f"tc qdisc replace dev {self._interface} root netem {' '.join(netem_opts)}"
-            )
-        self._current_profile = profile
-    
-    def set_delay(self, delay: str, jitter: str | None = None) -> None:
-        """Set latency on the interface."""
-        jitter_str = f" {jitter}" if jitter else ""
-        self._console.execute_command(
-            f"tc qdisc replace dev {self._interface} root netem delay {delay}{jitter_str}"
-        )
-    
-    def clear(self) -> None:
-        """Remove all impairments from the interface."""
-        self._console.execute_command(
-            f"tc qdisc del dev {self._interface} root 2>/dev/null || true"
-        )
-        self._current_profile = None
-    
-    def get_status(self) -> dict:
-        """Get current impairment status."""
-        output = self._console.execute_command(f"tc qdisc show dev {self._interface}")
-        return {
-            "interface": self._interface,
-            "profile": self._current_profile,
-            "raw_config": output.strip(),
-        }
-```
-
-**Key Architectural Benefit:** The impairment is a property of the Router (where the tc/netem commands execute), not a separate device. This:
-- Follows existing Boardfarm patterns (`wan.firewall`, `cpe.sw`)
-- Places responsibility where it belongs (the router owns its egress characteristics)
-- Simplifies multi-WAN testing (each router manages its own path)
-
-#### 2.7.4 Device Type Summary
-
-| Device Type | Template | Sub-Components | Use Case |
-|-------------|----------|----------------|----------|
-| **CPE** | `CPE` | `hw`, `sw` | Basic routers, cable modems, residential gateways |
-| **ApplicationGateway** | `ApplicationGateway` | `mgmt`, `wan`, `traffic`, `policy` | SD-WAN appliances, next-gen firewalls (Meraki, Viptela, Fortinet, etc.) |
-| **ISPGateway (Router)** | `ISPGateway` | `firewall`, `impairment` | ISP edge simulation with impairment control |
-| **WAN** | `WAN` | `firewall`, `multicast`, `nslookup` | WAN services container |
-| **LAN** | `LAN` | (existing) | LAN client simulation |
+1. **Stimulate**: Apply a specific network profile via Traffic Control (e.g., "Degraded Uplink").
+2. **Execute**: Client uses a Service (e.g., "Watch 4K Video").
+3. **Measure**: Capture application-level metrics (e.g., "Rebuffer Ratio").
+4. **Verify**: Assert metrics against acceptable thresholds (SLOs).
 
 ---
 
-## 3. Impairment Model: The Network Factory
+## 3. Main application services to verify
 
-The Network Factory is the **core differentiator** enabling deterministic QoE testing. It provides programmatic control over network conditions using Linux Traffic Control (`tc`) and Network Emulation (`netem`).
+The QoE is concentrating on the following categories of services:
 
-**Implementation:** The Network Factory is implemented as an **extension of Raikou**, adding impairment control to its existing network orchestration capabilities. This provides:
-- **Single API** for topology creation and impairment management
-- **Per-bridge impairment control** for multi-path scenarios
-- **Veth-based tc/netem application** (see Section 2.3 for technical details)
+### 3.1 SaaS
 
-### 3.1 Impairment Profiles
+#### 3.1.1 Description
 
-Named, versioned profiles represent real-world network conditions:
+Simulates interaction with cloud-based productivity suites (e.g., Office 365, Google Workspace, Salesforce). This service category measures the responsiveness and reliability of transactional workflows, such as logging in, navigating complex dashboards, and uploading/downloading files. It verifies the network's ability to handle bursty, TCP-based traffic typical of modern web applications.
 
-| Profile Name | Latency | Jitter | Packet Loss | Bandwidth | Description |
-|--------------|---------|--------|-------------|-----------|-------------|
-| `pristine` | 5ms | 1ms | 0% | 1 Gbps | Ideal conditions (baseline) |
-| `fiber_pristine` | 10ms | 2ms | 0% | 1 Gbps | Enterprise fiber connection |
-| `cable_typical` | 15ms | 5ms | 0.1% | 100 Mbps | Typical cable subscriber |
-| `dsl_rural` | 45ms | 15ms | 0.5% | 25 Mbps | Rural DSL connection |
-| `4g_mobile` | 80ms | 30ms | 1% | 20 Mbps | Mobile LTE user |
-| `satellite` | 600ms | 50ms | 2% | 10 Mbps | Satellite/maritime |
-| `congested_peak` | 25ms | 40ms | 3% | Variable | Peak hour congestion |
-| `degraded_uplink` | 20ms | 10ms | 5% | 2 Mbps | ISP degradation |
+#### 3.1.2 Main variables affecting QoE
 
-**Implementation Example:**
-```bash
-# Apply 'dsl_rural' profile to DUT uplink interface
-tc qdisc add dev eth-wan root netem \
-    delay 45ms 15ms distribution normal \
-    loss 0.5% \
-    rate 25mbit
+*   **Latency (RTT)**: Directly impacts Time to First Byte (TTFB) and perceived responsiveness. High latency makes UI interactions feel sluggish.
+*   **Packet Loss**: Causes TCP retransmissions, significantly delaying page loads and API transactions, especially for larger assets.
+*   **Bandwidth**: Critical for large file transfers (uploads/downloads) but less sensitive for basic page navigation.
+*   **DNS Resolution Time**: Affects the initial connection setup time for new domains.
+*   **TCP Initial Congestion Window (initcwnd)**: Determines how much data is sent before waiting for an ACK. Critical for short-lived connections.
+*   **MTU/MSS Issues**: Incorrect encapsulation handling (IPsec/VXLAN) causes fragmentation, severely impacting performance.
+*   **QUIC/UDP Handling**: Modern SaaS (Google Workspace, Microsoft 365) heavily utilizes HTTP/3 (QUIC) over UDP. The SUT must correctly prioritize and inspect this traffic without treating it as generic UDP bulk data.
+*   **Endpoint Health**: Local metrics (CPU/RAM, Wi-Fi Signal) to rule out client-side bottlenecks.
+
+#### 3.1.3 Typical acceptance criteria
+
+*   **Page Load Time**: Excellent < 2s, Acceptable < 5s.
+*   **DOM Content Loaded**: < 1.5s (Interactive time).
+*   **Time to First Byte (TTFB)**: Excellent < 200ms, Acceptable < 500ms.
+*   **LCP (Largest Contentful Paint)**: < 2.5s (Good).
+*   **FID (First Input Delay)**: < 100ms (Good).
+*   **Transaction Success Rate**: > 99.9%.
+*   **File Transfer Speed**: > 80% of available link bandwidth.
+
+#### 3.1.4 E-Commerce (Transactional SaaS)
+A specialized subset of SaaS focusing on short, fragile user journeys (Search → Add to Cart → Checkout).
+*   **Key Metrics**: Cart Abandonment Potential (correlated to PLT > 3s), API Latency (Payment Gateways).
+*   **Acceptance Criteria**: "Visually Complete" < 2s for checkout pages.
+
+### 3.2 Streaming
+
+#### 3.2.1 Description
+
+Simulates Video on Demand (VoD) services like Netflix, YouTube, or Disney+. This service provides adaptive streaming content (HLS/DASH) at multiple bitrates to verify the network's ability to sustain high-bandwidth, long-duration flows. This validates the DUT's handling of deep buffers and sustained throughput.
+
+#### 3.2.2 Main variables affecting QoE
+
+*   **Available Bandwidth**: The primary determinant of video resolution (quality). Insufficient bandwidth forces the player to downgrade quality.
+*   **Jitter**: Variations in packet arrival time can drain the playback buffer, potentially causing stalls (rebuffering).
+*   **Packet Loss**: Can cause visual artifacts or force retransmissions. If retransmissions arrive too late, the buffer drains.
+*   **Latency**: Primarily affects "Time to Start" (initial buffering) and seek time, but is less critical during continuous playback due to client-side buffering.
+*   **CDN Reachability (Path Asymmetry)**: In real-world scenarios, request and data paths may differ.
+*   **Throughput Stability (Consistency Index)**: Oscillating bandwidth confuses ABR algorithms more than steady low bandwidth.
+
+#### 3.2.3 Typical acceptance criteria
+
+*   **Startup Time**: < 2 seconds.
+*   **Rebuffer Ratio**: < 1% of total playback time (0% is ideal).
+*   **Video Resolution**: Sustained 1080p or 4K (depending on link capacity profile).
+*   **Bitrate Adaptation**: Smooth transitions downward without stalling when bandwidth drops; quick recovery when bandwidth returns.
+
+#### 3.2.4 Immersive Media (XR/VR)
+While standard streaming uses large buffers, XR adds a "Motion-to-Photon" latency requirement similar to Cloud Gaming.
+*   **Key Metric**: **Motion-to-Photon Latency** (< 20ms).
+*   **Challenge**: Requires simulating high-bandwidth (100Mbps+), bursty UDP streams typical of volumetric video.
+*   **Implementation**: Can be validated using the same high-framerate WebRTC infrastructure as Cloud Gaming, but with significantly higher throughput thresholds.
+
+### 3.3 Conferencing
+
+#### 3.3.1 Description
+
+Simulates real-time interactive audio and video communication (e.g., Microsoft Teams, Zoom, WebRTC). This service facilitates actual two-way media sessions between clients to measure interactivity. This is the most sensitive traffic class, requiring low latency and high reliability for media quality.
+
+#### 3.3.2 Main variables affecting QoE
+
+*   **Latency (One-Way Delay)**: Critical for interactivity. Delay > 150ms causes users to talk over each other.
+*   **Jitter**: High jitter forces the receiver to increase the de-jitter buffer size, which adds latency. Excessive jitter causes "robotic" audio.
+*   **Packet Loss**: The most damaging factor.
+    *   **Random Loss**: Often masked by PLC (Packet Loss Concealment).
+    *   **Burst Loss**: Causes total audio cutouts (cannot be concealed).
+*   **FEC Overhead**: Forward Error Correction adds traffic overhead. SUT must not drop this "extra" traffic during congestion.
+
+#### 3.3.3 Mean Opinion Score (MOS)
+
+**What is it?**
+MOS is a standard metric (ITU-T P.800) used to evaluate the human-perceived quality of voice and video calls. It ranges from 1 (Bad) to 5 (Excellent).
+
+**Why is MOS specific to Conferencing?**
+MOS is designed to model *conversational quality*. It accounts for the psycho-acoustic effects of delay and distortion on human speech and interaction.
+
+*   **Productivity (SaaS)**: Users perceive quality as **Responsiveness** (Time to First Byte, Page Load). A delay of 200ms is noticeable but doesn't destroy the "usability" or "meaning" of a file download. The metric is simply "Duration".
+*   **Streaming**: Users perceive quality as **Stability** and **Fidelity**. The application uses a large **buffer** (seconds or minutes) to absorb network jitter and retransmit lost packets. Latency is irrelevant once playback begins. The metrics are "Rebuffer Ratio" and "Resolution".
+*   **Conferencing**: Users perceive quality as **Interactivity** and **Clarity**.
+    *   **No Buffering**: Real-time communication cannot buffer more than a few milliseconds (jitter buffer) without destroying interactivity (the ability to interrupt or respond instantly).
+    *   **Cumulative Effect**: A small amount of packet loss might be audible as a "glitch", but combined with high latency, it causes users to talk over each other. MOS provides a single score (1-5) that captures this complex interaction of network impairments.
+
+**Calculation (Simplified E-Model):**
+We use a simplified version of the ITU-T G.107 E-Model to calculate MOS programmatically from network metrics:
+
+```python
+# R-Factor Calculation
+# Base quality (93.2) minus penalties for Latency (Id) and Packet Loss/Jitter (Ie)
+R = 93.2 - (Latency_ms / 40) - (Jitter_ms * 2) - (Packet_Loss_percent * 2.5)
+
+# Convert R-Factor to MOS (1-5)
+MOS = 1 + (0.035 * R) + (R * (R - 60) * (100 - R) * 0.000007)
 ```
 
-### 3.2 Transient Events
+#### 3.3.4 Typical acceptance criteria
 
-Scriptable events simulate real-world network incidents at precise moments:
+*   **MOS (Mean Opinion Score)**: > 4.0 (Good/Excellent), > 3.5 (Acceptable).
+*   **Round Trip Time (RTT)**: < 150ms (Preferred), < 300ms (Limit).
+*   **Jitter**: < 30ms.
+*   **Packet Loss**: < 1%.
 
-| Event | Parameters | Implementation | Use Case |
-|-------|------------|----------------|----------|
-| `blackout` | `duration_sec` | `ip link set dev down/up` | Link failure, failover testing |
-| `brownout` | `bandwidth_kbps`, `duration_sec` | `tc qdisc change ... rate` | Gradual degradation |
-| `latency_spike` | `added_ms`, `duration_sec` | `tc qdisc change ... delay` | Routing flap simulation |
-| `packet_storm` | `loss_pct`, `duration_sec` | `tc qdisc change ... loss` | Congestion event |
-| `jitter_burst` | `jitter_ms`, `duration_sec` | `tc qdisc change ... delay X Yms` | Wireless interference |
+#### 3.3.5 Cloud Gaming (Interactive Streaming)
+A high-performance subset of Real-Time communication.
+*   **Characteristics**: High bandwidth (like Streaming) but near-zero buffer (like Conferencing).
+*   **Key Metric**: **Click-to-Photon Latency** (< 50ms).
+*   **Test Method**: High-framerate WebRTC stream measuring input-to-display round trip.
 
-**Event Scripting Example:**
-```bash
-# Simulate 30-second blackout during file upload
-sleep 10  # Wait for upload to start
-ip link set eth-wan down
-sleep 30
-ip link set eth-wan up
-```
+#### 3.3.6 Telemedicine
+Combines high-definition video conferencing with high-priority telemetry data.
+*   **Criticality**: "Zero Downtime" for telemetry (ECG/Vitals).
+*   **Test Method**: Prioritization of telemetry data streams during link congestion (Brownout).
 
-### 3.3 Deterministic Reproduction
+### 3.4 Testbed Health & Validity Metrics
 
-Every impairment is timestamped and logged for exact reproduction:
+To ensure that measured QoE degradation is due to the network/SUT and not the test harness itself, the framework monitors "Control" variables.
 
-```json
-{
-  "test_run_id": "qoe-2026-02-06-001",
-  "impairment_log": [
-    {"timestamp": "00:00:00.000", "action": "set_profile", "profile": "pristine"},
-    {"timestamp": "00:01:30.500", "action": "set_profile", "profile": "congested_peak"},
-    {"timestamp": "00:02:45.000", "action": "inject_event", "event": "latency_spike", "params": {"added_ms": 200, "duration_sec": 10}},
-    {"timestamp": "00:03:30.000", "action": "set_profile", "profile": "pristine"}
-  ]
-}
-```
+| Layer | Metric | Purpose |
+| :--- | :--- | :--- |
+| **Client (Endpoint)** | CPU/RAM Utilization | Ensure Playwright container isn't overloaded. |
+| **Client (Endpoint)** | Browser Errors | Capture JS/Console errors to rule out app bugs. |
+| **Network (Stack)** | DNS Resolution Time | Isolate naming issues from transport issues. |
+| **Network (Stack)** | SSL Handshake Time | Isolate crypto-processing latency from network latency. |
 
-To reproduce a failure:
-1. Load the impairment log from the original test
-2. Replay events at the same relative timestamps
-3. Observe identical network behavior
+### 3.5 Application Identification Accuracy
+
+Since the SUT is often an Application Gateway or SD-WAN appliance, its ability to correctly identify traffic flows is a prerequisite for applying the correct QoS policy.
+
+*   **Variable**: **First-Packet Classification**.
+*   **Impact**: If the SUT takes 10 packets to "realize" a flow is a Zoom call, it might treat those first 10 packets as "Bulk Data," leading to initial jitter that ruins the "Startup" QoE.
+*   **Verification**: Ensure the SUT classifies the *start* of the session correctly, not just the middle.
+
+## 4. Testbed Topologies & Implementations
+
+The framework supports multiple topologies and implementation styles. The abstract test cases remain the same regardless of the underlying physical or virtual arrangement.
+
+### 4.1 Topologies
+
+#### A. Single WAN (Simple Topology)
+
+Used for basic routers, cable modems, and residential gateways.
+
+* **Path**: LAN -> DUT -> WAN -> Services.
+* **Impairment**: Single point of control on the WAN link.
+
+#### B. Multi-Path / SD-WAN (Complex Topology)
+
+Used for Application Gateways, SD-WAN appliances, and Enterprise Routers.
+
+* **Path**: LAN -> DUT -> [WAN1, WAN2, LTE] -> Services.
+* **Impairment**: Independent control on each WAN path.
+* **Objective**: Verify path selection, failover, and policy-based routing.
+
+### 4.2 Implementations
+
+#### A. Functional Testbed (Physical DUT, Containerized Surroundings)
+
+* **Environment**: Developer laptops, CI runners, small lab setups.
+* **Components**: **Physical DUT** (router, SD-WAN appliance, gateway) + Raikou (Docker) containers for clients, services, and ISP Router.
+* **Traffic Control**: `tc` (Linux Traffic Control) + `netem` running on the ISP Router container.
+* **Pros**: Fast, low cost, easy to reproduce locally. Validates real hardware without requiring a full pre-production lab.
+
+#### B. Pre-Production Testbed (Physical/Hybrid)
+
+* **Environment**: Lab racks, dedicated hardware.
+* **Components**: Physical DUTs, real switches/routers.
+* **Traffic Control**: Dedicated hardware appliances (e.g., Spirent, Keysight, or generic WAN emulators).
+* **Pros**: High fidelity, performance testing, validation with real RF/Hardware.
+
+#### C. Containerized DUT (Proof of Concept Only)
+
+* **Purpose**: Validates that the testbed framework is functional before integrating physical DUTs. Used during development to prove orchestration, traffic control, and measurement pipelines.
+* **Components**: Virtual/container DUT (e.g., pfSense, vEdge VM, FortiGate-VM) + Raikou containers.
+* **Scope**: Not a topology expected for production use. Once the testbed is validated, testing moves to Functional (A) or Pre-Production (B) with physical DUTs.
 
 ---
 
-## 4. QoE Measurement Framework
+## 5. Boardfarm Architecture & Integration
 
-### 4.1 Measurement Architecture
+To achieve **Test Portability**, we must decouple the *intent* of the test ("Apply degradation") from the *execution* ("Run `tc` command" vs "Call Hardware API").
 
-QoE is measured at three layers, with application-layer metrics being the primary success criteria:
+### 5.1 The Decoupling Strategy
 
-```
-                    ┌─────────────────────────────────┐
-                    │      QoE ASSERTION ENGINE       │
-                    │  (Pass/Fail against SLO)        │
-                    └───────────────┬─────────────────┘
-                                    │
-        ┌───────────────────────────┼───────────────────────────┐
-        │                           │                           │
-┌───────▼───────────┐    ┌──────────▼──────────┐    ┌──────────▼──────────┐
-│ APPLICATION LAYER │    │  TRANSPORT LAYER    │    │   NETWORK LAYER     │
-│ (User Experience) │    │  (Connection Health)│    │   (Link Health)     │
-├───────────────────┤    ├─────────────────────┤    ├─────────────────────┤
-│ • Page Load Time  │    │ • TCP Retransmits   │    │ • ICMP RTT          │
-│ • Time to First   │    │ • WebRTC getStats() │    │ • Traceroute hops   │
-│   Byte (TTFB)     │    │ • RTP packet loss   │    │ • tc qdisc stats    │
-│ • Video Buffer %  │    │ • TLS handshake     │    │ • Interface counters│
-│ • Rebuffer Events │    │ • Connection resets │    │                     │
-│ • MOS Score       │    │                     │    │                     │
-│ • Resolution      │    │                     │    │                     │
-└───────────────────┘    └─────────────────────┘    └─────────────────────┘
-        ▲                          ▲                          ▲
-        │                          │                          │
-   PRIMARY                    DIAGNOSTIC                 DIAGNOSTIC
-   (Pass/Fail)                (Root Cause)              (Root Cause)
-```
+We define a standardized interface for Traffic Control. The **Boardfarm Templates** define the "What", while the **Device Implementations** define the "How".
 
-### 4.2 Service Category Metrics
+**Structure:**
 
-#### 4.2.1 Productivity Applications
+1. **Template (Interface)**: `NetworkImpairment` (defines `set_profile()`).
+2. **Consumer (Device)**: `ISPGateway` (The Router) holds a reference to an impairment object.
+3. **Implementation (Logic)**: Can be `LinuxTrafficControl` (Library) or `SpirentImpairment` (Device).
 
-**Target:** Office 365, Google Workspace, Salesforce, custom SaaS
+### 5.2 Traffic Control Integration Examples
 
-**Measurement Tool:** Playwright (Headless Chromium) + Navigation Timing API
+#### Example 1: Containerized ISP Router (Functional)
 
-| Metric | API Source | Description |
-|--------|------------|-------------|
-| **Time to First Byte (TTFB)** | `performance.timing.responseStart - navigationStart` | Server + network responsiveness |
-| **DOM Content Loaded** | `performance.timing.domContentLoadedEventEnd` | Page becomes interactive |
-| **Page Load Time (PLT)** | `performance.timing.loadEventEnd - navigationStart` | Full page render complete |
-| **Transaction Time** | Custom measurement | End-to-end workflow (e.g., login → upload → confirm) |
+In a functional testbed, the impairment capability is "internal" to the ISP Router container.
 
-**Why Playwright?**
-- Generates authentic TLS Client Hello (SNI), HTTP headers, User-Agent
-- Triggers DPI classification (DUT sees "Office 365", not generic "HTTPS")
-- Executes JavaScript, loads dynamic content
+* **Topology**: Raikou Docker containers (Router, WAN, Productivity, Streaming, Conferencing).
+* **Mechanism**: The `ISPGateway` device initializes a `LinuxTrafficControl` helper.
+* **Execution**: Sends SSH commands (`tc qdisc ...`) to the container console.
 
-#### 4.2.2 Video Streaming
-
-**Target:** Netflix, YouTube, Disney+, Twitch, live streams
-
-**Measurement Tool:** Playwright + Media Source Extensions (MSE) API
-
-| Metric | API Source | Description |
-|--------|------------|-------------|
-| **Startup Time** | Custom: time from play() to first frame | Initial buffering delay |
-| **Rebuffer Ratio** | `video.buffered` vs playhead | % of time spent rebuffering |
-| **Rebuffer Count** | `waiting` event count | Number of stall events |
-| **Resolution Changes** | `videoWidth`, `videoHeight` monitoring | Adaptive bitrate adjustments |
-| **Current Resolution** | `videoWidth x videoHeight` | Achieved quality level |
-
-**Adaptive Bitrate Considerations:**
-- Under impairment, ABR algorithms may reduce quality to avoid stalls
-- Test should verify graceful degradation, not just absence of stalls
-
-#### 4.2.3 Real-Time Communication
-
-**Target:** Microsoft Teams, Zoom, Google Meet, WebRTC, VoIP
-
-**Measurement Tool:** Playwright + WebRTC `getStats()` API, or pjsua for SIP
-
-| Metric | API Source | Description |
-|--------|------------|-------------|
-| **Round Trip Time (RTT)** | `RTCIceCandidatePairStats.currentRoundTripTime` | Network latency |
-| **Jitter** | `RTCInboundRtpStreamStats.jitter` | Packet timing variance |
-| **Packet Loss** | `RTCInboundRtpStreamStats.packetsLost` | Dropped packets |
-| **MOS Score** | Calculated from above metrics | Mean Opinion Score (1-5) |
-| **Resolution** | `RTCInboundRtpStreamStats.frameWidth/Height` | Video quality achieved |
-| **Frames Dropped** | `RTCInboundRtpStreamStats.framesDropped` | Decode/render failures |
-
-**MOS Calculation (ITU-T G.107 E-Model simplified):**
-```
-R = 93.2 - (latency_ms / 40) - (jitter_ms * 2) - (packet_loss_pct * 2.5)
-MOS = 1 + 0.035*R + R*(R-60)*(100-R)*7e-6
+```python
+# boardfarm3/devices/linux_isp_gateway.py
+class LinuxISPGateway(ISPGateway):
+    def __init__(self, ...):
+        # Internal composition: "I am my own traffic controller"
+        self._impairment = LinuxTrafficControl(self.console, "eth1")
 ```
 
-### 4.3 QoE Thresholds (Service Level Objectives)
+#### Example 2: Physical/External Device (Pre-Production)
 
-| Metric | Good | Acceptable | Poor | Critical |
-|--------|------|------------|------|----------|
-| **Page Load Time** | < 2s | 2-5s | 5-10s | > 10s |
-| **TTFB** | < 200ms | 200-500ms | 500ms-1s | > 1s |
-| **Video Startup** | < 1s | 1-3s | 3-5s | > 5s |
-| **Rebuffer Ratio** | 0% | < 1% | 1-5% | > 5% |
-| **Voice MOS** | > 4.0 | 3.5-4.0 | 3.0-3.5 | < 3.0 |
-| **Video Call RTT** | < 150ms | 150-300ms | 300-500ms | > 500ms |
-| **Video Call Jitter** | < 30ms | 30-50ms | 50-100ms | > 100ms |
-| **Packet Loss** | < 0.5% | 0.5-2% | 2-5% | > 5% |
+In a physical lab, the impairment is handled by a separate appliance connected to the DUT's WAN port.
+
+* **Topology**: Physical DUT connected to Spirent port.
+* **Mechanism**: The `ISPGateway` device references an external `wan_emulator` device.
+* **Execution**: Sends REST API calls to the Spirent controller.
+
+```python
+# boardfarm3/devices/linux_isp_gateway.py
+class LinuxISPGateway(ISPGateway):
+    def __init__(self, ...):
+        # External delegation: "I delegate control to that device over there"
+        device_name = config.get("impairment_device")
+        self._impairment = device_manager.get_device(device_name)
+```
+
+### 5.3 Device Templates
+
+The framework uses specific templates to model the network participants:
+
+#### 1. ApplicationGateway (The DUT)
+
+Represents L7-capable devices (SD-WAN, NGFW).
+
+* **Sub-components**: `mgmt`, `wan`, `traffic` (analytics), `policy` (QoS).
+* **Example DUTs**: Meraki MX, Cisco Viptela, Fortinet.
+
+#### 2. ISPGateway (The Router)
+
+Represents the ISP edge. This is the **anchor point** for Traffic Control.
+
+* **Sub-components**: `firewall`, `impairment` (The Traffic Control interface).
 
 ---
 
-## 5. DUT Verification Through Boardfarm Templates
+## 6. Traffic Control & Impairment Model
 
-While QoE metrics provide the user-centric pass/fail criteria, device-specific verification confirms that DUT features (QoS, DPI, policies) are functioning as configured. This verification leverages Boardfarm's template system (see Section 2.7).
+Traffic Control provides the deterministic conditions required for verification.
 
-### 5.1 Verification Through Device Templates
+### 6.1 Impairment Profiles
 
-Rather than a separate "adapter" pattern, device verification uses the Boardfarm device templates. Each device type provides standardized methods for querying device state:
+Named profiles abstract the complex parameters of network degradation.
 
-| DUT Type | Boardfarm Template | Verification Sub-Component |
-|----------|-------------------|----------------------------|
-| **SD-WAN / NGFW** | `ApplicationGateway` | `dut.traffic`, `dut.policy` |
-| **Cable Modem** | `CPE` | `dut.sw` (via TR-069/ACS) |
-| **Linux Router** | `LinuxDevice` or `CPE` | Console access |
+| Profile Name    | Latency | Jitter | Packet Loss | Bandwidth | Description          |
+| --------------- | ------- | ------ | ----------- | --------- | -------------------- |
+| `pristine`      | 5ms     | 1ms    | 0%          | 1 Gbps    | Ideal conditions     |
+| `cable_typical` | 15ms    | 5ms    | 0.1%        | 100 Mbps  | Typical subscriber   |
+| `4g_mobile`     | 80ms    | 30ms   | 1%          | 20 Mbps   | Mobile/LTE failover  |
+| `satellite`     | 600ms   | 50ms   | 2%          | 10 Mbps   | High latency link    |
+| `congested`     | 25ms    | 40ms   | 3%          | Variable  | Peak hour congestion |
 
-### 5.2 ApplicationGateway Verification (SD-WAN, NGFW)
+### 6.2 Transient Events
 
-For L7-capable devices, the `ApplicationGateway` template provides traffic and policy verification:
+Scriptable events to test dynamic system behavior (failover, adaptation).
 
-```python
-# boardfarm3/templates/app_gateway/app_gateway_traffic.py
-
-class AppGatewayTraffic(ABC):
-    """Traffic analytics sub-component for ApplicationGateway."""
-    
-    @abstractmethod
-    def get_client_applications(self, mac_address: str, timespan_sec: int = 300) -> list[dict]:
-        """Get applications used by a client.
-        
-        Returns:
-            List of {"application": str, "category": str, "bytes": int, ...}
-        """
-        raise NotImplementedError
-    
-    @abstractmethod
-    def get_traffic_classification(self, mac_address: str) -> dict | None:
-        """Get current traffic classification for a client.
-        
-        Returns:
-            {"application": str, "category": str, "latency_class": str, ...}
-        """
-        raise NotImplementedError
-```
-
-**Vendor-Specific Implementation Example:**
-
-Each ApplicationGateway vendor requires a concrete implementation. Below is a generic example showing the pattern:
-
-```python
-# boardfarm3/devices/vendor/vendor_traffic.py
-
-class VendorTraffic(AppGatewayTraffic):
-    """Vendor-specific traffic analytics implementation.
-    
-    Real implementations wrap vendor APIs:
-    - Meraki: Dashboard API (getNetworkClientsApplicationUsage)
-    - Viptela: vManage REST API
-    - Fortinet: FortiOS REST API
-    - Palo Alto: Prisma SD-WAN API
-    """
-    
-    def __init__(self, device: ApplicationGateway):
-        self._device = device
-        self._api = device.mgmt.api_client  # Vendor-specific API client
-    
-    def get_client_applications(self, mac_address: str, timespan_sec: int = 300) -> list[dict]:
-        # Implementation varies by vendor
-        # Cloud-managed devices may have eventual consistency (3-5 min delay)
-        return self._api.get_application_usage(mac_address, timespan_sec)
-    
-    def get_traffic_classification(self, mac_address: str) -> dict | None:
-        return self._api.get_client_classification(mac_address)
-```
-
-**Important:** Cloud-managed ApplicationGateway devices (Meraki, Viptela, etc.) often have **eventual consistency**. Tests may need to include a delay (typically 3-5 minutes) between traffic generation and API verification.
-
-### 5.3 CPE Verification (Cable Modems, TR-069 Devices)
-
-For basic CPE devices, verification uses the existing `cpe.sw` sub-component which interfaces with TR-069/ACS:
-
-```python
-# Using existing Boardfarm use cases
-from boardfarm3.use_cases import cpe
-
-# Get interface statistics via TR-181
-stats = cpe.get_interface_stats(env.cpe, interface="wan")
-
-# Verify QoS queue statistics
-qos_stats = cpe.get_qos_queue_stats(env.cpe)
-```
-
-### 5.4 ISP Gateway Verification (Router)
-
-The Router's verification includes both firewall and impairment status:
-
-```python
-# boardfarm3/use_cases/isp_gateway.py
-
-def get_network_status(router: ISPGateway) -> dict:
-    """Get ISP gateway network status including impairment config."""
-    return {
-        "impairment": router.impairment.get_status(),
-        "interface_stats": router.console.execute_command(
-            f"ip -s link show {router.iface_dut}"
-        ),
-    }
-```
-
-### 5.5 Use Case: Verifying DPI Classification
-
-```python
-# boardfarm3/use_cases/qoe.py
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from boardfarm3.templates.app_gateway import ApplicationGateway
-
-
-def verify_traffic_classification(
-    dut: ApplicationGateway,
-    client_mac: str,
-    expected_app: str,
-    timeout_sec: int = 300,
-) -> bool:
-    """Verify DUT correctly classified client traffic.
-    
-    Args:
-        dut: The ApplicationGateway device (e.g., SD-WAN appliance)
-        client_mac: Client's MAC address
-        expected_app: Expected application classification
-        timeout_sec: Time to wait for eventual consistency
-    
-    Returns:
-        True if classification matches expected
-        
-    Note:
-        Cloud-managed devices may have eventual consistency.
-        This function polls until timeout or match.
-    """
-    import time
-    start = time.time()
-    
-    while time.time() - start < timeout_sec:
-        apps = dut.traffic.get_client_applications(client_mac)
-        for app in apps:
-            if app.get("application") == expected_app:
-                return True
-        time.sleep(30)  # Poll every 30 seconds
-    
-    return False
-```
+* `blackout`: Complete link failure (duration X).
+* `brownout`: Bandwidth reduction (duration X).
+* `latency_spike`: Sudden increase in RTT.
+* `packet_storm`: Burst of packet loss.
 
 ---
 
-## 6. Test Scenarios
+## 7. QoE Services & Measurement Framework
 
-### 6.1 Baseline Performance Verification
+To ensure determinism, we control both ends of the connection: the **North-Side Services** and the **South-Side Clients**.
 
-**Objective:** Establish baseline QoE metrics under ideal conditions
+### 7.1 North-Side: Infrastructure Services (Simulated Internet)
 
-```gherkin
-Scenario: Baseline QoE - Productivity Application
-  Given the network factory is set to "pristine" profile
-  And a simulated browser user is connected to the DUT LAN
-  When the user navigates to Office 365 and uploads a 10MB file
-  Then the page load time should be less than 2 seconds
-  And the upload transaction should complete within 30 seconds
-  And the DUT should classify traffic as "Office 365" (if DPI capable)
-```
+All services are self-hosted within the testbed to avoid public internet variance.
 
-### 6.2 Degraded Network - Streaming Resilience
+1. **Productivity Services (Mock SaaS)**
+   
+   * **Container**: `productivity` (New)
+   * **Function**: Mock Office 365, Google Workspace.
+   * **Metrics**: TTFB, Transaction Time, Page Load.
 
-**Objective:** Verify adaptive bitrate handles degradation gracefully
+2. **Streaming Services (Video)**
+   
+   * **Container**: `streaming`
+   * **Function**: HLS/DASH Video Server (nginx-vod-module).
+   * **Capabilities**: Multi-bitrate content (360p to 4K) for ABR testing.
+   * **Metrics**: Startup Time, Rebuffer Ratio, Resolution Shifts.
+
+3. **Conferencing Services (Real-Time)**
+   
+   * **Container**: `conferencing`
+   * **Function**: Jitsi Meet (WebRTC), Coturn (STUN/TURN).
+   * **Metrics**: RTT, Jitter, Packet Loss, MOS Score.
+
+### 7.2 South-Side: Client Measurement
+
+Clients are simulated using **Playwright** (browser automation) running in containers on the LAN side.
+
+* **Browser User**: Executes scenarios (browse, stream, join call).
+* **Instrumentation**: Uses Navigation Timing API, Media Source Extensions (MSE), and WebRTC `getStats()` to capture metrics.
+* **Assertion**: Compares captured metrics against SLOs (Service Level Objectives).
+
+### 7.3 Metric Thresholds (SLOs)
+
+| Metric | Good | Acceptable | Poor |
+|--------|------|------------|------|
+| **Page Load (LCP)** | < 2.5s | 2.5s - 4s | > 4s |
+| **Input Delay (FID)** | < 100ms | 100ms - 300ms | > 300ms |
+| **Video Rebuffer** | 0% | < 1% | > 1% |
+| **Voice MOS** | > 4.0 | 3.5-4.0 | < 3.5 |
+| **Client CPU** | < 70% | 70% - 90% | > 90% (Invalid) |
+
+---
+
+## 8. Test Scenarios
+
+### 8.1 Video Streaming Resilience
+
+**Objective:** Verify Adaptive Bitrate (ABR) handles network degradation gracefully.
 
 ```gherkin
 Scenario: Video Streaming under Network Degradation
-  Given the network factory is set to "cable_typical" profile
-  And a simulated browser user is streaming YouTube at 1080p
-  When the network factory transitions to "degraded_uplink" profile
-  Then the video rebuffer ratio should remain below 1%
-  And the video resolution should adapt downward within 10 seconds
-  And when the network factory returns to "cable_typical" profile
-  Then the video resolution should recover to 720p or higher within 30 seconds
+  Given the network is set to "cable_typical"
+  And a user is streaming video at 1080p
+  When the network degrades to "degraded_uplink"
+  Then the video resolution should adapt downward within 10 seconds
+  And the rebuffer ratio should remain below 1%
 ```
 
-### 6.3 Link Failure - SD-WAN Failover
+### 8.2 SD-WAN Failover (Voice Continuity)
 
-**Objective:** Verify seamless failover during active session
+**Objective:** Verify seamless failover during active session.
 
 ```gherkin
 Scenario: Voice Call Continuity during WAN Failover
-  Given the DUT has dual WAN connections (primary and backup)
-  And a simulated user is in an active WebRTC voice call
-  And the call MOS score is above 4.0
-  When the network factory injects a "blackout" event on primary WAN
+  Given the DUT has primary (WAN1) and backup (LTE) paths
+  And a user is in an active WebRTC voice call
+  When Traffic Control injects a "blackout" event on WAN1
   Then the call should continue without disconnection
-  And the MOS score should remain above 3.5 within 5 seconds
-  And the DUT should report failover to backup WAN
+  And the MOS score should remain above 3.5
+  And the DUT should report failover to LTE
 ```
 
-### 6.4 QoS Policy Validation
+### 8.3 QoS Policy Validation
 
-**Objective:** Verify traffic prioritization under congestion
+**Objective:** Verify voice traffic prioritization under congestion.
 
 ```gherkin
 Scenario: Voice Priority over Bulk Data
-  Given the network factory is set to "congested_peak" profile
-  And simulated user A is in an active VoIP call
-  And simulated user B is performing a large file download
-  When both users compete for limited bandwidth
-  Then user A's voice MOS should remain above 3.5
-  And user B's download throughput should be throttled
-  And the DUT QoS statistics should show prioritization of voice traffic
+  Given the network is set to "congested"
+  When User A starts a VoIP call
+  And User B starts a large file download
+  Then User A's MOS should remain > 3.5
+  And User B's download speed should be throttled
 ```
 
-### 6.5 DPI Classification Verification
-
-**Objective:** Verify deep packet inspection correctly identifies applications
-
+### 8.4 QUIC-based SaaS Performance
+**Objective:** Verify that HTTP/3 (QUIC) traffic is handled correctly and not degraded by SUT security inspection.
 ```gherkin
-Scenario: Application Classification Accuracy
-  Given a simulated browser user connected to the DUT LAN
-  When the user accesses the following applications:
-    | Application     | Expected Classification |
-    | Netflix         | Video Streaming         |
-    | Microsoft Teams | Video Conferencing      |
-    | Salesforce      | Business Application    |
-    | YouTube         | Video Streaming         |
-  Then the DUT should classify each application correctly
-  And the appropriate traffic shaping policy should be applied
+Scenario: QUIC/UDP SaaS Performance
+  Given the SUT is configured for "SaaS Optimization"
+  When a user accesses Google Workspace via HTTP/3 (QUIC)
+  Then the transaction success rate should be > 99.9%
+  And the throughput should match HTTP/2 (TCP) baseline
+  And UDP packet loss should remain < 0.1%
+```
+
+### 8.5 Security vs. Performance Trade-off
+**Objective:** Measure QoE impact of heavy security profiles.
+```gherkin
+Scenario: Security Inspection Impact
+  Given the SUT has "Full SSL Inspection" and "IPS" enabled
+  When a user downloads a 1GB file from SaaS
+  Then the throughput should degrade by no more than 15% vs "Fast Path"
+  And CPU utilization on the SUT should remain < 80%
+  And Page Load Time should increase by no more than 200ms
+```
+
+### 8.6 Cloud Gaming Latency (Click-to-Photon)
+**Objective:** Verify low-latency interactive performance for cloud gaming workloads.
+```gherkin
+Scenario: Cloud Gaming Input Lag
+  Given the network is set to "fiber_pristine"
+  When a user starts a Cloud Gaming session (60fps, 25Mbps)
+  And the user sends an input command
+  Then the Click-to-Photon latency should be < 50ms
+  And the frame delivery variance (jitter) should be < 10ms
 ```
 
 ---
 
-## 7. Implementation with Boardfarm
+## 9. Appendix A: Configuration Examples
 
-### 7.1 Testbed Configuration
-
-The QoE testbed extends the standard Raikou topology with Network Factory (impairment) capabilities and browser-based users. Two configuration variants are supported:
-
-#### 7.1.1 Simple Topology (Single WAN Path)
-
-For basic routers, cable modems, and single-WAN devices:
+### 9.1 Functional Testbed (Internal Impairment)
 
 ```json
 {
-  "testbed_name": "qoe_verification_simple",
-  "topology": "raikou_qoe_single_wan",
-  
+  "testbed_name": "functional_local",
   "devices": {
-    "dut": {
-      "type": "CPE",
-      "comment": "Device Under Test - basic router, cable modem (L2/L3 device)",
-      "template": "boardfarm3.templates.cpe.CPE",
-      "interfaces": {
-        "eth0": {"bridge": "lan-cpe", "role": "lan"},
-        "eth1": {"bridge": "cpe-rtr", "role": "wan"}
-      }
-    },
-    
     "router": {
       "type": "ISPGateway",
-      "comment": "ISP Edge Gateway with impairment control",
-      "template": "boardfarm3.templates.isp_gateway.ISPGateway",
-      "image": "router:v1.2.0",
-      "interfaces": {
-        "cpe": {"bridge": "cpe-rtr", "ip": "10.1.1.1/24"},
-        "eth1": {"bridge": "rtr-wan", "ip": "172.25.1.1/24"}
-      },
+      "impairment_type": "internal", 
       "impairment_interface": "eth1"
     },
-    
-    "wan": {
-      "type": "WAN",
-      "comment": "DNS, HTTP, Mock SaaS API, file transfer",
-      "interfaces": {"eth1": {"bridge": "rtr-wan", "ip": "172.25.1.2/24"}}
-    },
-    "streaming": {
-      "type": "Streaming",
-      "comment": "HLS/DASH video server with multi-bitrate content",
-      "image": "streaming:v1.0.0",
-      "interfaces": {"eth1": {"bridge": "rtr-wan", "ip": "172.25.1.10/24"}}
-    },
-    "conferencing": {
-      "type": "Conferencing",
-      "comment": "Jitsi Meet, coturn (STUN/TURN), WebRTC signaling",
-      "image": "conferencing:v1.0.0",
-      "interfaces": {"eth1": {"bridge": "rtr-wan", "ip": "172.25.1.15/24"}}
-    },
-    "dhcp": {"type": "DHCP", "interfaces": {"eth1": {"bridge": "rtr-wan", "ip": "172.25.1.20/24"}}},
-    "acs": {"type": "ACS", "interfaces": {"eth1": {"bridge": "rtr-wan", "ip": "172.25.1.40/24"}}},
-    "sipcenter": {"type": "SIPCenter", "interfaces": {"eth1": {"bridge": "rtr-wan", "ip": "172.25.1.5/24"}}},
-    
-    "lan": {"type": "LAN", "interfaces": {"eth1": {"bridge": "lan-cpe"}}},
-    "browser_user_1": {"type": "PlaywrightBrowser", "interfaces": {"eth1": {"bridge": "lan-cpe"}}},
-    "lan_phone": {"type": "SIPPhone", "interfaces": {"eth1": {"bridge": "lan-cpe"}}}
-  },
-  
-  "bridges": {
-    "cpe-rtr": {"subnet": "10.1.1.0/24"},
-    "lan-cpe": {},
-    "rtr-wan": {"subnet": "172.25.1.0/24"}
-  },
-  
-  "impairments": {
-    "rtr-wan": {
-      "comment": "Single impairment point for all WAN traffic",
-      "target_container": "router",
-      "target_interface": "eth1",
-      "default_profile": "cable_typical"
-    }
+    "wan": { "type": "WAN", "comment": "General Internet (DNS, NTP)" },
+    "productivity": { "type": "SaaS", "comment": "Mock O365, GSuite" }
   }
 }
 ```
 
-#### 7.1.2 Multi-Path Topology (SD-WAN / ApplicationGateway)
-
-For enterprise ApplicationGateway devices with multiple WAN interfaces:
+### 9.2 Pre-Production Testbed (External Impairment)
 
 ```json
 {
-  "testbed_name": "qoe_verification_sdwan",
-  "topology": "raikou_qoe_multi_wan",
-  
+  "testbed_name": "preprod_lab_1",
   "devices": {
-    "dut": {
-      "type": "ApplicationGateway",
-      "comment": "SD-WAN or NGFW appliance (L3-L7 device)",
-      "template": "boardfarm3.templates.app_gateway.ApplicationGateway",
-      "device_class": "boardfarm3.devices.vendor_sdwan.VendorSDWAN",
-      "interfaces": {
-        "eth0": {"bridge": "lan-cpe", "role": "lan"},
-        "eth1": {"bridge": "wan1-bridge", "role": "wan1"},
-        "eth2": {"bridge": "wan2-bridge", "role": "wan2"},
-        "usb0": {"bridge": "lte-bridge", "role": "lte_backup"}
-      },
-      "config": {
-        "api_url": "${VENDOR_API_URL}",
-        "api_key": "${VENDOR_API_KEY}",
-        "device_id": "device-12345"
-      }
+    "router": {
+      "type": "ISPGateway",
+      "impairment_type": "external",
+      "impairment_device": "spirent_wan_emulator_1"
     },
-    
-    "wan_services": {
-      "type": "WAN",
-      "comment": "Shared internet services (DNS, HTTP, CDN, SaaS)",
-      "image": "wan:v1.2.0",
-      "interfaces": {
-        "eth1": {"bridge": "wan1-bridge", "ip": "172.25.1.2/24"},
-        "eth2": {"bridge": "wan2-bridge", "ip": "172.26.1.2/24"},
-        "eth3": {"bridge": "lte-bridge", "ip": "172.27.1.2/24"}
-      }
-    },
-    
-    "dhcp": {"type": "DHCP", "interfaces": {"eth1": {"bridge": "wan1-bridge", "ip": "172.25.1.20/24"}}},
-    "sipcenter": {"type": "SIPCenter", "interfaces": {"eth1": {"bridge": "wan1-bridge", "ip": "172.25.1.5/24"}}},
-    
-    "lan": {"type": "LAN", "interfaces": {"eth1": {"bridge": "lan-cpe"}}},
-    "browser_user_1": {"type": "PlaywrightBrowser", "interfaces": {"eth1": {"bridge": "lan-cpe"}}},
-    "browser_user_2": {"type": "PlaywrightBrowser", "interfaces": {"eth1": {"bridge": "lan-cpe"}}},
-    "lan_phone": {"type": "SIPPhone", "interfaces": {"eth1": {"bridge": "lan-cpe"}}}
-  },
-  
-  "bridges": {
-    "lan-cpe": {"comment": "DUT LAN"},
-    "wan1-bridge": {"subnet": "172.25.1.0/24", "comment": "Primary WAN (fiber/cable)"},
-    "wan2-bridge": {"subnet": "172.26.1.0/24", "comment": "Secondary WAN (DSL/backup)"},
-    "lte-bridge": {"subnet": "172.27.1.0/24", "comment": "LTE/Cellular failover"}
-  },
-  
-  "impairments": {
-    "wan1-bridge": {
-      "comment": "Primary WAN - fiber-like characteristics",
-      "target_container": "dut",
-      "target_interface": "eth1",
-      "default_profile": "fiber_pristine"
-    },
-    "wan2-bridge": {
-      "comment": "Secondary WAN - cable/DSL characteristics",
-      "target_container": "dut",
-      "target_interface": "eth2",
-      "default_profile": "cable_typical"
-    },
-    "lte-bridge": {
-      "comment": "LTE backup - mobile characteristics",
-      "target_container": "dut",
-      "target_interface": "usb0",
-      "default_profile": "4g_mobile"
+    "spirent_wan_emulator_1": {
+      "type": "SpirentImpairment",
+      "ip_address": "10.20.30.40",
+      "api_key": "secret"
     }
   }
 }
 ```
 
-**Key Differences:**
+### 9.3 Multi-Path Topology
 
-| Aspect | Simple Topology | Multi-Path Topology |
-|--------|-----------------|---------------------|
-| WAN Bridges | 1 (`rtr-wan`) | 3+ (`wan1-bridge`, `wan2-bridge`, `lte-bridge`) |
-| Impairment Points | 1 (Router's eth1) | 3+ (DUT's each WAN interface) |
-| Router Container | Yes (ISP simulation) | Optional (DUT has direct WAN) |
-| SD-WAN Testing | No | Yes (failover, path selection) |
-
-### 7.2 OVS Bridge Configuration
-
-```
-┌───────────────────────────────────────────────────────────────────────┐
-│                        Raikou OVS Bridges                              │
-├───────────────────────────────────────────────────────────────────────┤
-│                                                                        │
-│  rtr-wan bridge (172.25.1.0/24) ← Network Factory applies here        │
-│  ├── [tc/netem rules]                 - Impairment injection          │
-│  ├── Router eth1 (172.25.1.1)         - ISP Gateway (wan-facing)      │
-│  ├── WAN eth1 (172.25.1.2)            - DNS/HTTP/Mock SaaS            │
-│  ├── Streaming eth1 (172.25.1.10)     - HLS/DASH video server [NEW]   │
-│  ├── Conferencing eth1 (172.25.1.15)  - Jitsi/WebRTC [NEW]            │
-│  ├── DHCP eth1 (172.25.1.20)          - Provisioning                  │
-│  ├── ACS eth1 (172.25.1.40)           - TR-069                        │
-│  └── SIP Center eth1 (172.25.1.5)     - VoIP                          │
-│                                                                        │
-│  cpe-rtr bridge (10.1.1.0/24)                                         │
-│  ├── Router cpe (10.1.1.1)            - ISP Gateway (cpe-facing)      │
-│  └── DUT eth1 (10.1.1.x DHCP)         - Device Under Test             │
-│                                                                        │
-│  lan-cpe bridge (DUT LAN subnet)                                      │
-│  ├── DUT eth0 (br-lan)                - LAN gateway                   │
-│  ├── LAN eth1                         - Standard test client          │
-│  ├── Browser User 1 eth1              - QoE measurement               │
-│  ├── Browser User 2 eth1              - QoE measurement               │
-│  └── LAN Phone eth1                   - VoIP client                   │
-│                                                                        │
-└───────────────────────────────────────────────────────────────────────┘
-```
-
-### 7.3 Network Factory: Implementation
-
-The Network Factory is implemented at two levels:
-
-**Level 1: Boardfarm Device Property (Primary Interface)**
-- Test cases interact with `router.impairment` property
-- Follows existing Boardfarm patterns (`wan.firewall`, `cpe.sw`)
-- Commands execute via the Router container's console
-
-**Level 2: Raikou API (Alternative/Advanced Interface)**  
-- For scenarios requiring external orchestration
-- Useful when impairment control happens outside Boardfarm
-- Leverages Raikou's existing veth interface management
-
-For most QoE testing, the Boardfarm `router.impairment` property is the recommended interface.
-
-#### 7.3.1 Proposed Raikou API Extension
-
-New API endpoint for impairment management:
-
-```python
-# raikou-net/app/routers/impairment.py (proposed extension)
-
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import Optional, Dict, Literal
-from app.utils import run_command, get_logger
-
-router = APIRouter()
-_LOGGER = get_logger("impairment")
-
-class ImpairmentConfig(BaseModel):
-    """Configuration for network impairment on a bridge."""
-    container: str  # Target container name
-    interface: str  # Container interface (e.g., "eth1")
-    profile: Optional[str] = None  # Named profile
-    # Or explicit parameters:
-    delay: Optional[str] = None    # e.g., "50ms"
-    jitter: Optional[str] = None   # e.g., "10ms"
-    loss: Optional[str] = None     # e.g., "1%"
-    rate: Optional[str] = None     # e.g., "100mbit"
-
-PROFILES = {
-    "pristine": {"delay": "5ms", "jitter": "1ms", "loss": "0%", "rate": "1gbit"},
-    "fiber_pristine": {"delay": "10ms", "jitter": "2ms", "loss": "0%", "rate": "1gbit"},
-    "cable_typical": {"delay": "15ms", "jitter": "5ms", "loss": "0.1%", "rate": "100mbit"},
-    "dsl_rural": {"delay": "45ms", "jitter": "15ms", "loss": "0.5%", "rate": "25mbit"},
-    "4g_mobile": {"delay": "80ms", "jitter": "30ms", "loss": "1%", "rate": "20mbit"},
-    "satellite": {"delay": "600ms", "jitter": "50ms", "loss": "2%", "rate": "10mbit"},
-    "congested_peak": {"delay": "25ms", "jitter": "40ms", "loss": "3%", "rate": "5mbit"},
-    "degraded_uplink": {"delay": "20ms", "jitter": "10ms", "loss": "5%", "rate": "2mbit"},
-}
-
-def _get_veth_port(container: str, interface: str) -> str:
-    """
-    Find the host-side veth port for a container interface.
-    
-    Raikou stores container/interface metadata in OVS external_ids.
-    """
-    result = run_command(
-        f"ovs-vsctl --data=bare --no-heading --columns=name find interface "
-        f'external_ids:container_id="{container}" '
-        f'external_ids:container_iface="{interface}"',
-        check=True
-    )
-    port = result.stdout.strip()
-    if not port:
-        raise ValueError(f"No veth found for {container}:{interface}")
-    return port
-
-@router.post("/impairment/set")
-async def set_impairment(bridge: str, config: ImpairmentConfig) -> dict:
-    """
-    Apply network impairment to a container's interface.
-    
-    The impairment is applied to the host-side veth interface,
-    NOT directly to the OVS bridge (which doesn't support tc/netem).
-    """
-    # Find the veth port on host side
-    veth_port = _get_veth_port(config.container, config.interface)
-    _LOGGER.info(f"Found veth port {veth_port} for {config.container}:{config.interface}")
-    
-    # Get profile parameters or use explicit values
-    if config.profile:
-        if config.profile not in PROFILES:
-            raise HTTPException(400, f"Unknown profile: {config.profile}")
-        params = PROFILES[config.profile]
-    else:
-        params = {
-            "delay": config.delay or "0ms",
-            "jitter": config.jitter or "0ms",
-            "loss": config.loss or "0%",
-            "rate": config.rate or "1gbit",
-        }
-    
-    # Clear existing rules
-    run_command(f"tc qdisc del dev {veth_port} root", check=False)
-    
-    # Apply tc/netem rules
-    cmd = (
-        f"tc qdisc add dev {veth_port} root netem "
-        f"delay {params['delay']} {params['jitter']} distribution normal "
-        f"loss {params['loss']} "
-        f"rate {params['rate']}"
-    )
-    run_command(cmd, check=True)
-    
-    _LOGGER.info(f"Applied impairment to {veth_port}: {params}")
-    return {"status": "success", "veth_port": veth_port, "params": params}
-
-@router.delete("/impairment/clear")
-async def clear_impairment(container: str, interface: str) -> dict:
-    """Remove all impairments from a container's interface."""
-    veth_port = _get_veth_port(container, interface)
-    run_command(f"tc qdisc del dev {veth_port} root", check=False)
-    _LOGGER.info(f"Cleared impairment from {veth_port}")
-    return {"status": "success", "veth_port": veth_port}
-```
-
-#### 7.3.2 Boardfarm Network Factory Client
-
-Boardfarm component that interfaces with Raikou's impairment API:
-
-```python
-# boardfarm/lib/network_factory.py
-
-import time
-import requests
-from typing import Dict, List, Optional
-from dataclasses import dataclass, field
-
-@dataclass
-class PathConfig:
-    """Configuration for a single network path."""
-    bridge: str
-    container: str
-    interface: str
-    default_profile: str = "pristine"
-
-class NetworkFactory:
-    """
-    Boardfarm component for deterministic network impairment.
-    
-    Communicates with Raikou's impairment API to apply tc/netem rules
-    to veth interfaces. Supports both single-path and multi-path topologies.
-    """
-    
-    def __init__(self, raikou_url: str, paths: Dict[str, PathConfig]):
-        """
-        Initialize NetworkFactory with path configurations.
-        
-        Args:
-            raikou_url: Raikou API base URL (e.g., "http://localhost:8000")
-            paths: Dictionary of path_name -> PathConfig
-                   Simple topology: {"wan": PathConfig(...)}
-                   Multi-path: {"wan1": PathConfig(...), "wan2": PathConfig(...), "lte": PathConfig(...)}
-        """
-        self.raikou_url = raikou_url
-        self.paths = paths
-        self.impairment_log: List[Dict] = []
-        self._start_time = time.time()
-        self._current_profiles: Dict[str, str] = {}
-    
-    def set_profile(self, path: str, profile_name: str) -> None:
-        """
-        Apply a named impairment profile to a specific path.
-        
-        Args:
-            path: Path name (e.g., "wan1", "wan2", "lte")
-            profile_name: Profile to apply (e.g., "cable_typical", "4g_mobile")
-        """
-        if path not in self.paths:
-            raise ValueError(f"Unknown path: {path}. Available: {list(self.paths.keys())}")
-        
-        config = self.paths[path]
-        response = requests.post(
-            f"{self.raikou_url}/impairment/set",
-            params={"bridge": config.bridge},
-            json={
-                "container": config.container,
-                "interface": config.interface,
-                "profile": profile_name
-            }
-        )
-        response.raise_for_status()
-        
-        self._current_profiles[path] = profile_name
-        self._log_event("set_profile", {"path": path, "profile": profile_name})
-    
-    def set_all_paths(self, profile_name: str) -> None:
-        """Apply the same profile to all paths."""
-        for path in self.paths:
-            self.set_profile(path, profile_name)
-    
-    def inject_event(self, path: str, event: str, **params) -> None:
-        """
-        Inject a transient network event on a specific path.
-        
-        Args:
-            path: Path name
-            event: Event type ("blackout", "latency_spike", "packet_storm", "brownout")
-            **params: Event-specific parameters
-        """
-        if event == "blackout":
-            self._blackout(path, params.get("duration_sec", 10))
-        elif event == "latency_spike":
-            self._latency_spike(path, params.get("added_ms", 100), params.get("duration_sec", 5))
-        elif event == "packet_storm":
-            self._packet_storm(path, params.get("loss_pct", 10), params.get("duration_sec", 5))
-        elif event == "brownout":
-            self._brownout(path, params.get("bandwidth_kbps", 500), params.get("duration_sec", 10))
-        
-        self._log_event("inject_event", {"path": path, "event": event, "params": params})
-    
-    def clear_all_impairments(self) -> None:
-        """Remove all impairments from all paths."""
-        for path, config in self.paths.items():
-            requests.delete(
-                f"{self.raikou_url}/impairment/clear",
-                params={"container": config.container, "interface": config.interface}
-            )
-            self._current_profiles.pop(path, None)
-    
-    def get_impairment_log(self) -> List[Dict]:
-        """Return timestamped log of all impairments for reproduction."""
-        return self.impairment_log
-    
-    def _blackout(self, path: str, duration_sec: int) -> None:
-        """Simulate complete link failure on a path."""
-        config = self.paths[path]
-        # Use Raikou to bring interface down
-        requests.post(
-            f"{self.raikou_url}/impairment/set",
-            params={"bridge": config.bridge},
-            json={"container": config.container, "interface": config.interface, "rate": "0kbit"}
-        )
-        time.sleep(duration_sec)
-        # Restore previous profile
-        if path in self._current_profiles:
-            self.set_profile(path, self._current_profiles[path])
-    
-    def _latency_spike(self, path: str, added_ms: int, duration_sec: int) -> None:
-        """Simulate temporary latency increase."""
-        # Implementation similar to existing, but calls Raikou API
-        pass
-    
-    def _packet_storm(self, path: str, loss_pct: int, duration_sec: int) -> None:
-        """Simulate packet loss event."""
-        pass
-    
-    def _brownout(self, path: str, bandwidth_kbps: int, duration_sec: int) -> None:
-        """Simulate bandwidth degradation."""
-        pass
-    
-    def _log_event(self, action: str, details: Dict) -> None:
-        """Log impairment event with timestamp."""
-        elapsed = time.time() - self._start_time
-        timestamp = f"{int(elapsed // 60):02d}:{elapsed % 60:06.3f}"
-        self.impairment_log.append({"timestamp": timestamp, "action": action, **details})
-```
-
-#### 7.3.3 Boardfarm Use Cases for Impairment Control
-
-The primary interface for test cases is through Boardfarm use cases that operate on the `router.impairment` property:
-
-```python
-# boardfarm3/use_cases/impairment.py
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from boardfarm3.templates.isp_gateway import ISPGateway
-
-
-def apply_network_profile(router: ISPGateway, profile: str) -> None:
-    """Apply a network condition profile to the ISP gateway.
-    
-    Args:
-        router: The ISP Gateway device
-        profile: Profile name (e.g., "pristine", "cable_degraded", "congested")
-    
-    Example:
-        apply_network_profile(env.router, "cable_degraded")
-    """
-    router.impairment.set_profile(profile)
-
-
-def simulate_network_degradation(router: ISPGateway, delay_ms: int, loss_pct: float) -> None:
-    """Simulate specific network degradation.
-    
-    Args:
-        router: The ISP Gateway device
-        delay_ms: Latency to add in milliseconds
-        loss_pct: Packet loss percentage
-    
-    Example:
-        simulate_network_degradation(env.router, delay_ms=150, loss_pct=3.0)
-    """
-    router.impairment.clear()
-    router.impairment.set_delay(f"{delay_ms}ms")
-    # Loss would require additional tc command
-
-
-def restore_pristine_network(router: ISPGateway) -> None:
-    """Remove all impairments and restore ideal conditions.
-    
-    Example:
-        restore_pristine_network(env.router)
-    """
-    router.impairment.set_profile("pristine")
-
-
-def get_network_status(router: ISPGateway) -> dict:
-    """Get current network impairment status.
-    
-    Returns:
-        Dictionary with current impairment configuration
-    """
-    return router.impairment.get_status()
-```
-
-**Test Case Example (Gherkin + Python):**
-
-```gherkin
-@qoe @impairment
-Scenario: Video streaming resilience under degraded network
-  Given the testbed is operational
-  And the network is in "pristine" condition
-  When a user starts streaming video at 1080p
-  And the network degrades to "cable_degraded" profile
-  Then the video should adapt quality within 10 seconds
-  And the rebuffer ratio should be below 2%
-```
-
-```python
-# test_qoe_streaming.py
-
-def test_video_streaming_under_degradation(env, browser_user):
-    """Test video streaming QoE under network degradation."""
-    # Setup: pristine network
-    apply_network_profile(env.router, "pristine")
-    
-    # Start streaming
-    metrics_baseline = browser_user.play_video("https://streaming.test.local/movie.m3u8")
-    assert metrics_baseline["initial_resolution"] == "1080p"
-    
-    # Apply degradation
-    apply_network_profile(env.router, "cable_degraded")
-    
-    # Measure behavior under stress
-    time.sleep(10)
-    metrics_degraded = browser_user.get_streaming_metrics()
-    
-    # Verify graceful degradation
-    assert metrics_degraded["rebuffer_ratio"] < 0.02  # < 2%
-    # Resolution should have adapted
-    
-    # Cleanup
-    restore_pristine_network(env.router)
-```
-
-#### 7.3.4 Raikou API (Alternative Interface)
-
-For advanced scenarios or external orchestration, Raikou provides an API extension:
-
-**Simple Topology (Single WAN):**
-```python
-# Initialize for single-path topology (direct Raikou API)
-factory = NetworkFactory(
-    raikou_url="http://raikou:8000",
-    paths={
-        "wan": PathConfig(
-            bridge="rtr-wan",
-            container="router",
-            interface="eth1",
-            default_profile="cable_typical"
-        )
-    }
-)
-
-# Apply impairment
-factory.set_profile("wan", "congested_peak")
-
-# Inject transient event
-factory.inject_event("wan", "latency_spike", added_ms=200, duration_sec=10)
-```
-
-**Multi-Path Topology (SD-WAN):**
-```python
-# Initialize for multi-path topology
-factory = NetworkFactory(
-    raikou_url="http://raikou:8000",
-    paths={
-        "wan1": PathConfig(bridge="wan1-bridge", container="dut", interface="eth1", default_profile="fiber_pristine"),
-        "wan2": PathConfig(bridge="wan2-bridge", container="dut", interface="eth2", default_profile="cable_typical"),
-        "lte": PathConfig(bridge="lte-bridge", container="dut", interface="usb0", default_profile="4g_mobile"),
-    }
-)
-
-# Test failover: degrade primary, verify traffic shifts
-factory.set_profile("wan1", "congested_peak")  # Primary degraded
-factory.set_profile("wan2", "pristine")         # Secondary optimal
-# Expect: SD-WAN shifts traffic to wan2
-
-# Test blackout failover
-factory.inject_event("wan1", "blackout", duration_sec=30)
-# Expect: Immediate failover to wan2 or lte
-```
-
-### 7.4 QoE Measurement Use Cases
-
-```python
-# boardfarm3/use_cases/qoe.py
-
-def measure_page_load_time(browser: PlaywrightBrowser, url: str) -> Dict:
-    """
-    Measure page load performance metrics.
-    
-    Returns:
-        {
-            "ttfb_ms": float,
-            "dom_content_loaded_ms": float,
-            "page_load_time_ms": float,
-            "url": str
-        }
-    """
-    page = browser.new_page()
-    page.goto(url, wait_until="load")
-    
-    timing = page.evaluate("""() => {
-        const t = performance.timing;
-        return {
-            ttfb: t.responseStart - t.navigationStart,
-            dcl: t.domContentLoadedEventEnd - t.navigationStart,
-            plt: t.loadEventEnd - t.navigationStart
-        };
-    }""")
-    
-    return {
-        "ttfb_ms": timing["ttfb"],
-        "dom_content_loaded_ms": timing["dcl"],
-        "page_load_time_ms": timing["plt"],
-        "url": url
-    }
-
-
-def measure_video_streaming_qoe(browser: PlaywrightBrowser, video_url: str, duration_sec: int) -> Dict:
-    """
-    Measure video streaming quality metrics.
-    
-    Returns:
-        {
-            "startup_time_ms": float,
-            "rebuffer_count": int,
-            "rebuffer_ratio": float,
-            "resolution_changes": List[Dict],
-            "final_resolution": str
-        }
-    """
-    # Implementation uses MSE API monitoring
-    pass
-
-
-def measure_webrtc_call_qoe(browser: PlaywrightBrowser, call_duration_sec: int) -> Dict:
-    """
-    Measure WebRTC call quality metrics.
-    
-    Returns:
-        {
-            "avg_rtt_ms": float,
-            "avg_jitter_ms": float,
-            "packet_loss_pct": float,
-            "mos_score": float,
-            "resolution": str,
-            "frames_dropped": int
-        }
-    """
-    # Implementation uses getStats() API polling
-    pass
-```
-
----
-
-## 8. Appendix
-
-### A. Impairment Profile Library
-
-Profiles are versioned and stored as YAML for easy management:
-
-```yaml
-# impairment_profiles/v1.0/cable_typical.yaml
-name: cable_typical
-version: "1.0"
-description: "Typical cable internet subscriber conditions"
-parameters:
-  delay_ms: 15
-  jitter_ms: 5
-  loss_percent: 0.1
-  bandwidth_mbps: 100
-  
-metadata:
-  created: "2026-02-06"
-  author: "QoE Team"
-  reference: "FCC Measuring Broadband America 2025"
-```
-
-### B. MOS Score Reference
-
-| MOS | Quality | User Perception |
-|-----|---------|-----------------|
-| 5 | Excellent | Imperceptible impairment |
-| 4 | Good | Perceptible but not annoying |
-| 3 | Fair | Slightly annoying |
-| 2 | Poor | Annoying |
-| 1 | Bad | Very annoying |
-
-### C. Device Adapter Configuration Examples
-
-#### ApplicationGateway Configuration (Generic)
 ```json
 {
-  "device_class": "vendor_sdwan",
-  "api_url": "${VENDOR_API_URL}",
-  "api_key": "${VENDOR_API_KEY}",
-  "device_id": "device-12345",
-  "consistency_delay_sec": 300
-}
-```
-
-**Vendor-specific examples:**
-- **Meraki**: `api_key`, `network_id`, `organization_id`
-- **Viptela**: `vmanage_url`, `username`, `password`, `device_id`
-- **Fortinet**: `fortigate_url`, `api_token`, `vdom`
-- **Palo Alto**: `prisma_url`, `client_id`, `client_secret`
-
-#### TR-069 Configuration
-```json
-{
-  "adapter": "tr069",
-  "acs_url": "http://genieacs:7557",
-  "device_id": "CPE-001122334455"
-}
-```
-
-#### Linux Router Configuration
-```json
-{
-  "adapter": "linux_ssh",
-  "host": "192.168.1.1",
-  "username": "admin",
-  "key_file": "/path/to/key"
+  "testbed_name": "sdwan_verification",
+  "bridges": {
+    "wan1-bridge": {}, "wan2-bridge": {}, "lte-bridge": {}
+  },
+  "impairments": {
+    "wan1-bridge": {"default_profile": "fiber"},
+    "wan2-bridge": {"default_profile": "cable"},
+    "lte-bridge": {"default_profile": "4g"}
+  }
 }
 ```
 
 ---
 
-## Document History
+## 10. Appendix B: Glossary of Terms
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2026-02-05 | - | Initial Meraki-focused draft |
-| 2.0 | 2026-02-06 | - | Restructured for generic QoE verification framework |
-| 2.1 | 2026-02-06 | - | Aligned with Testbed Network Topology; Router correctly placed as ISP Gateway |
-| 2.2 | 2026-02-06 | - | Network Factory moved north of Router (rtr-wan bridge) to simulate backbone conditions |
-| 2.3 | 2026-02-06 | - | **Raikou as Network Factory**: tc/netem applied to veth interfaces (not OVS bridges); added multi-path topology support for SD-WAN/ApplicationGateway; proposed Raikou API extension for impairment control |
-| 2.4 | 2026-02-06 | - | **Self-Hosted QoE Services**: Added detailed WAN infrastructure for deterministic testing - Streaming Container (HLS/DASH), Conferencing Container (Jitsi/WebRTC), enhanced WAN with Mock SaaS; DNS configuration for service discovery |
-| 2.5 | 2026-02-06 | - | **Boardfarm Device Architecture**: Added dedicated `ApplicationGateway` template for SD-WAN/L7 devices; Router `impairment` property following existing Boardfarm patterns (`wan.firewall`); updated DUT verification to use templates instead of adapters; clarified separation between Raikou (infrastructure) and Boardfarm (device abstraction) |
-| 2.6 | 2026-02-06 | - | **Vendor-Agnostic Language**: Refactored document to present `ApplicationGateway` as a generic device category with vendor implementations (Meraki, Viptela, Fortinet, Palo Alto) as examples rather than primary focus |
+| Term | Definition |
+| :--- | :--- |
+| **Burst Loss** | A sequence of consecutive packet losses. Unlike random loss (which can be concealed), burst loss often causes noticeable audio/video dropouts. |
+| **Click-to-Photon** | The total latency in Cloud Gaming from the user's input (mouse click) to the resulting frame appearing on the screen. Target: < 50ms. |
+| **Consistency Index** | A measure of throughput stability. A link that oscillates wildly (e.g., 10Mbps ↔ 100Mbps) has a low consistency index and confuses adaptive bitrate algorithms. |
+| **DASH** | **Dynamic Adaptive Streaming over HTTP**. A standard for adaptive bitrate video streaming similar to HLS. |
+| **DNS Resolution Time** | The time taken to translate a domain name (e.g., `google.com`) to an IP address. Slow DNS delays the start of every new connection. |
+| **DUT / SUT** | **Device Under Test** / **System Under Test**. The network appliance (Router, SD-WAN Gateway, Firewall) being verified. |
+| **FEC** | **Forward Error Correction**. A technique where extra "redundant" data is sent so the receiver can reconstruct lost packets without asking for retransmission. |
+| **FID** | **First Input Delay**. A Web Vital metric measuring the time from a user's first interaction (click) to the browser's response. |
+| **HLS** | **HTTP Live Streaming**. Apple's adaptive bitrate video streaming protocol. |
+| **Jitter** | The variance in packet arrival time. High jitter causes packets to arrive out of order, requiring buffering (which adds latency) or causing "robotic" audio. |
+| **LCP** | **Largest Contentful Paint**. A Web Vital metric measuring when the main content of a page is likely useful to the user. |
+| **Latency (One-Way)** | The time it takes for a packet to travel from Source to Destination. Critical for real-time interactivity. |
+| **MOS** | **Mean Opinion Score**. A standard metric (1-5 scale) representing human-perceived quality of voice/video calls. |
+| **Motion-to-Photon** | In VR/XR, the latency between a user's physical head movement and the display updating to match. High latency causes cyber-sickness. |
+| **MTU** | **Maximum Transmission Unit**. The largest packet size allowed on the link. Incorrect MTU settings in tunnels cause fragmentation and performance drops. |
+| **Packet Loss** | The percentage of packets sent that fail to reach their destination. |
+| **PLC** | **Packet Loss Concealment**. Algorithms in VoIP codecs that "fill in the gaps" of missing audio data to mask random packet loss. |
+| **RTT** | **Round Trip Time**. The time for a packet to go to the destination and back. Influences TCP throughput and application responsiveness. |
+| **Rebuffer Ratio** | The percentage of time a video stream spends paused (spinning circle) to load more data. Target: 0%. |
+| **TTFB** | **Time to First Byte**. The time from the user's request until the first byte of data is received from the server. |
+| **Traffic Control** | The capability to inject artificial network impairments (delay, loss, bandwidth limits) to stress-test the SUT. |
+
+### Corrected Architecture
+
+The structure should cleanly separate the Interface (Template), the Helper Logic (Library), and the Concrete Implementations (Device).
+
+1. Template (boardfarm3/templates/network_impairment.py)
+- Defines the abstract base class NetworkImpairment.
+
+- Defines the methods set_profile(), clear(), etc.
+1. Library (boardfarm3/lib/networking.py or network_impairment.py)
+- Contains the LinuxTrafficControl class.
+
+- Why here? Because it's a utility that wraps tc commands on another device's console (like the Linux Router). It's not a device itself; it's a capability of a Linux device.
+1. Device (boardfarm3/devices/spirent_impairment.py)
+- Contains SpirentImpairment inheriting from NetworkImpairment (and potentially BoardfarmDevice).
+
+- Why here? Because it's a standalone entity in your testbed inventory. It has its own IP, credentials, and management interface. It is a "Device" in the Boardfarm sense.
