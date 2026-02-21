@@ -33,16 +33,38 @@ Cleanup Voice Test
 *** Test Cases ***
 UC-12348-Main-V1: LAN Phone Calls WAN Phone (NAT Outbound)
     [Documentation]    LAN phone calls WAN phone - tests NAT outbound traversal
-    ...    Requires: 2 SIP phones, SIPServer
+    ...    Requires: 1 LAN + 1 WAN phone, SIPServer
     [Tags]    UC-12348    voice    call    nat-outbound    main-scenario
 
-    # Check preconditions - skip if testbed lacks required devices
-    Check Voice Test Preconditions    min_phones=2
+    Check Voice Test Preconditions    min_phones=2    min_lan=1    min_wan=1
 
-    # Given: Phones are registered (phone numbers from device objects)
-    Register Phone On LAN Side    ${LAN_PHONE}
-    Register Phone On WAN Side    ${WAN_PHONE}
-    Set Caller And Callee    ${LAN_PHONE}    ${WAN_PHONE}
+    # Given: Phones assigned by location, registered, and roles set
+    Setup Phones For Scenario    caller_location=LAN    callee_location=WAN
+
+    # When: Caller calls callee
+    Caller Calls Callee
+
+    # Then: Call is established
+    The Callee Phone Should Start Ringing
+    Callee Answers Call
+    Both Phones Should Be Connected
+    A Bidirectional RTP Media Session Should Be Established
+    Log    Voice communication established through CPE NAT
+
+    # Cleanup
+    Caller Hangs Up
+    Verify SIP Call Terminated
+    Both Phones Should Return To Idle State
+
+UC-12348-Main-V2: LAN Phone Calls WAN Phone 2 (NAT Outbound)
+    [Documentation]    LAN phone calls WAN phone 2 - tests NAT outbound traversal
+    ...    Requires: 1 LAN + 2 WAN phones, SIPServer
+    [Tags]    UC-12348    voice    call    nat-outbound    main-scenario
+
+    Check Voice Test Preconditions    min_phones=3    min_lan=1    min_wan=2
+
+    # Given: Phones assigned by location, registered, and roles set
+    Setup Phones For Scenario    caller_location=LAN    callee_location=WAN2
 
     # When: Caller calls callee
     Caller Calls Callee
@@ -61,16 +83,13 @@ UC-12348-Main-V1: LAN Phone Calls WAN Phone (NAT Outbound)
 
 UC-12348-Main-V3: WAN Phone Calls LAN Phone (NAT Inbound)
     [Documentation]    WAN phone calls LAN phone - tests NAT inbound traversal
-    ...    Requires: 2 SIP phones, SIPServer
+    ...    Requires: 1 LAN + 1 WAN phone, SIPServer
     [Tags]    UC-12348    voice    call    nat-inbound    main-scenario
 
-    # Check preconditions - skip if testbed lacks required devices
-    Check Voice Test Preconditions    min_phones=2
+    Check Voice Test Preconditions    min_phones=2    min_lan=1    min_wan=1
 
-    # Given: Phones are registered (phone numbers from device objects)
-    Register Phone On WAN Side    ${WAN_PHONE}
-    Register Phone On LAN Side    ${LAN_PHONE}
-    Set Caller And Callee    ${WAN_PHONE}    ${LAN_PHONE}
+    # Given: Phones assigned by location, registered, and roles set
+    Setup Phones For Scenario    caller_location=WAN    callee_location=LAN
 
     # When: Caller calls callee
     Caller Calls Callee
@@ -89,16 +108,63 @@ UC-12348-Main-V3: WAN Phone Calls LAN Phone (NAT Inbound)
 
 UC-12348-Main-V4: WAN Phone Calls WAN Phone 2 (Direct WAN)
     [Documentation]    WAN phone calls another WAN phone - direct WAN communication
-    ...    Requires: 3 SIP phones, SIPServer
+    ...    Requires: 2 WAN phones, SIPServer
     [Tags]    UC-12348    voice    call    direct-wan    main-scenario
 
-    # Check preconditions - this test requires 3 phones
-    Check Voice Test Preconditions    min_phones=3
+    Check Voice Test Preconditions    min_phones=2    min_wan=2
 
-    # Given: Phones are registered (phone numbers from device objects)
-    Register Phone On WAN Side    ${WAN_PHONE}
-    Register Phone On WAN Side    ${WAN_PHONE2}
-    Set Caller And Callee    ${WAN_PHONE}    ${WAN_PHONE2}
+    # Given: Phones assigned by location, registered, and roles set
+    Setup Phones For Scenario    caller_location=WAN    callee_location=WAN2
+
+    # When: Caller calls callee
+    Caller Calls Callee
+
+    # Then: Call is established
+    The Callee Phone Should Start Ringing
+    Callee Answers Call
+    Both Phones Should Be Connected
+    A Bidirectional RTP Media Session Should Be Established
+    Log    Voice communication established without NAT traversal
+
+    # Cleanup
+    Caller Hangs Up
+    Verify SIP Call Terminated
+    Both Phones Should Return To Idle State
+
+UC-12348-Main-V5: WAN Phone 2 Calls LAN Phone (NAT Inbound)
+    [Documentation]    WAN phone 2 calls LAN phone - tests NAT inbound traversal
+    ...    Requires: 1 LAN + 2 WAN phones, SIPServer
+    [Tags]    UC-12348    voice    call    nat-inbound    main-scenario
+
+    Check Voice Test Preconditions    min_phones=3    min_lan=1    min_wan=2
+
+    # Given: Phones assigned by location, registered, and roles set
+    Setup Phones For Scenario    caller_location=WAN2    callee_location=LAN
+
+    # When: Caller calls callee
+    Caller Calls Callee
+
+    # Then: Call is established
+    The Callee Phone Should Start Ringing
+    Callee Answers Call
+    Both Phones Should Be Connected
+    A Bidirectional RTP Media Session Should Be Established
+    Log    Voice communication established through CPE NAT
+
+    # Cleanup
+    Caller Hangs Up
+    Verify SIP Call Terminated
+    Both Phones Should Return To Idle State
+
+UC-12348-Main-V6: WAN Phone 2 Calls WAN Phone (Direct WAN)
+    [Documentation]    WAN phone 2 calls WAN phone - direct WAN communication
+    ...    Requires: 2 WAN phones, SIPServer
+    [Tags]    UC-12348    voice    call    direct-wan    main-scenario
+
+    Check Voice Test Preconditions    min_phones=2    min_wan=2
+
+    # Given: Phones assigned by location, registered, and roles set
+    Setup Phones For Scenario    caller_location=WAN2    callee_location=WAN
 
     # When: Caller calls callee
     Caller Calls Callee
@@ -117,14 +183,13 @@ UC-12348-Main-V4: WAN Phone Calls WAN Phone 2 (Direct WAN)
 
 UC-12348-3a: Invalid Phone Number
     [Documentation]    Extension: Caller dials unregistered phone number
-    ...    Requires: 2 SIP phones (caller only used, but setup needs 2)
+    ...    Requires: 2 WAN phones
     [Tags]    UC-12348    voice    error    invalid-number
 
-    # Check preconditions
-    Check Voice Test Preconditions    min_phones=2
+    Check Voice Test Preconditions    min_phones=2    min_wan=2
 
-    # Setup - use the two available phones
-    Set Caller And Callee    ${WAN_PHONE}    ${WAN_PHONE2}
+    # Setup - assign caller/callee by location (callee not used for invalid dial)
+    Setup Phones For Scenario    caller_location=WAN    callee_location=WAN2
     Verify Phone Is Idle    ${CALLER}
 
     # Action: Dial invalid number
@@ -137,14 +202,13 @@ UC-12348-3a: Invalid Phone Number
 
 UC-12348-8a: Callee Is Busy
     [Documentation]    Extension: Callee is already in an active call
-    ...    Requires: 2 SIP phones
+    ...    Requires: 2 WAN phones
     [Tags]    UC-12348    voice    error    busy
 
-    # Check preconditions
-    Check Voice Test Preconditions    min_phones=2
+    Check Voice Test Preconditions    min_phones=2    min_wan=2
 
     # Setup
-    Set Caller And Callee    ${WAN_PHONE}    ${WAN_PHONE2}
+    Setup Phones For Scenario    caller_location=WAN    callee_location=WAN2
     Verify Phone Is Idle    ${CALLER}
     Simulate Busy Callee
 
@@ -158,14 +222,13 @@ UC-12348-8a: Callee Is Busy
 
 UC-12348-11a: Callee Does Not Answer (Timeout)
     [Documentation]    Extension: Callee does not answer within timeout period
-    ...    Requires: 2 SIP phones
+    ...    Requires: 2 WAN phones
     [Tags]    UC-12348    voice    error    timeout
 
-    # Check preconditions
-    Check Voice Test Preconditions    min_phones=2
+    Check Voice Test Preconditions    min_phones=2    min_wan=2
 
     # Setup
-    Set Caller And Callee    ${WAN_PHONE}    ${WAN_PHONE2}
+    Setup Phones For Scenario    caller_location=WAN    callee_location=WAN2
     Verify Phone Is Idle    ${CALLER}
     Verify Phone Is Idle    ${CALLEE}
 
@@ -181,14 +244,13 @@ UC-12348-11a: Callee Does Not Answer (Timeout)
 
 UC-12348-11b: Callee Rejects The Call
     [Documentation]    Extension: Callee actively rejects the incoming call
-    ...    Requires: 2 SIP phones
+    ...    Requires: 2 WAN phones
     [Tags]    UC-12348    voice    error    rejected
 
-    # Check preconditions
-    Check Voice Test Preconditions    min_phones=2
+    Check Voice Test Preconditions    min_phones=2    min_wan=2
 
     # Setup
-    Set Caller And Callee    ${WAN_PHONE}    ${WAN_PHONE2}
+    Setup Phones For Scenario    caller_location=WAN    callee_location=WAN2
     Verify Phone Is Idle    ${CALLER}
     Verify Phone Is Idle    ${CALLEE}
 
@@ -201,3 +263,29 @@ UC-12348-11b: Callee Rejects The Call
     Verify Rejection Response
     Phone Hangs Up    ${CALLER}
     Verify Caller Returns To Idle
+
+UC-12348-15a: RTP Media Fails To Establish
+    [Documentation]    Extension: SIP signaling completes but RTP media path fails
+    ...    Requires: 2 WAN phones. In real scenario would inject network failure.
+    ...    This test verifies clean hangup and termination when media fails.
+    [Tags]    UC-12348    voice    error    rtp-failure
+
+    Check Voice Test Preconditions    min_phones=2    min_wan=2
+
+    # Setup
+    Setup Phones For Scenario    caller_location=WAN    callee_location=WAN2
+    Verify Phone Is Idle    ${CALLER}
+    Verify Phone Is Idle    ${CALLEE}
+
+    # Action: Normal call flow - SIP signaling completes
+    Caller Calls Callee
+    The Callee Phone Should Start Ringing
+    Callee Answers Call
+    Both Phones Should Be Connected
+
+    # Simulated: RTP media fails - either party hangs up due to no audio
+    Caller Hangs Up
+
+    # Verification: Clean termination, both phones idle
+    Verify SIP Call Terminated
+    Both Phones Should Return To Idle State

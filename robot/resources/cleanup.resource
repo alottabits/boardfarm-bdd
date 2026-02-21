@@ -98,16 +98,12 @@ Disconnect All Active Calls
     # Clean up dynamically discovered phones
     Cleanup All SIP Phones
     
-    # Clean up test-scoped phone variables if they exist
-    # These are set by voice.resource Setup Voice Test Environment
-    ${lan_phone_exists}=    Run Keyword And Return Status    Variable Should Exist    ${LAN_PHONE}
-    IF    ${lan_phone_exists}
-        Run Keyword And Ignore Error    Cleanup Single SIP Phone    ${LAN_PHONE}
-    END
-    
-    ${wan_phone_exists}=    Run Keyword And Return Status    Variable Should Exist    ${WAN_PHONE}
-    IF    ${wan_phone_exists}
-        Run Keyword And Ignore Error    Cleanup Single SIP Phone    ${WAN_PHONE}
+    # Clean up phones from location-based discovery (LAN_PHONES, WAN_PHONES)
+    ${phones_exist}=    Run Keyword And Return Status    Variable Should Exist    ${LAN_PHONES}
+    IF    ${phones_exist}
+        FOR    ${phone}    IN    @{LAN_PHONES}    @{WAN_PHONES}
+            Run Keyword And Ignore Error    Cleanup Single SIP Phone    ${phone}
+        END
     END
     
     # Clean up caller/callee test variables if they exist

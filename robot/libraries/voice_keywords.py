@@ -16,6 +16,46 @@ from boardfarm3.templates.sip_server import SIPServer
 from boardfarm3.use_cases import voice as voice_use_cases
 
 
+def _get_phone_network_location(phone_name: str, phone: SIPPhone) -> str:
+    """Determine network location from device metadata or naming.
+
+    Checks device options (lan-ip-dhcp, wan-static-ip) or name prefix.
+    Mirrors: tests/step_defs/sip_phone_steps.get_phone_network_location
+    """
+    if phone and hasattr(phone, 'dev') and hasattr(phone.dev, 'options'):
+        options = phone.dev.options
+        options_lower = options.lower() if isinstance(options, str) else ''
+        if any(x in options_lower for x in ['lan-ip', 'lan-dhcp', 'lan-static']):
+            return 'LAN'
+        if any(x in options_lower for x in ['wan-ip', 'wan-static', 'wan-dhcp']):
+            return 'WAN'
+    name_lower = phone_name.lower()
+    if name_lower.startswith('lan'):
+        return 'LAN'
+    if name_lower.startswith('wan'):
+        return 'WAN'
+    raise ValueError(
+        f"Cannot determine network location for '{phone_name}'. "
+        "Device should have 'lan-ip' or 'wan-ip' in options, or name should start with lan/wan."
+    )
+
+
+def discover_phones_by_location(phones_dict: dict[str, SIPPhone]) -> dict[str, list]:
+    """Classify phones by network location (LAN/WAN).
+
+    Returns: {'LAN': [phone, ...], 'WAN': [phone, ...]}
+    Phones are ordered as in the input dict for deterministic assignment.
+    """
+    result: dict[str, list] = {'LAN': [], 'WAN': []}
+    for name, phone in phones_dict.items():
+        try:
+            loc = _get_phone_network_location(name, phone)
+            result[loc].append(phone)
+        except ValueError:
+            continue
+    return result
+
+
 @library(scope="SUITE", doc_format="TEXT")
 class VoiceKeywords:
     """Keywords for voice/SIP phone operations matching BDD scenario steps."""
@@ -79,6 +119,62 @@ class VoiceKeywords:
             self._phones[name] = phone
 
         print(f"✓ Phone {phone_name} (number {phone_number}) is registered")
+
+    @keyword("Discover phones by location")
+    def discover_phones_by_location_keyword(
+        self, phones_dict: dict[str, SIPPhone]
+    ) -> dict[str, list]:
+        """Classify SIP phones by network location (LAN/WAN).
+
+        Arguments:
+            phones_dict: Dict from Get Devices By Type SIPPhone (name -> device)
+
+        Returns:
+            Dict with keys 'LAN' and 'WAN', each a list of phone instances.
+            Use in Robot: ${by_loc}=  Discover Phones By Location  ${phones}
+            Then: ${lan_list}=  Get From Dictionary  ${by_loc}  LAN
+        """
+        return discover_phones_by_location(phones_dict)
+
+    @keyword("Assign phones for scenario")
+    def assign_phones_for_scenario(
+        self,
+        caller_location: str,
+        callee_location: str,
+        lan_phones: list,
+        wan_phones: list,
+    ) -> tuple[SIPPhone, SIPPhone]:
+        """Assign caller and callee from location-based phone lists.
+
+        Arguments:
+            caller_location: 'LAN', 'WAN', or 'WAN2' (WAN2 = second WAN phone)
+            callee_location: Same as caller_location
+            lan_phones: List of LAN phones from discovery
+            wan_phones: List of WAN phones from discovery
+
+        Returns:
+            (caller_phone, callee_phone) - for use with Set Test Variable
+
+        Raises:
+            AssertionError: If required phones not available
+        """
+        def _get_phone(loc: str) -> SIPPhone:
+            if loc == 'LAN':
+                assert lan_phones, "No LAN phone available"
+                return lan_phones[0]
+            if loc == 'WAN':
+                assert wan_phones, "No WAN phone available"
+                return wan_phones[0]
+            if loc == 'WAN2':
+                assert len(wan_phones) >= 2, "Need at least 2 WAN phones for WAN2"
+                return wan_phones[1]
+            raise ValueError(f"Unknown location: {loc}. Use LAN, WAN, or WAN2")
+
+        caller = _get_phone(caller_location)
+        callee = _get_phone(callee_location)
+        self._caller = caller
+        self._callee = callee
+        return (caller, callee)
 
     @keyword("Assign caller and callee roles")
     def assign_roles(self, caller: SIPPhone, callee: SIPPhone) -> None:

@@ -99,6 +99,22 @@ class BoardfarmKeywords:
         """
         return datetime.now(timezone.utc).isoformat()
 
+    @keyword("Get Device Property")
+    def get_device_property(self, device: Any, property_name: str) -> Any:
+        """Get a property value from a device object.
+
+        Arguments:
+            device: Boardfarm device instance (e.g. SIPPhone, CPE)
+            property_name: Name of the property (e.g. number, name, ipv4_addr)
+
+        Returns:
+            The property value
+
+        Example:
+        | ${number}=    Get Device Property    ${phone}    number
+        """
+        return getattr(device, property_name)
+
     @keyword("Get Timestamp For Filtering")
     def get_timestamp_for_filtering(self) -> datetime:
         """Get current UTC timestamp as datetime object for log filtering.

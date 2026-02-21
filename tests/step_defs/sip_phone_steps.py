@@ -1310,13 +1310,3 @@ def parties_experience_no_audio(bf_context: Any) -> None:
     # This is a simulated scenario
     # In real scenario, would verify no RTP session
     print("⚠ Parties experiencing no audio (simulated)")
-
-
-@when("either party hangs up due to communication failure")
-def party_hangs_up_due_to_failure(bf_context: Any) -> None:
-    """Either party hangs up due to communication failure."""
-    caller = bf_context.caller
-    
-    # Caller hangs up due to no audio
-    caller.hangup()
-    print("✓ Party hung up due to communication failure")

@@ -29,16 +29,18 @@ Resource    common.resource
 Setup Voice Test Environment
     [Documentation]    Initialize voice test environment with SIP phones.
     ...    
-    ...    Dynamically discovers available devices and sets suite variables.
-    ...    Tests should use Check Voice Test Preconditions to verify specific requirements.
+    ...    Dynamically discovers available devices and classifies by network location
+    ...    (LAN/WAN) using device metadata (options field) or naming convention.
+    ...    No hardcoded device names - works across different testbeds.
     ...    
     ...    Sets suite variables:
     ...    - ACS, CPE, SIPCENTER (if available)
-    ...    - AVAILABLE_PHONES (list of all SIP phones)
-    ...    - PHONE_COUNT (number of available phones)
+    ...    - AVAILABLE_PHONES (dict: name -> device)
+    ...    - PHONE_COUNT (total number of SIP phones)
+    ...    - LAN_PHONES (list of phones on LAN side)
+    ...    - WAN_PHONES (list of phones on WAN side)
     ...    
-    ...    Individual phones (LAN_PHONE, WAN_PHONE, WAN_PHONE2) are set if available,
-    ...    but tests should check preconditions before using them.
+    ...    Tests use Setup Phones For Scenario to assign caller/callee by location.
     Log    Setting up voice test environment...
     
     # Get core devices
@@ -57,27 +59,28 @@ Setup Voice Test Environment
         Set Suite Variable    ${SIPCENTER}    ${sipcenter}
     END
     
-    # Discover all available SIP phones
+    # Discover all SIP phones and classify by network location (LAN/WAN)
     ${phones}=    Get Devices By Type    SIPPhone
     ${phone_count}=    Get Length    ${phones}
     Set Suite Variable    ${AVAILABLE_PHONES}    ${phones}
     Set Suite Variable    ${PHONE_COUNT}    ${phone_count}
-    Log    Found ${phone_count} SIP phone(s) in testbed
     
-    # Set individual phone variables for convenience (may be None)
-    ${lan_phone}=    Set Variable If    ${phone_count} > 0    ${phones}[0]    ${None}
-    ${wan_phone}=    Set Variable If    ${phone_count} > 1    ${phones}[1]    ${None}
-    ${wan_phone2}=    Set Variable If    ${phone_count} > 2    ${phones}[2]    ${None}
-    Set Suite Variable    ${LAN_PHONE}    ${lan_phone}
-    Set Suite Variable    ${WAN_PHONE}    ${wan_phone}
-    Set Suite Variable    ${WAN_PHONE2}    ${wan_phone2}
+    ${by_location}=    Discover Phones By Location    ${phones}
+    ${lan_phones}=    Get From Dictionary    ${by_location}    LAN
+    ${wan_phones}=    Get From Dictionary    ${by_location}    WAN
+    ${lan_count}=    Get Length    ${lan_phones}
+    ${wan_count}=    Get Length    ${wan_phones}
+    Set Suite Variable    ${LAN_PHONES}    ${lan_phones}
+    Set Suite Variable    ${WAN_PHONES}    ${wan_phones}
+    
+    Log    Found ${phone_count} SIP phone(s): ${lan_count} LAN, ${wan_count} WAN
     
     # Verify SIP server if available
     IF    $SIPCENTER is not None
         The SIP Server Is Running And Operational    ${SIPCENTER}
     END
     
-    Log    Voice test environment initialized: ${phone_count} phones available
+    Log    Voice test environment initialized: ${phone_count} phones (${lan_count} LAN, ${wan_count} WAN)
 
 Check Voice Test Preconditions
     [Documentation]    Check if the testbed meets voice test requirements.
@@ -87,11 +90,13 @@ Check Voice Test Preconditions
     ...    
     ...    Arguments:
     ...    - min_phones: Minimum number of SIP phones required (default: 2)
+    ...    - min_lan: Minimum LAN phones (default: 0)
+    ...    - min_wan: Minimum WAN phones (default: 0)
     ...    - require_sipcenter: Whether SIPServer is required (default: True)
     ...    
     ...    Example:
-    ...        Check Voice Test Preconditions    min_phones=3
-    [Arguments]    ${min_phones}=2    ${require_sipcenter}=${True}
+    ...        Check Voice Test Preconditions    min_phones=3    min_wan=2
+    [Arguments]    ${min_phones}=2    ${min_lan}=0    ${min_wan}=0    ${require_sipcenter}=${True}
     
     # Check SIP server
     IF    ${require_sipcenter} and $SIPCENTER is None
@@ -103,22 +108,52 @@ Check Voice Test Preconditions
         Skip    Testbed has ${PHONE_COUNT} SIP phone(s), but test requires ${min_phones} - skipping
     END
     
-    Log    Voice test preconditions met: ${PHONE_COUNT} phones, SIPServer available
+    # Check location-based requirements
+    ${lan_count}=    Get Length    ${LAN_PHONES}
+    ${wan_count}=    Get Length    ${WAN_PHONES}
+    IF    ${lan_count} < ${min_lan}
+        Skip    Testbed has ${lan_count} LAN phone(s), but test requires ${min_lan} - skipping
+    END
+    IF    ${wan_count} < ${min_wan}
+        Skip    Testbed has ${wan_count} WAN phone(s), but test requires ${min_wan} - skipping
+    END
+    
+    Log    Voice test preconditions met: ${PHONE_COUNT} phones (${lan_count} LAN, ${wan_count} WAN), SIPServer available
+
+Setup Phones For Scenario
+    [Documentation]    Assign caller and callee by network location, register them, and set roles.
+    ...    
+    ...    Use this at the start of each test to select phones based on scenario requirements.
+    ...    Locations: LAN, WAN, WAN2 (second WAN phone).
+    ...    
+    ...    Example:
+    ...        Setup Phones For Scenario    caller_location=LAN    callee_location=WAN
+    ...        Setup Phones For Scenario    caller_location=LAN    callee_location=WAN2
+    [Arguments]    ${caller_location}    ${callee_location}
+    ${caller}    ${callee}=    Assign Phones For Scenario    ${caller_location}    ${callee_location}    ${LAN_PHONES}    ${WAN_PHONES}
+    Set Test Variable    ${CALLER}    ${caller}
+    Set Test Variable    ${CALLEE}    ${callee}
+    Assign Caller And Callee Roles    ${caller}    ${callee}
+    # Register each phone based on its location (not caller/callee role)
+    IF    '${caller_location}' == 'LAN'
+        Register Phone On LAN Side    ${caller}
+    ELSE
+        Register Phone On WAN Side    ${caller}
+    END
+    IF    '${callee_location}' == 'LAN'
+        Register Phone On LAN Side    ${callee}
+    ELSE
+        Register Phone On WAN Side    ${callee}
+    END
 
 Teardown Voice Test Environment
     [Documentation]    Clean up voice test environment.
-    ...    Safely hangs up any active calls on available phones.
+    ...    Safely hangs up any active calls on all discovered phones.
     Log    Tearing down voice test environment...
     
-    # Only cleanup phones that exist
-    IF    $LAN_PHONE is not None
-        Run Keyword And Ignore Error    Phone Hangs Up    ${LAN_PHONE}
-    END
-    IF    $WAN_PHONE is not None
-        Run Keyword And Ignore Error    Phone Hangs Up    ${WAN_PHONE}
-    END
-    IF    $WAN_PHONE2 is not None
-        Run Keyword And Ignore Error    Phone Hangs Up    ${WAN_PHONE2}
+    # Hang up on all discovered phones (LAN + WAN)
+    FOR    ${phone}    IN    @{LAN_PHONES}    @{WAN_PHONES}
+        Run Keyword And Ignore Error    Phone Hangs Up    ${phone}
     END
     
     Log    Voice test environment torn down
