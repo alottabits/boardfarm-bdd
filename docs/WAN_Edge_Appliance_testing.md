@@ -1,7 +1,7 @@
 # Technical Brief: WAN Edge Appliance Testing Framework
 
 **Date:** February 07, 2026
-**Version:** 1.2 (Security & Firewall Added)
+**Version:** 1.3 (Container-First Plan, Linux Router DUT)
 **Status:** Draft
 
 ---
@@ -85,10 +85,10 @@ To ensure consistency and portability across different environments (Functional 
 *   **Raikou:** Used to instantiate networked containers for the functional testbed components (Clients, Servers, ISP Routers). It provides the "Network-in-a-Box" infrastructure with OVS bridges.
 *   **Boardfarm:** The orchestration layer. It configures the testbed, manages device connections (DUT, Clients, Traffic Generators), and provides a consistent test interface (API) regardless of the underlying hardware.
 
-### 3.2 Testbed Topology: Triple WAN
-To fully exercise Path Steering and SD-WAN capabilities, the testbed utilizes a **Triple WAN** topology.
+### 3.2 Testbed Topology: Dual WAN (Initial) → Triple WAN (Expansion)
+The initial testbed uses a **Dual WAN** topology to prove the concept. Expansion to **Triple WAN** follows once validation is complete.
 
-![tripple_wan_topology](../Excalidraw/triple_wan_topology.excalidraw.svg)
+![triple_wan_topology](../Excalidraw/triple_wan_topology.excalidraw.svg)
 
 **Connections:**
 1.  **LAN Side:**
@@ -98,7 +98,7 @@ To fully exercise Path Steering and SD-WAN capabilities, the testbed utilizes a 
 2.  **DUT (WAN Edge Appliance):**
     *   **WAN 1 (MPLS/Fiber):** High bandwidth, low latency, high cost.
     *   **WAN 2 (Internet/Cable):** High bandwidth, variable latency, low cost.
-    *   **WAN 3 (LTE/5G):** Metered bandwidth, higher latency, backup path.
+    *   **WAN 3 (LTE/5G):** Metered bandwidth, higher latency, backup path. *(Added in expansion phase.)*
 3.  **WAN Emulator (Traffic Control):**
     *   Injects impairments (Delay, Loss, Jitter, Bandwidth limits) independently on each WAN link.
 4.  **Cloud Side:**
@@ -107,19 +107,90 @@ To fully exercise Path Steering and SD-WAN capabilities, the testbed utilizes a 
 
 ### 3.3 Implementation Types
 *   **Functional Testbed:** All components are containerized implementations, except for the DUT. Traffic control is done via Linux `tc` within Raikou containers.
-*   **Pre-Production Testbed:** Physical hardware DUTs. Traffic control is handled by dedicated hardware (Spirent, Keysight) or high-performance WAN emulators. Boardfarm abstracts these differences using the `NetworkImpairment` template.
+*   **Pre-Production Testbed:** Physical hardware DUTs. Traffic control is handled by dedicated hardware (Spirent, Keysight) or high-performance WAN emulators. Boardfarm abstracts these differences using the `TrafficController` template.
 
 ---
 
 ## 4. Implementation Plan
 
-### 4.1 Component Development
-To build this testbed, the following components must be developed or integrated:
+### 4.1 Container-First Approach
+
+The testbed is built by **developing Docker containers first**, then aligning the Raikou docker-compose file to instantiate them. This approach allows each component to be developed and tested independently before integration.
+
+**Development order:**
+1. Build and validate each container image.
+2. Create Docker Compose for Raikou with OVS topology.
+3. Align Boardfarm inventory and env config to the running topology.
+
+### 4.2 Minimum Viable Component Set (PoC)
+
+The initial proof-of-concept uses the following minimal set of containers:
+
+| Component | Purpose | Notes |
+| :--- | :--- | :--- |
+| **Linux Router (DUT)** | FRR-based router with two WAN interfaces | Path steering, failover |
+| **WAN 1 (TrafficController)** | Impairment container for first WAN link | `tc`/netem |
+| **WAN 2 (TrafficController)** | Impairment container for second WAN link | `tc`/netem |
+| **WAN-side Services** | Productivity + Streaming servers | Mock SaaS, Nginx HLS/DASH |
+| **LAN-side Clients** | Productivity + Streaming clients | Playwright or similar |
+
+**Topology:** `[LAN Client] → [DUT] → [WAN1 / WAN2] → [Services]`
+
+### 4.3 DUT: Linux Router with FRR (Dual WAN)
+
+Before validating commercial SD-WAN appliances, the testbed itself must be validated. We use a **Linux Router with FRR** as the software DUT placeholder.
+
+**Why Linux Router + FRR?**
+*   **Raikou Alignment:** Extends the existing Raikou router component (already uses FRR).
+*   **No KVM Required:** Runs as a standard Linux container; works in CI and cloud environments.
+*   **Path Steering:** FRR supports policy routing (PBR), nexthop groups, and next-hop tracking for failover.
+*   **Automation:** CLI (vtysh) and config files; easy to drive from Boardfarm.
+
+**Initial scope (FRR only):**
+*   Multi-WAN with two interfaces (WAN1, WAN2).
+*   Policy routing and nexthop groups for path selection and failover.
+*   Gateway monitoring via resilient nexthop groups or a lightweight script.
+
+**Planned expansion (later phases):**
+*   **StrongSwan:** Add IPsec VPN overlay for the "VPN/Overlay Encryption" pillar.
+*   **tc (Traffic Control):** Add traffic shaping (htb, fq_codel) for QoS validation.
+*   **iptables/nftables:** Add zone-based firewall rules for Security pillar validation.
+
+#### Proxy Mapping: Linux Router to Commercial DUTs
+
+| Feature Category | Commercial DUT (e.g., Meraki) | Linux Router Proxy Equivalent | Validation Goal |
+| :--- | :--- | :--- | :--- |
+| **SD-WAN Policies** | Traffic Steering / Policy Routing | FRR PBR + Nexthop Groups | Test Boardfarm's ability to trigger path shifts. |
+| **QoS / Shaper** | App-aware Shaping | `tc` (planned) | Verify that QoE scripts detect throttled traffic. |
+| **Security / FW** | Zone-based FW / IPS | `iptables` (planned) | Verify Allow/Deny logic and threat blocking. |
+| **VPN/Overlay** | IPsec / WireGuard | StrongSwan (planned) | Verify tunnel establishment and re-keying. |
+| **Management** | Cloud Dashboard / API | SSH + vtysh / Config Files | Test "Telemetry" collection scripts. |
+
+#### Pre-Hardware Validation Scenarios
+
+1.  **Orchestration Handshake**
+    *   **Goal:** Ensure Boardfarm can talk to the DUT.
+    *   **Method:** Create a Boardfarm `linux_router_dut` driver (or extend existing router device).
+    *   **Success:** Boardfarm successfully fetches interface status and routing table.
+
+2.  **Impairment Trigger Loop**
+    *   **Goal:** Verify that applying a "Satellite" profile via the TrafficController triggers failover.
+    *   **Method:** Configure FRR gateway monitoring. Inject 600ms latency via `tc` on WAN1.
+    *   **Success:** DUT fails over to WAN2; LAN Client records transient QoE dip during switch.
+
+3.  **Path Steering Verification**
+    *   **Goal:** Verify that path selection responds to impairment changes.
+    *   **Method:** Apply `cable_typical` to WAN1, `satellite` to WAN2; verify traffic prefers WAN1.
+    *   **Success:** Traffic flows via preferred path; Boardfarm can assert path choice.
+
+### 4.4 Additional Component Development
+
+Beyond the PoC set, the following components are developed or integrated:
 
 1.  **Traffic Controller (Impairment Layer):**
     *   Develop `LinuxTrafficControl` library for functional tests (wrapping `tc`/`netem`).
+    *   Implement the `TrafficController` Boardfarm template.
     *   Develop `SpirentImpairment` driver for pre-production labs.
-    *   Implement the `NetworkImpairment` Boardfarm template.
 
 2.  **Application Services (North-Side):**
     *   **Productivity:** Mock SaaS server (HTTP/2, HTTP/3).
@@ -130,58 +201,36 @@ To build this testbed, the following components must be developed or integrated:
 3.  **Client Measurement Tools (South-Side):**
     *   Enhance **Playwright** scripts to capture navigation timing, media stats, and WebRTC `getStats()`.
     *   Implement **MOS calculation** logic based on captured metrics (R-Factor calculation).
-    *   Integrate **Nmap/Kali** scripts for basic penetration testing assertions (e.g., "Port 22 should be closed from WAN").
-
-### 4.2 Testbed Validation Strategy (pfSense Proxy)
-Before validating complex commercial SD-WAN appliances, the testbed itself must be validated. We will use **pfSense** (or OPNsense) as a software placeholder for the DUT.
-
-**Why pfSense?**
-*   **Open Source & Lightweight:** Can run as a VM/Container within Raikou.
-*   **Feature Parity:** Supports Multi-WAN Gateway Groups (SD-WAN Policies equivalent), Traffic Shaping (QoS), L7 visibility, and robust Firewall rules (pf).
-
-#### Proxy Mapping: pfSense to Commercial DUTs
-
-| Feature Category | Commercial DUT (e.g., Meraki) | pfSense Proxy Equivalent | Validation Goal |
-| :--- | :--- | :--- | :--- |
-| **SD-WAN Policies** | Traffic Steering / Policy Routing | Gateway Groups (Multi-WAN) | Test Boardfarm's ability to trigger path shifts. |
-| **QoS / Shaper** | App-aware Shaping | ALTQ / Limiters | Verify that QoE scripts detect throttled traffic. |
-| **Security / FW** | Zone-based FW / IPS | pf Rules / Snort | Verify Allow/Deny logic and threat blocking. |
-| **L7 Visibility** | NBAR / App-ID | ntopng / Snort | Ensure classification logic doesn't break metrics. |
-| **Management** | Cloud Dashboard / API | XML-RPC / Config File | Test "Telemetry" collection scripts. |
-
-#### Pre-Hardware Validation Scenarios
-
-1.  **Orchestration Handshake**
-    *   **Goal:** Ensure Boardfarm can talk to the DUT.
-    *   **Method:** Create a Boardfarm `pfsense_device.py` driver.
-    *   **Success:** Boardfarm successfully fetches interface status and CPU load.
-
-2.  **Impairment Trigger Loop**
-    *   **Goal:** Verify that applying a "Satellite" profile via the `ISPGateway` triggers a failover.
-    *   **Method:** Configure pfSense Gateway Monitoring. Inject 600ms latency via `tc` on WAN1.
-    *   **Success:** pfSense marks WAN1 "Down"; Playwright Client records transient QoE dip during switch.
-
-3.  **Security Policy Enforcement**
-    *   **Goal:** Verify Boardfarm can validate security rules.
-    *   **Method:** Configure pfSense to block "Malicious Host" IP. Attempt connection from LAN Client.
-    *   **Success:** Connection times out; Playwright records expected failure.
+    *   Integrate **Nmap/Kali** scripts for basic penetration testing assertions.
 
 ---
 
 ## 5. Development Phases
 
-1.  **Phase 1: Foundation (Functional Testbed)**
-    *   Setup Raikou with Triple WAN topology.
-    *   Deploy pfSense as DUT.
-    *   Implement basic `LinuxTrafficControl`.
-2.  **Phase 2: Services & Measurement**
-    *   Deploy North-side application containers (including Security targets).
-    *   Develop and verify Playwright measurement scripts.
-    *   Develop Security validation scripts.
-3.  **Phase 3: Validation (The "Control" Experiment)**
-    *   Run full test suite against pfSense.
-    *   Verify failover logic, measurement accuracy, and firewall enforcement.
-4.  **Phase 4: Commercial DUT Integration**
-    *   Swap pfSense for Cisco/Fortinet/VMware virtual or physical appliances.
+1.  **Phase 1: Container Development (Foundation)**
+    *   Develop Docker images for each component: Linux Router (DUT), WAN1/WAN2 (TrafficController), Productivity, Streaming, LAN Client.
+    *   Extend Linux Router DUT with FRR for two WAN interfaces, policy routing, and failover.
+    *   Implement the `TrafficController` Boardfarm template and `LinuxTrafficControl` library.
+    *   Develop Playwright measurement scripts for QoE as part of the LAN Client (Productivity, Streaming).
+    *   Validate each container independently.
+
+2.  **Phase 2: Raikou Integration & Dual WAN Topology**
+    *   Create Docker Compose for Raikou with Dual WAN topology.
+    *   Configure OVS bridges and network links.
+    *   Deploy full testbed (all containers instantiated via Raikou).
+    *   Align Boardfarm inventory and env config to the running topology.
+
+3.  **Phase 3: Validation**
+    *   Run initial validation scenarios (Orchestration Handshake, Impairment Trigger Loop, Path Steering).
+
+4.  **Phase 4: Linux Router Expansion (Optional)**
+    *   Add **StrongSwan** to DUT for VPN/overlay encryption validation.
+    *   Add **tc** for QoS shaping validation.
+    *   Add **iptables** for firewall/security validation.
+    *   Expand to **Triple WAN** topology.
+    *   *(If pursued, done before moving to commercial hardware.)*
+
+5.  **Phase 5: Commercial DUT Integration**
+    *   Swap Linux Router for Cisco/Fortinet/VMware virtual or physical appliances.
     *   Develop specific Boardfarm drivers for the commercial DUTs.
     *   Execute "Scenario A: Brownout Resilience" and other use cases.

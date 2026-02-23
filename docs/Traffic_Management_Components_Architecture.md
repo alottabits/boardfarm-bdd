@@ -2,7 +2,6 @@
 
 **Date:** February 11, 2026  
 **Status:** Design Document  
-**Related:** [Technical Brief: Automated QoE Verification](./Technical%20Brief_%20Automated%20QoE%20Verification.md)
 
 ---
 
@@ -116,6 +115,8 @@ Per-device settings are split between **inventory** (connection/topology) and **
 }
 ```
 
+**Structure:** `environment_def` contains both **device-specific keys** (device names like `wan1_impairment`) and **shared keys** (like `impairment_presets`). Device keys are merged into each device's config; shared keys like `impairment_presets` provide a BDD vocabulary used by all TrafficController devices.
+
 - **environment_def[device_name].impairment_profile**: Default parameters for that device. Merged into device config and applied at init.
 - **environment_def.impairment_presets**: Optional named presets for BDD steps (e.g. "Given the network is set to cable_typical"). Steps resolve preset names from the merged config.
 
@@ -139,6 +140,8 @@ During tests, `set_impairment_profile(profile)` can be called again with new par
 **Location:** `boardfarm3/use_cases/traffic_control.py` or `boardfarm3/use_cases/device_getters.py`
 
 Consistent with `get_lan_clients`, `get_wan_clients`. Supports single-WAN (omit name) and multi-path (specify device name).
+
+**Note:** `get_device_manager().get_devices_by_type(TrafficController)` returns `dict[str, TrafficController]` (device name → instance). Use `devs[name]` for lookup by name, or `devs.values()` to iterate over all devices.
 
 ```python
 from boardfarm3.exceptions import DeviceNotFound
@@ -410,8 +413,46 @@ def clear_impairment(controller: TrafficController) -> None:
 
 
 def inject_blackout(controller: TrafficController, duration_ms: int) -> None:
-    """Inject complete link failure."""
+    """Inject complete link failure (e.g. cable unplug, interface down)."""
     controller.inject_transient("blackout", duration_ms)
+
+
+def inject_brownout(
+    controller: TrafficController,
+    duration_ms: int,
+    latency_ms: int = 200,
+    loss_percent: float = 5.0,
+) -> None:
+    """Inject degraded link conditions (high latency/loss without complete failure)."""
+    controller.inject_transient(
+        "brownout", duration_ms,
+        latency_ms=latency_ms,
+        loss_percent=loss_percent,
+    )
+
+
+def inject_latency_spike(
+    controller: TrafficController,
+    duration_ms: int,
+    spike_latency_ms: int = 500,
+) -> None:
+    """Inject temporary latency spike above baseline."""
+    controller.inject_transient(
+        "latency_spike", duration_ms,
+        spike_latency_ms=spike_latency_ms,
+    )
+
+
+def inject_packet_storm(
+    controller: TrafficController,
+    duration_ms: int,
+    loss_percent: float = 10.0,
+) -> None:
+    """Inject burst of packet loss or packet duplication."""
+    controller.inject_transient(
+        "packet_storm", duration_ms,
+        loss_percent=loss_percent,
+    )
 ```
 
 ---
@@ -446,3 +487,4 @@ Each device has its own `impairment_profile` default in env config (`environment
 | `SpirentTrafficController` | Device | `devices/spirent_traffic_controller.py` | Hardware appliance |
 | `get_traffic_controller` | Use case | `use_cases/traffic_control.py` or `device_getters.py` | Device selection (single/multi-path) |
 | `set_impairment_profile`, `get_impairment_profile`, `clear_impairment` | Use cases | `use_cases/traffic_control.py` | BDD / test operations |
+| `inject_blackout`, `inject_brownout`, `inject_latency_spike`, `inject_packet_storm` | Use cases | `use_cases/traffic_control.py` | Transient event injection |
