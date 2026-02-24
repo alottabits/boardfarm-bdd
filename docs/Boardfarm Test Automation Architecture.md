@@ -174,7 +174,11 @@ Tests never call device implementations directly. They depend on **templates** a
 - High-level, stable signatures
 - No transport or vendor specifics
 
-**Examples:** `WAN`, `LAN`, `ACS`, `CPE`, `SIPPhone`, `SIPServer`, `Provisioner`
+**Examples (legacy):** `WAN`, `LAN`, `ACS`, `CPE`, `SIPPhone`, `SIPServer`, `Provisioner`
+
+**Examples (SD-WAN):** `WANEdgeDevice`, `QoEClient`, `TrafficController`, `TrafficGenerator`, `MaliciousHost`, `ProductivityServer`, `StreamingServer`, `ConferencingServer`
+
+> **SD-WAN template locations:** `boardfarm3/templates/wan_edge.py`, `qoe_client.py`, `traffic_controller.py`, `traffic_generator.py`, `malicious_host.py`, `productivity_server.py`, `streaming_server.py`, `conferencing_server.py`. See `WAN_Edge_Appliance_testing.md §3.4` for full interface definitions.
 
 ```python
 # boardfarm3/templates/sip_phone.py
@@ -426,13 +430,18 @@ Config files stay small. Device config holds **paths** to artifact files. Device
 bf_config/
 ├── boardfarm_config_prplos_rpi.json   # References paths
 ├── boardfarm_env_example.json
-└── gui_artifacts/
-    └── genieacs/
-        ├── fsm_graph_expanded.json    # Large FSM graph
-        ├── fsm_graph_augmented.json
-        └── screenshots/               # Reference images
-            ├── references/
-            └── ...
+├── gui_artifacts/
+│   └── genieacs/
+│       ├── fsm_graph_expanded.json    # Large FSM graph
+│       ├── fsm_graph_augmented.json
+│       └── screenshots/               # Reference images
+│           ├── references/
+│           └── ...
+└── security_artifacts/                # Security test payloads
+    ├── eicar.com                       # EICAR antivirus test file
+    ├── c2_config.json                  # C2 callback listener config
+    └── pcap/                           # Reference packet captures
+        └── syn_flood_sample.pcap
 ```
 
 ### GUI Example: FSM Graphs and Screenshots
@@ -457,6 +466,25 @@ The GenieACS GUI device uses artifacts because:
 
 **Reference:** See `boardfarm3/lib/gui/README.md` in the boardfarm repository for FSM graph generation and GUI configuration.
 
+### Security Example: EICAR and C2 Artifacts
+
+Security pillar tests require binary or sensitive payload files that must not be inlined in JSON config. Store these in `bf_config/security_artifacts/`.
+
+**Device config (inventory):**
+```json
+{
+  "name": "malicious_host",
+  "type": "kali_malicious_host",
+  "eicar_file": "bf_config/security_artifacts/eicar.com",
+  "c2_config_file": "bf_config/security_artifacts/c2_config.json"
+}
+```
+
+**Artifact layout:**
+- `security_artifacts/eicar.com`: EICAR antivirus test file for content-inspection tests
+- `security_artifacts/c2_config.json`: C2 listener port/protocol configuration
+- `security_artifacts/pcap/`: Reference packet captures for traffic-analysis assertions
+
 ### tests/test_artifacts/
 
 **Location:** `tests/test_artifacts/`
@@ -474,6 +502,7 @@ The GenieACS GUI device uses artifacts because:
 | Per-device defaults (small) | Env config | Fits in JSON, merged cleanly |
 | Connection details | Inventory | Topology/identity |
 | Large graphs, images | Artifacts + path in config | Too large for JSON |
+| Security test payloads (EICAR, PCAP, C2 configs) | `bf_config/security_artifacts/` | Binary/sensitive; not inline JSON |
 | Test-specific fixtures | `tests/test_artifacts/` | Not testbed config |
 | Named presets for BDD | Env config (e.g. `environment_def.presets`) | Small, shared vocabulary |
 
@@ -859,6 +888,8 @@ def verify_device_online(
 
 ### Available Modules
 
+#### Legacy Modules
+
 | Module | Purpose | Key Functions |
 |--------|---------|---------------|
 | `acs.py` | ACS/TR-069 operations | `get_parameter_value()`, `set_parameter_value()`, `initiate_reboot()` |
@@ -868,6 +899,16 @@ def verify_device_online(
 | `wifi.py` | WiFi operations | `get_ssid()`, `connect_client_to_wifi()`, `trigger_radar_event()` |
 | `dhcp.py` | DHCP operations | `release_lease()`, `renew_lease()` |
 | `iperf.py` | Performance testing | `run_iperf_client()`, `run_iperf_server()` |
+
+#### SD-WAN Modules (in development — see [Component Readiness Map](WAN_Edge_Appliance_testing.md#component-readiness-map))
+
+| Module | Purpose | Key Functions |
+|--------|---------|---------------|
+| `qoe.py` | QoE measurement and SLO assertions | `measure_productivity()`, `measure_streaming()`, `measure_conferencing()`, `assert_qoe_slo()`, `calculate_mos()` |
+| `wan_edge.py` | WAN path steering and failover | `get_active_wan_interface()`, `apply_policy()`, `assert_path()`, `measure_failover_convergence()` |
+| `traffic_control.py` | Network impairment control | `set_impairment_profile()`, `get_impairment_profile()`, `clear_impairment()`, `inject_transient()`, `apply_preset()` |
+| `threat_use_cases.py` | Threat injection operations | `run_port_scan()`, `inject_syn_flood()`, `start_c2_listener()`, `stop_c2_listener()` |
+| `security_use_cases.py` | Security policy assertions | `assert_port_scan_blocked()`, `assert_c2_callback_blocked()`, `assert_eicar_blocked()` |
 
 ### Function Documentation Pattern
 
@@ -1096,7 +1137,7 @@ def operation_name(
 
 ## Implementation Status
 
-> **Status**: ✅ Implementation Complete (January 26, 2026)
+> **Status**: ✅ Legacy complete (January 26, 2026) · 🚧 SD-WAN modules in development (Project Phase 1 — see [Component Readiness Map](WAN_Edge_Appliance_testing.md#component-readiness-map))
 
 ### Implemented use_cases Functions
 
@@ -1161,7 +1202,7 @@ def operation_name(
 
 ---
 
-**Document Version**: 1.2  
-**Last Updated**: February 14, 2026  
+**Document Version**: 1.3  
+**Last Updated**: February 24, 2026  
 **Maintainer**: Test Automation Team  
-**Implementation Status**: ✅ Complete
+**Implementation Status**: ✅ Legacy complete · 🚧 SD-WAN modules in development

@@ -46,7 +46,7 @@ class TrafficController(ABC):
     @abstractmethod
     def set_impairment_profile(self, profile: ImpairmentProfile | dict) -> None:
         """Apply impairment parameters. Used at init (from config) and at runtime.
-        :param profile: ImpairmentProfile or dict with latency_ms, jitter_ms, loss_percent, bandwidth_mbps
+        :param profile: ImpairmentProfile or dict with latency_ms, jitter_ms, loss_percent, bandwidth_limit_mbps
         """
         raise NotImplementedError
 
@@ -103,13 +103,15 @@ Per-device settings are split between **inventory** (connection/topology) and **
         "latency_ms": 5,
         "jitter_ms": 1,
         "loss_percent": 0,
-        "bandwidth_mbps": 1000
+        "bandwidth_limit_mbps": 1000
       }
     },
     "impairment_presets": {
-      "pristine": { "latency_ms": 5, "jitter_ms": 1, "loss_percent": 0, "bandwidth_mbps": 1000 },
-      "cable_typical": { "latency_ms": 15, "jitter_ms": 5, "loss_percent": 0.1, "bandwidth_mbps": 100 },
-      "satellite": { "latency_ms": 600, "jitter_ms": 50, "loss_percent": 2, "bandwidth_mbps": 10 }
+      "pristine":      { "latency_ms": 5,   "jitter_ms": 1,  "loss_percent": 0,   "bandwidth_limit_mbps": 1000 },
+      "cable_typical": { "latency_ms": 15,  "jitter_ms": 5,  "loss_percent": 0.1, "bandwidth_limit_mbps": 100  },
+      "4g_mobile":     { "latency_ms": 80,  "jitter_ms": 30, "loss_percent": 1,   "bandwidth_limit_mbps": 20   },
+      "satellite":     { "latency_ms": 600, "jitter_ms": 50, "loss_percent": 2,   "bandwidth_limit_mbps": 10   },
+      "congested":     { "latency_ms": 25,  "jitter_ms": 40, "loss_percent": 3,   "bandwidth_limit_mbps": null }
     }
   }
 }
@@ -249,7 +251,6 @@ Contains:
 - **ImpairmentProfile schema** (dataclass)
 - **Parsing** (dict → ImpairmentProfile)
 - **Linux tc helper functions** (console-agnostic)
-- **LinuxTrafficControlAdapter** (for internal composition)
 
 ### 6.1 ImpairmentProfile Schema
 
@@ -259,10 +260,22 @@ from dataclasses import dataclass
 @dataclass
 class ImpairmentProfile:
     """Parameters for network impairment."""
+    # Symmetric baseline (applied to both directions if overrides not set)
     latency_ms: int
     jitter_ms: int
     loss_percent: float
-    bandwidth_mbps: int | None  # None or 0 = no limit / variable
+    bandwidth_limit_mbps: int | None  # None = no limit (no TBF qdisc applied)
+
+    # Per-direction overrides (None = use symmetric value above)
+    egress_bandwidth_limit_mbps: int | None = None   # DUT → WAN (upload)
+    ingress_bandwidth_limit_mbps: int | None = None  # WAN → DUT (download)
+    egress_loss_percent: float | None = None
+    ingress_loss_percent: float | None = None
+
+    # Advanced impairments (packet corruption, reordering, duplication)
+    reorder_percent: float = 0.0
+    corrupt_percent: float = 0.0
+    duplicate_percent: float = 0.0
 
 def profile_from_dict(data: dict) -> ImpairmentProfile:
     """Parse dict to ImpairmentProfile."""
@@ -270,11 +283,20 @@ def profile_from_dict(data: dict) -> ImpairmentProfile:
         latency_ms=data["latency_ms"],
         jitter_ms=data["jitter_ms"],
         loss_percent=data["loss_percent"],
-        bandwidth_mbps=data.get("bandwidth_mbps") or 0,
+        bandwidth_limit_mbps=data.get("bandwidth_limit_mbps"),
+        egress_bandwidth_limit_mbps=data.get("egress_bandwidth_limit_mbps"),
+        ingress_bandwidth_limit_mbps=data.get("ingress_bandwidth_limit_mbps"),
+        egress_loss_percent=data.get("egress_loss_percent"),
+        ingress_loss_percent=data.get("ingress_loss_percent"),
+        reorder_percent=data.get("reorder_percent", 0.0),
+        corrupt_percent=data.get("corrupt_percent", 0.0),
+        duplicate_percent=data.get("duplicate_percent", 0.0),
     )
 ```
 
 ### 6.2 Linux tc Helper Functions
+
+**Note — Ingress Limitation:** Linux `tc netem` operates on egress only. Ingress rate-limiting and impairment require an IFB (Intermediate Functional Block) virtual device with an ingress filter redirect. The helper functions must handle IFB setup automatically when `ingress_*` overrides are set.
 
 ```python
 def set_profile_via_tc(
@@ -282,7 +304,10 @@ def set_profile_via_tc(
     interface: str,
     profile: ImpairmentProfile,
 ) -> None:
-    """Build and execute tc qdisc/netem commands."""
+    """Build and execute tc qdisc/netem commands.
+    
+    Handles IFB creation for ingress impairments if required.
+    """
     ...
 
 def clear_tc_impairment(console: _LinuxConsole, interface: str) -> None:
@@ -290,36 +315,48 @@ def clear_tc_impairment(console: _LinuxConsole, interface: str) -> None:
     ...
 ```
 
-### 6.3 LinuxTrafficControlAdapter
-
-Used when impairment is **internal** to another device (e.g., ISP Router runs tc on itself).
-
-```python
-class LinuxTrafficControlAdapter(TrafficController):
-    def __init__(self, console: _LinuxConsole, interface: str) -> None:
-        self._console = console
-        self._interface = interface
-        self._current: ImpairmentProfile | None = None
-
-    def set_impairment_profile(self, profile: ImpairmentProfile | dict) -> None:
-        p = profile_from_dict(profile) if isinstance(profile, dict) else profile
-        set_profile_via_tc(self._console, self._interface, p)
-        self._current = p
-
-    def get_impairment_profile(self) -> ImpairmentProfile:
-        return self._current or ImpairmentProfile(0, 0, 0.0, None)
-
-    def clear(self) -> None:
-        clear_tc_impairment(self._console, self._interface)
-        self._current = None
-    ...
-```
-
 ---
 
 ## 7. Device Implementations
 
+> **Project Phase alignment:** `LinuxTrafficController` (§7.1) must be implemented and passing its round-trip exit criterion before **Project Phase 1 (Foundation)** is complete. `SpirentTrafficController` (§7.2) is only required when transitioning to a pre-production hardware testbed. See the [Component Readiness Map](WAN_Edge_Appliance_testing.md#component-readiness-map) in `WAN_Edge_Appliance_testing.md §5`.
+
 ### 7.1 LinuxTrafficController (Standalone Device)
+
+> **Design note — kernel-read `get_impairment_profile()`:** This class does **not** cache `self._current` and does **not** return in-memory state. It parses `tc -j qdisc show` directly from the kernel on every call. This is deliberate:
+> 1. **No single-writer guarantee.** A standalone device can be rebooted, manually reconfigured, or initialised by a fixture before `set_impairment_profile()` is ever called. In-memory state would be stale or `None` in all these cases.
+> 2. **Kernel clamping.** `tc netem` silently clamps or rounds certain parameter values (e.g., very small delays, out-of-range correlation). Parsing the applied qdisc catches mismatches between what was requested and what the kernel actually programmed.
+> 3. **Round-trip fidelity.** The Phase 1 exit criterion explicitly requires `get_impairment_profile()` to be verified against `tc qdisc show` output, not memory. This mirrors how `SpirentTrafficController` queries the appliance's REST API for current hardware state.
+>
+> `set_impairment_profile()` intentionally omits `self._current` assignment — `get` always reads from the kernel.
+
+**`tc -j qdisc show` JSON parsing** — the relevant fields for an interface with netem + tbf:
+
+```json
+[
+  {
+    "kind": "netem", "dev": "eth1",
+    "options": {
+      "delay": {"delay": 0.05, "jitter": 0.005, "correlation": 0.25},
+      "loss-random": {"loss": 0.01, "correlation": 0.0}
+    }
+  },
+  {
+    "kind": "tbf", "dev": "eth1",
+    "options": {"rate": {"rate": 10000000}}
+  }
+]
+```
+
+Field mapping:
+| `tc` JSON field | `ImpairmentProfile` field | Unit conversion |
+|---|---|---|
+| `options.delay.delay` | `latency_ms` | seconds → ms (`× 1000`) |
+| `options.delay.jitter` | `jitter_ms` | seconds → ms (`× 1000`) |
+| `options.loss-random.loss` | `loss_pct` | fraction → percent (`× 100`) |
+| `options.rate.rate` (tbf) | `bandwidth_limit_mbps` | bps → Mbps (`÷ 1_000_000`) |
+
+If no netem qdisc is present the interface is unimpaired; return `ImpairmentProfile(0, 0, 0.0, None)`.
 
 ```python
 class LinuxTrafficController(LinuxDevice, TrafficController):
@@ -333,9 +370,34 @@ class LinuxTrafficController(LinuxDevice, TrafficController):
     def set_impairment_profile(self, profile: ImpairmentProfile | dict) -> None:
         p = profile_from_dict(profile) if isinstance(profile, dict) else profile
         set_profile_via_tc(self._console, self._interface, p)
+        # No self._current assignment — get_impairment_profile reads from the kernel.
 
     def get_impairment_profile(self) -> ImpairmentProfile:
-        ...
+        """Parse current impairment from tc -j qdisc show (kernel state, not memory).
+
+        Parses netem qdisc for latency/jitter/loss and tbf qdisc for bandwidth.
+        Returns ImpairmentProfile(0, 0, 0.0, None) if no netem qdisc is present.
+        """
+        raw = self._console.sendline_and_read(
+            f"tc -j qdisc show dev {self._interface}"
+        )
+        qdiscs = json.loads(raw)
+        latency_ms = jitter_ms = 0
+        loss_pct = 0.0
+        bandwidth_limit_mbps = None
+        for q in qdiscs:
+            if q.get("kind") == "netem":
+                opts = q.get("options", {})
+                if delay := opts.get("delay"):
+                    latency_ms = int(delay.get("delay", 0) * 1000)
+                    jitter_ms = int(delay.get("jitter", 0) * 1000)
+                if loss := opts.get("loss-random"):
+                    loss_pct = round(loss.get("loss", 0.0) * 100, 2)
+            elif q.get("kind") == "tbf":
+                rate = q.get("options", {}).get("rate", {}).get("rate")
+                if rate:
+                    bandwidth_limit_mbps = rate // 1_000_000
+        return ImpairmentProfile(latency_ms, jitter_ms, loss_pct, bandwidth_limit_mbps)
 
     def clear(self) -> None:
         clear_tc_impairment(self._console, self._interface)
@@ -363,29 +425,97 @@ class SpirentTrafficController(BoardfarmDevice, TrafficController):
 
 ---
 
-## 8. Composition: Internal vs External Impairment
+### 7.3 `inject_transient()` — Automatic Restoration
 
-### 8.1 Internal (Functional Testbed)
+> **Contract:** `inject_transient()` is **fire-and-forget**. The caller never needs to restore state — the method applies the transient condition and automatically restores the previous profile after `duration_ms` expires. The call returns immediately so the test can begin polling the DUT right away.
 
-Router composes `LinuxTrafficControlAdapter` using its own console. At init, applies its `impairment_profile` from config if present.
+#### Why fire-and-forget?
+
+The primary consumer is `measure_failover_convergence()`: inject a blackout, then immediately poll `dut.get_active_wan_interface()` while timing the DUT's response. If the caller had to restore state manually, a polling loop would need to know *when* to call restore — which conflates the test assertion logic with impairment control, and breaks the clean use-case separation.
+
+Commercial hardware appliances (Spirent, Ixia) handle timed transients natively. The `LinuxTrafficController` implementation mirrors this behaviour using a background thread.
+
+#### `LinuxTrafficController` implementation
 
 ```python
-class LinuxISPGateway(LinuxDevice, WAN, ...):
-    @property
-    def impairment(self) -> TrafficController:
-        if self._impairment_device_name:
-            return get_device_manager().get_devices_by_type(
-                TrafficController
-            )[self._impairment_device_name]
-        adapter = LinuxTrafficControlAdapter(self._console, self.iface_dut)
-        if profile_data := self._config.get("impairment_profile"):
-            adapter.set_impairment_profile(profile_data)
-        return adapter
+def inject_transient(self, event: str, duration_ms: int, **kwargs) -> None:
+    """Apply a timed transient impairment, then auto-restore the previous profile.
+
+    The method returns immediately. A daemon thread restores the pre-injection
+    kernel state after duration_ms. Any concurrent call to set_impairment_profile()
+    or inject_transient() cancels the pending restore before proceeding.
+    """
+    self._cancel_restore()  # cancel any previously scheduled restore
+
+    previous = self.get_impairment_profile()  # read kernel state, not memory
+    transient = _build_transient_profile(event, previous, **kwargs)
+    set_profile_via_tc(self._console, self._interface, transient)
+
+    cancel_event = threading.Event()
+    self._restore_cancel = cancel_event
+
+    def _restore() -> None:
+        cancelled = cancel_event.wait(timeout=duration_ms / 1000)
+        if not cancelled:
+            set_profile_via_tc(self._console, self._interface, previous)
+
+    threading.Thread(target=_restore, daemon=True).start()
+
+def _cancel_restore(self) -> None:
+    """Signal any pending restore thread to abort."""
+    if hasattr(self, "_restore_cancel") and self._restore_cancel:
+        self._restore_cancel.set()
+        self._restore_cancel = None
 ```
 
-### 8.2 External (Pre-Production Testbed)
+`set_impairment_profile()` and `clear()` also call `_cancel_restore()` at entry so that an explicit profile change always wins over a scheduled auto-restore.
 
-Impairment handled by a separate device. Config specifies `impairment_device`; router resolves via DeviceManager.
+#### "Previous state" definition
+
+`previous` is obtained via `get_impairment_profile()` — i.e., parsed from `tc -j qdisc show` (kernel state) at the moment `inject_transient()` is called, not from in-memory cache. This guarantees the restore target is the actual applied state, regardless of how the current profile was set.
+
+#### `_build_transient_profile()` helper
+
+Constructs the `ImpairmentProfile` for the transient condition from the event type and kwargs, using `previous` as the baseline:
+
+| `event` | Result profile |
+|---|---|
+| `"blackout"` | `ImpairmentProfile(0, 0, 100.0, 0)` — 100% loss, effectively drops all traffic |
+| `"brownout"` | `previous` with `latency_ms` and `loss_percent` overridden from kwargs |
+| `"latency_spike"` | `previous` with `latency_ms` overridden from kwargs |
+| `"packet_storm"` | `previous` with `loss_percent` overridden from kwargs |
+
+#### `SpirentTrafficController` implementation
+
+The Spirent REST API supports timed events natively. `inject_transient()` translates to a single API call; no background thread is needed:
+
+```python
+def inject_transient(self, event: str, duration_ms: int, **kwargs) -> None:
+    """Delegate timed transient to Spirent hardware — hardware manages the timer."""
+    self._api.inject_transient_event(event, duration_ms, **kwargs)
+```
+
+#### Thread-safety summary
+
+| Scenario | Behaviour |
+|---|---|
+| `inject_transient()` while a restore is pending | Cancels pending restore, applies new transient, schedules new restore |
+| `set_impairment_profile()` while a restore is pending | Cancels pending restore; explicit profile takes effect permanently |
+| `clear()` while a restore is pending | Cancels pending restore; clears all impairment immediately |
+| Two concurrent `inject_transient()` calls | Second call cancels first restore; last write wins |
+
+---
+
+## 8. Topology: Dedicated Impairment Devices
+
+In this testbed impairment is **always** handled by a dedicated, standalone device — never co-hosted on another container. This holds across all phases:
+
+| Phase | Impairment device | Class |
+|---|---|---|
+| Functional (Raikou containers) | Dedicated Linux container per WAN link | `LinuxTrafficController` |
+| Pre-production (hardware) | Spirent / Keysight appliance | `SpirentTrafficController` |
+
+Each WAN link has exactly one `TrafficController` device in inventory. Test use cases retrieve it by name or by iterating `get_devices_by_type(TrafficController)`.
 
 ---
 

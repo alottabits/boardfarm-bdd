@@ -10,6 +10,13 @@
 
 This document defines the scope and implementation plan for a unified testing framework designed to validate **WAN Edge appliances**. As the enterprise edge evolves from simple routing to intelligent SD-WAN and SASE (Secure Access Service Edge), verification must move beyond basic connectivity to encompass application performance, traffic intelligence, security efficacy, and user experience.
 
+### Related Documents
+
+*   `Traffic_Management_Components_Architecture.md`: Detailed design for the TrafficController and ImpairmentProfiles.
+*   `LinuxSDWANRouter_Implementation_Plan.md`: Implementation design for the Linux-based DUT (Digital Twin).
+*   `QoE_Client_Implementation_Plan.md`: Implementation design for the Playwright-based QoE measurement client.
+*   `Application_Services_Implementation_Plan.md`: Implementation design for North-side target services and threat simulation.
+
 The framework is designed to validate market-leading WAN Edge platforms, including:
 
 * **Cisco Catalyst 8000 Series (Viptela):** IOS-XE based SD-WAN stack (Heavyweight routing).
@@ -58,7 +65,7 @@ To verify resilience, the testbed applies deterministic network profiles. These 
 
 > **Note — Asymmetric Profiles:** SD-WAN devices probe link quality bidirectionally. Tests that target the DUT's path selection algorithm should specify **per-direction impairment** (e.g., uplink pristine / downlink congested) using the `egress_*` / `ingress_*` overrides in `ImpairmentProfile` (see Section 4.5). Symmetric profiles are sufficient for QoE-only tests.
 
-> **Note — Linux `tc` Ingress Limitation:** Linux `tc netem` operates on egress only. Ingress rate-limiting requires an IFB (Intermediate Functional Block) virtual device with an ingress filter redirect. The `LinuxTrafficController` implementation must handle IFB setup when `ingress_bandwidth_mbps` is set. This constraint does not apply to hardware impairment appliances (Spirent, Keysight).
+> **Note — Linux `tc` Ingress Limitation:** Linux `tc netem` operates on egress only. Ingress rate-limiting requires an IFB (Intermediate Functional Block) virtual device with an ingress filter redirect. The `LinuxTrafficController` implementation must handle IFB setup when `ingress_bandwidth_limit_mbps` is set. This constraint does not apply to hardware impairment appliances (Spirent, Keysight).
 
 ### 2.2 Quality of Service (QoS) - The Mechanism
 
@@ -82,7 +89,7 @@ Path Steering verifies the "Brain" of the SD-WAN solution. It answers: *"Is the 
 
 > **Requirement — Convergence Time Measurement:** Sub-second failover assertions require measuring the elapsed time between impairment injection (T0) and traffic switching to the backup path (T1). Tests use `measure_failover_convergence()` from `use_cases/wan_edge.py`, which combines `inject_blackout()` with polling of `WANEdgeDevice.get_active_wan_interface()`. See Section 3.6.
 
-> **Requirement — DUT Path Inspection:** Asserting "traffic is on WAN1" requires reading the DUT's active forwarding state. This is exposed via the `WANEdgeDevice` template (`get_active_wan_interface()`, `get_wan_path_metrics()`). Linux Router implements this via `ip route` / FRR `vtysh`; commercial DUTs via NETCONF or REST. Tests call the template only. See Section 3.4.
+> **Requirement — DUT Path Inspection:** Asserting "traffic is on WAN1" requires reading the DUT's active forwarding state. This is exposed via the `WANEdgeDevice` template (`get_active_wan_interface()`, `get_wan_path_metrics()`). The Linux Router implements `get_active_wan_interface()` via `ip route get` (parsed and translated to a logical label) and `get_wan_path_metrics()` via active `ping` probes to each WAN gateway (the functional proxy for commercial DUTs' built-in SLA probers). Commercial DUT implementations query vendor NETCONF/REST APIs for both. Tests call the template only. See Section 3.4.
 
 ### 2.4 Security & Firewalling - The Protection
 
@@ -98,14 +105,16 @@ Security verifies the robustness of the WAN Edge as the first line of defense (S
 
 #### Boardfarm Component Mapping for Security Tests
 
-Security test cases follow the same four-layer Boardfarm architecture as all other pillars. They must not embed attack logic in step definitions. **Static test payloads (e.g., EICAR files, PCAP files for packet storms, or C2 callback definitions) must be treated as Test Artifacts. They should be stored in the appropriate artifact directory (e.g., `bf_config/security_artifacts/`) and provided to the `ThreatSimulator` and `MaliciousHost` via paths resolved from the environment configuration.**
+Security test cases follow the same four-layer Boardfarm architecture as all other pillars. They must not embed attack logic in step definitions. **Static test payloads (e.g., EICAR files, PCAP files for packet storms, or C2 callback definitions) must be treated as Test Artifacts. They should be stored in the appropriate artifact directory (e.g., `bf_config/security_artifacts/`) and provided to the `MaliciousHost` via paths resolved from the environment configuration.**
+
+> **Design note — single WAN-side component:** All threat infrastructure lives in one `MaliciousHost` container on the WAN (internet) side of the testbed. It handles both *active inbound attacks* (port scans, SYN floods directed at the DUT WAN IP) and *passive target services* (C2 listener, EICAR file server). The LAN-side "compromised host" role for C2 callback tests is fulfilled by the existing `QoEClient` — it attempts an outbound TCP connection to the `MaliciousHost` listener, which the DUT's Application Control policy must block. No separate LAN-side threat container is required.
 
 | Test Goal | Boardfarm Template | Functional Implementation | Use Case Function |
 | :--- | :--- | :--- | :--- |
-| Port scan detection | `ThreatSimulator` | Kali Linux container (`nmap`) | `threat_use_cases.run_port_scan()` |
-| C2 callback blocking | `ThreatSimulator` + `MaliciousHost` | Custom container (listens for beacons) | `threat_use_cases.send_c2_callback()` |
-| EICAR file blocking | `MaliciousHost` | Container serving static EICAR file | `security_use_cases.assert_download_blocked()` |
-| SYN flood mitigation | `ThreatSimulator` | hping3 in container | `threat_use_cases.inject_syn_flood()` |
+| Port scan detection | `MaliciousHost` (WAN side) | Kali Linux container — `nmap -sS <DUT_WAN_IP>` | `threat_use_cases.run_port_scan()` |
+| SYN flood mitigation | `MaliciousHost` (WAN side) | Kali Linux container — `hping3 -S --flood <DUT_WAN_IP>` | `threat_use_cases.inject_syn_flood()` |
+| C2 callback blocking | `MaliciousHost` (listener) + `QoEClient` (LAN initiator) | `MaliciousHost` starts `nc` listener; `QoEClient` attempts outbound TCP connection | `security_use_cases.assert_c2_callback_blocked()` |
+| EICAR file blocking | `MaliciousHost` (WAN side) | Kali Linux container serving static EICAR file via HTTP | `security_use_cases.assert_download_blocked()` |
 | Assert traffic blocked | `WANEdgeDevice` + DUT logs | SSH to DUT / syslog | `security_use_cases.assert_traffic_blocked()` |
 
 ---
@@ -121,7 +130,7 @@ To ensure consistency and portability across different environments (Functional 
 * **`WANEdge` Template:** The central DUT abstraction. All path-steering, QoS, and security test cases interact with the DUT exclusively through this template. Enables a Linux Router → commercial appliance swap without changing test logic. See Section 3.4.
 * **`QoEClient` Template:** Abstracts application-level measurement clients (Playwright, iperf, synthetic conferencing). QoE measurement logic lives in `use_cases/qoe.py`, not in step definitions. See Section 3.5.
 * **`TrafficGenerator` Template:** Abstracts background load generation (iPerf3, Trex). Required for QoS contention tests. See Section 3.4.
-* **`ThreatSimulator` Template:** Abstracts attack generation (Nmap, hping3, C2 beacon clients). Required for Security pillar tests. See Section 3.4.
+* **`MaliciousHost` Template:** Abstracts the WAN-side threat infrastructure: inbound attack generation (Nmap, hping3) directed at the DUT, and passive target services (C2 listener, EICAR distribution) for outbound blocking tests. Required for Security pillar tests. See Section 3.4.
 
 ### 3.2 Testbed Topology: Dual WAN (Initial) → Triple WAN (Expansion)
 
@@ -132,9 +141,8 @@ The initial testbed uses a **Dual WAN** topology to prove the concept. Expansion
 **Connections:**
 
 1. **LAN Side:**
-    * **South-Side Clients:** Playwright containers (Browser/App simulation) — exposed via `QoEClient` template.
+    * **South-Side Clients:** Playwright containers (Browser/App simulation) — exposed via `QoEClient` template. For security tests, the `QoEClient` also simulates a "compromised host" by attempting outbound connections to the `MaliciousHost`.
     * **Traffic Generators:** iPerf3/Trex for background load — exposed via `TrafficGenerator` template.
-    * **Threat Simulator:** Kali Linux container for generating test attacks (Nmap, Hydra) — exposed via `ThreatSimulator` template.
 2. **DUT (WAN Edge Appliance):**
     * **WAN 1 (MPLS/Fiber):** High bandwidth, low latency, high cost.
     * **WAN 2 (Internet/Cable):** High bandwidth, variable latency, low cost.
@@ -143,7 +151,7 @@ The initial testbed uses a **Dual WAN** topology to prove the concept. Expansion
     * Injects impairments (Delay, Loss, Jitter, Bandwidth limits) independently on each WAN link — exposed via `TrafficController` template.
 4. **Cloud Side:**
     * **North-Side Services:** Productivity, Streaming, and Conferencing servers hosted in the testbed (simulating Cloud/Internet).
-    * **Malicious Hosts:** Simulated Command & Control (C2) servers and malware distribution points for security validation.
+    * **Malicious Host:** Single WAN-side Kali Linux container acting as inbound attacker (port scans, SYN floods toward DUT WAN IP) and passive threat server (C2 listener, EICAR distribution) — exposed via `MaliciousHost` template.
 
 ### 3.3 Implementation Types
 
@@ -209,11 +217,29 @@ class WANEdgeDevice(ABC):
 
     @abstractmethod
     def get_active_wan_interface(self, flow_dst: str | None = None, via: str = "console") -> str:
-        """Return the WAN interface name currently forwarding traffic.
+        """Return the logical WAN label currently forwarding traffic.
+
+        The return value is ALWAYS a key from the inventory ``wan_interfaces`` mapping
+        (e.g. ``"wan1"``, ``"wan2"``), never a physical OS interface name (e.g. ``"eth2"``
+        or ``"GigabitEthernet0/0/0"``). This contract makes test code portable across DUT
+        implementations where physical interface names differ between vendors.
+
+        Implementations MUST:
+        1. Query the DUT for its active forwarding interface (via CLI, API, or NBI).
+        2. Reverse-look up the physical name in the ``wan_interfaces`` inventory mapping
+           to obtain the logical label before returning.
+
+        The ``wan_interfaces`` key is **required** in the device inventory config for all
+        ``WANEdgeDevice`` implementations. Example::
+
+            "wan_interfaces": {"wan1": "eth2", "wan2": "eth3"}          # Linux
+            "wan_interfaces": {"wan1": "GigabitEthernet0/0/0", ...}     # Cisco
 
         :param flow_dst: Optional destination IP/prefix to select a specific flow.
         :param via: Interface to use ("console" for CLI, "nbi" for API, "gui" for web dashboard).
-        :return: Interface name, e.g. "wan1", "wan2".
+        :return: Logical WAN label, e.g. ``"wan1"`` or ``"wan2"``.
+        :raises KeyError: if the physical interface returned by the DUT is absent from
+            the ``wan_interfaces`` mapping.
         """
 
     @abstractmethod
@@ -221,14 +247,15 @@ class WANEdgeDevice(ABC):
         """Return per-link quality metrics as measured by the DUT.
 
         :param via: Interface to use.
-        :return: Mapping of interface name → PathMetrics.
+        :return: Mapping of logical WAN label → PathMetrics (keys match ``wan_interfaces``).
         """
 
     @abstractmethod
     def get_wan_interface_status(self, via: str = "console") -> dict[str, LinkStatus]:
         """Return UP/DOWN/degraded state for each WAN interface.
-        
+
         :param via: Interface to use.
+        :return: Mapping of logical WAN label → LinkStatus (keys match ``wan_interfaces``).
         """
 
     @abstractmethod
@@ -254,7 +281,7 @@ class WANEdgeDevice(ABC):
         """
 ```
 
-**Linux Router implementation** (`LinuxRouterDUT`): calls `ip route show`, FRR `vtysh show ip nexthop`, `ip -s link show` via SSH.
+**Linux Router implementation** (`LinuxSDWANRouter`): executes `ip route get`, `ip -j link show`, `ping`, and `ip -j route show` via SSH. All methods that return interface identifiers resolve physical names to logical labels via the `wan_interfaces` config mapping. See `LinuxSDWANRouter_Implementation_Plan.md` for the reverse-lookup pattern.
 
 **Commercial implementations** (Phase 5): wrap vendor REST/NETCONF APIs. The test scenarios do not change.
 
@@ -341,11 +368,16 @@ class TrafficGenerator(ABC):
 
 **Functional implementation** (`IperfTrafficGenerator`): wraps iPerf3 client/server via SSH.
 
-#### `ThreatSimulator` Template
+#### `MaliciousHost` Template
 
-**Location:** `boardfarm3/templates/threat_simulator.py`
+**Location:** `boardfarm3/templates/malicious_host.py`
 
-Abstracts attack and threat generation for Security pillar tests.
+Abstracts the WAN-side threat infrastructure. A single container fulfils two roles:
+
+* **Active inbound attacker** — generates attacks directed at the DUT WAN IP from the internet side (port scans, SYN floods).
+* **Passive threat server** — hosts services that LAN clients should be blocked from reaching (C2 listener, EICAR file server).
+
+The LAN-side "compromised host" for C2 callback tests is the existing `QoEClient` — it simply attempts a TCP connection to this host's listener port, which the DUT's Application Control policy must intercept.
 
 ```python
 from abc import ABC, abstractmethod
@@ -357,23 +389,139 @@ class ScanResult:
     open_ports: list[int]
     scan_duration_s: float
 
-class ThreatSimulator(ABC):
-    """Abstract threat/attack generator for Security pillar validation."""
+class MaliciousHost(ABC):
+    """Abstract WAN-side threat infrastructure for Security pillar validation.
+
+    Implementations: KaliMaliciousHost.
+    """
+
+    # --- Active inbound attacks (WAN → DUT) ---
 
     @abstractmethod
     def run_port_scan(self, target: str, port_range: str = "1-1024") -> ScanResult:
-        """Run a port scan against target. Asserts that the DUT blocks/detects it."""
+        """Run a TCP SYN scan against target (typically the DUT WAN IP).
 
-    @abstractmethod
-    def send_c2_callback(self, c2_host: str, c2_port: int) -> bool:
-        """Attempt a C2 beacon connection. Returns True if connection succeeded."""
+        :param target: IP address or hostname to scan.
+        :param port_range: Port range string, e.g. "1-1024".
+        :return: ScanResult with open ports visible from the WAN side.
+        """
 
     @abstractmethod
     def inject_syn_flood(self, target: str, rate_pps: int, duration_s: int) -> None:
-        """Inject a SYN flood at the given packet rate for the given duration."""
+        """Inject a SYN flood at the given packet rate for the given duration.
+
+        :param target: IP address of the DUT WAN interface.
+        :param rate_pps: Packets per second (e.g. 1000).
+        :param duration_s: Duration of the flood in seconds.
+        """
+
+    # --- Passive threat services (targets for LAN → WAN blocking tests) ---
+
+    @abstractmethod
+    def start_c2_listener(self, port: int) -> None:
+        """Start a TCP listener to accept inbound C2 beacon connections.
+
+        :param port: TCP port to listen on (e.g. 4444).
+        """
+
+    @abstractmethod
+    def stop_c2_listener(self, port: int) -> None:
+        """Stop the C2 listener on the given port."""
+
+    @abstractmethod
+    def check_connection_received(self, port: int, source_ip: str | None = None) -> bool:
+        """Return True if a connection attempt reached the listener (firewall bypass).
+
+        A True result means the DUT did NOT block the connection — the test should
+        assert False on this return value.
+
+        :param port: Port the listener was running on.
+        :param source_ip: Optional — filter by the expected source IP (LAN client).
+        """
+
+    @abstractmethod
+    def get_eicar_url(self) -> str:
+        """Return the HTTP URL hosting the EICAR test file.
+
+        :return: Full URL, e.g. 'http://203.0.113.66/eicar.com'.
+        """
 ```
 
-**Functional implementation** (`KaliThreatSimulator`): runs Nmap, hping3, and custom scripts via SSH into a Kali Linux container.
+**Functional implementation** (`KaliMaliciousHost`): SSH into a Kali Linux container. Active attacks use `nmap` and `hping3`; passive services use `netcat` or Python HTTP server.
+
+---
+
+#### `ProductivityServer` Template
+
+**Location:** `boardfarm3/templates/productivity_server.py`
+
+Abstracts the North-side Mock SaaS server. QoE productivity tests depend on this interface only — never on Nginx configuration directly.
+
+```python
+class ProductivityServer(ABC):
+    @abstractmethod
+    def get_service_url(self) -> str:
+        """Return the base URL for the SaaS application."""
+
+    @abstractmethod
+    def set_response_delay(self, delay_ms: int) -> None:
+        """Inject server-side processing delay (latency simulation)."""
+
+    @abstractmethod
+    def set_content_size(self, size_bytes: int) -> None:
+        """Configure the size of the 'large asset' to simulate heavy/light apps."""
+```
+
+**Functional implementation** (`NginxProductivityServer`): Nginx container serving a configurable static payload. See `Application_Services_Implementation_Plan.md` Section 3.1.
+
+---
+
+#### `StreamingServer` Template
+
+**Location:** `boardfarm3/templates/streaming_server.py`
+
+Abstracts the North-side Nginx Video-on-Demand server. QoE streaming tests depend on this interface only.
+
+```python
+class StreamingServer(ABC):
+    @abstractmethod
+    def get_manifest_url(self, video_id: str = "default") -> str:
+        """Return the HLS (.m3u8) or DASH (.mpd) URL for a video asset."""
+
+    @abstractmethod
+    def list_available_bitrates(self, video_id: str) -> list[str]:
+        """Return list of available quality profiles (e.g. ['360p', '1080p'])."""
+```
+
+**Functional implementation** (`NginxStreamingServer`): Nginx container with multi-bitrate HLS/DASH content. See `Application_Services_Implementation_Plan.md` Section 3.2.
+
+---
+
+#### `ConferencingServer` Template
+
+**Location:** `boardfarm3/templates/conferencing_server.py`
+
+Abstracts the North-side WebRTC Echo server. QoE conferencing tests depend on this interface only.
+
+```python
+class ConferencingServer(ABC):
+    @abstractmethod
+    def start_session(self, session_id: str) -> str:
+        """Start a new conference room/session.
+
+        :return: The WebRTC signalling URL for clients to connect
+                 (e.g. 'wss://webrtc-echo:8443/session1').
+        """
+
+    @abstractmethod
+    def get_session_stats(self, session_id: str) -> dict:
+        """Return server-side statistics for the session (Packet Loss, Jitter).
+
+        Useful for correlating client-side MOS with server-side RTCP metrics.
+        """
+```
+
+**Functional implementation** (`WebRTCConferencingServer`): `pion`-based WebRTC Echo container. No Coturn STUN/TURN required — direct peer connectivity is guaranteed in the controlled testbed network. See `Application_Services_Implementation_Plan.md` Section 3.3.
 
 ---
 
@@ -558,16 +706,16 @@ Before validating commercial SD-WAN appliances, the testbed itself must be valid
 
 #### WANEdge Template Implementation: Linux Router
 
-`LinuxRouterDUT` implements `WANEdgeDevice` using FRR CLI. This is the critical link that makes the PoC's test scenarios portable to commercial DUTs in Phase 5 — the test code does not change, only the device class and Boardfarm config.
+`LinuxSDWANRouter` implements `WANEdgeDevice` using FRR CLI. This is the critical link that makes the PoC's test scenarios portable to commercial DUTs in Phase 5 — the test code does not change, only the device class and Boardfarm config.
 
-| `WANEdgeDevice` Method | `LinuxRouterDUT` Implementation |
+| `WANEdgeDevice` Method | `LinuxSDWANRouter` Implementation |
 | :--- | :--- |
-| `get_active_wan_interface()` | `ip route get <dst>` → parse `dev` field |
-| `get_wan_path_metrics()` | FRR `vtysh -c "show ip nexthop"` + custom BFD probe |
-| `get_wan_interface_status()` | `ip -j link show` → parse `operstate` |
+| `get_active_wan_interface()` | `ip route get <dst>` → parse `dev` field (physical name) → reverse-lookup in `self._wan_interfaces` → **return logical label** (e.g. `"wan1"`) |
+| `get_wan_path_metrics()` | `ping -c 5 <gateway>` per WAN interface → parse rtt/mdev/loss → return `dict[logical_label, PathMetrics]` |
+| `get_wan_interface_status()` | `ip -j link show` → parse `operstate` → return `dict[logical_label, LinkStatus]` |
 | `get_routing_table()` | `ip -j route show` |
-| `apply_policy()` | Write FRR PBR rule via `vtysh` |
-| `get_telemetry()` | `ip -s link show`, `/proc/net/dev`, FRR stats |
+| `apply_policy()` | Linux kernel PBR: `ip rule add` + `ip route add ... table N` |
+| `get_telemetry()` | `ip -s link show`, `/proc/net/dev`, `/proc/stat`, `/proc/meminfo` |
 
 #### Proxy Mapping: Linux Router to Commercial DUTs
 
@@ -612,12 +760,12 @@ Beyond the PoC set, the following components are developed or integrated:
     * Implement IFB device setup for ingress rate-limiting (required for asymmetric profiles).
     * Implement the `TrafficController` Boardfarm template.
     * Implement `get_impairment_profile()` by parsing `tc qdisc show` output (not from in-memory state) to ensure round-trip fidelity.
-    * Develop `SpirentImpairment` driver for pre-production labs.
+    * Develop `SpirentTrafficController` driver for pre-production labs.
 
 2. **Application Services (North-Side):**
     * **Productivity:** Mock SaaS server (HTTP/2, HTTP/3).
     * **Streaming:** Nginx VOD module with multi-bitrate HLS/DASH content.
-    * **Conferencing:** Self-hosted Jitsi Meet + Coturn (STUN/TURN) setup.
+    * **Conferencing:** WebRTC Echo server (`pion`-based lightweight container).
     * **Security:** "Bad Actor" container serving EICAR test files and listening for C2 callbacks — exposed via `MaliciousHost` device type.
 
 3. **Client Measurement Tools (South-Side):**
@@ -628,11 +776,11 @@ Beyond the PoC set, the following components are developed or integrated:
 
 4. **Background Load & Threat Generation:**
     * Implement `IperfTrafficGenerator` device class (implements `TrafficGenerator` template).
-    * Implement `KaliThreatSimulator` device class (implements `ThreatSimulator` template).
+    * Implement `KaliMaliciousHost` device class (implements `MaliciousHost` template).
     * Implement `threat_use_cases.py` and `security_use_cases.py`.
 
 5. **WANEdge DUT Driver:**
-    * Implement `LinuxRouterDUT` device class (implements `WANEdgeDevice` template).
+    * Implement `LinuxSDWANRouter` device class (implements `WANEdgeDevice` template).
     * Implement `wan_edge_use_cases.py` including `measure_failover_convergence()`.
 
 ### 4.5 ImpairmentProfile: Advanced Parameters
@@ -650,11 +798,11 @@ class ImpairmentProfile:
     latency_ms: int
     jitter_ms: int
     loss_percent: float
-    bandwidth_mbps: int | None      # None = no limit
+    bandwidth_limit_mbps: int | None      # None = no limit (no TBF qdisc applied)
 
     # Per-direction overrides (None = use symmetric value above)
-    egress_bandwidth_mbps: int | None = None   # DUT → WAN (upload)
-    ingress_bandwidth_mbps: int | None = None  # WAN → DUT (download)
+    egress_bandwidth_limit_mbps: int | None = None   # DUT → WAN (upload)
+    ingress_bandwidth_limit_mbps: int | None = None  # WAN → DUT (download)
     egress_loss_percent: float | None = None
     ingress_loss_percent: float | None = None
 ```
@@ -684,10 +832,25 @@ All five canonical presets (`pristine`, `cable_typical`, `4g_mobile`, `satellite
 
 ## 5. Development Phases
 
+### Component Readiness Map
+
+Each component has its own internal phase numbering (see linked documents). The table below shows which component phases must be **complete** before each project phase gate is satisfied. Component plans are the authoritative source; this table is a navigation aid.
+
+| Component | Project Ph 1 — Foundation | Project Ph 2 — Raikou Integration | Project Ph 3 — Validation | Project Ph 4 — Expansion |
+| :--- | :--- | :--- | :--- | :--- |
+| [LinuxSDWANRouter](LinuxSDWANRouter_Implementation_Plan.md) | §4.2 Ph 1 (Base Container) + Ph 2 (Driver) | §4.2 Ph 3 (Integration) | — | FRR/iptables/StrongSwan expansion |
+| [QoEClient](QoE_Client_Implementation_Plan.md) | §5 Ph 1 (Container) + Ph 2 (Productivity) + Ph 3 (Streaming/Conf.) | §5 Ph 4 (Integration) | — | — |
+| [Application Services](Application_Services_Implementation_Plan.md) | §6 Ph 1 (Productivity) + Ph 2 (Streaming) | §6 Ph 4 (Integration) | — | §6 Ph 3 (Malicious Host) |
+| [Traffic Management](Traffic_Management_Components_Architecture.md) | `LinuxTrafficController` implementation (§7.1) | — | — | — |
+
+> **Note:** Application Services Phase 3 (Malicious Host) is deferred to Project Phase 4 because it is only required for the Security pillar, which is exercised in that phase.
+
+---
+
 1. **Phase 1: Container Development (Foundation)**
     * Develop Docker images for each component: Linux Router (DUT), WAN1/WAN2 (TrafficController), Productivity, Streaming, LAN Client.
     * Extend Linux Router DUT with FRR for two WAN interfaces, policy routing, and failover.
-    * Implement the `WANEdgeDevice` template and `LinuxRouterDUT` device class.
+    * Implement the `WANEdgeDevice` template and `LinuxSDWANRouter` device class.
     * Implement the `TrafficController` Boardfarm template and `LinuxTrafficControl` library (including IFB ingress support).
     * Implement the `QoEClient` template and `PlaywrightQoEClient` device class.
     * Develop `lib/qoe.py` (MOS R-Factor) and `use_cases/qoe.py` (SLO assertions).
@@ -696,7 +859,7 @@ All five canonical presets (`pristine`, `cable_typical`, `4g_mobile`, `satellite
 
     **Exit criteria:**
     * All container images build successfully and pass standalone smoke tests.
-    * `LinuxRouterDUT` implements all `WANEdgeDevice` abstract methods with unit test coverage.
+    * `LinuxSDWANRouter` implements all `WANEdgeDevice` abstract methods with unit test coverage.
     * `PlaywrightQoEClient` returns a valid `QoEResult` for each service category against a local test server.
     * `LinuxTrafficController` round-trips `get_impairment_profile()` correctly (parsed from `tc qdisc show`, not memory).
 
