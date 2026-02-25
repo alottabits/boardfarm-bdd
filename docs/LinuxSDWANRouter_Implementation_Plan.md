@@ -61,34 +61,90 @@ The container requires elevated privileges to manipulate network stack:
 
 ### 3.2 FRR Configuration (Path Steering & Failover)
 
-To simulate SD-WAN behavior (intelligent path selection), we use FRR's **Nexthop Groups** and **Policy Based Routing (PBR)**.
+To simulate SD-WAN behaviour (intelligent path selection), the Linux Router uses FRR's **BFD echo mode** for sub-second failure detection combined with **metric-based static routes** for path selection, and **Policy Based Routing (PBR) via route-maps** for application steering.
 
-**Key Mechanism: Recursive Nexthop Resolution**
-Instead of static routes, we use BGP or static nexthops with BFD (Bidirectional Forwarding Detection) to detect link failures sub-second.
+#### 3.2.1 Failure Detection: BFD Single-Hop Echo Mode
 
-**Example `frr.conf` snippet:**
+**Mechanism:** FRR's `bfdd` daemon on the DUT sends BFD echo packets to each WAN gateway address (the TC container's south-facing IP). The TC container's Linux IP stack reflects these packets back without requiring a BFD daemon on the TC side — this is standard BFD echo mode behaviour (RFC 5880 §6.3). When the TC applies `netem loss 100%`, echo packets are dropped; after `detect-multiplier` consecutive misses the BFD session is declared down, FRR zebra's nexthop tracking marks the gateway unreachable, and the static route is automatically withdrawn.
+
+**Timer configuration:**
+
+| Parameter | Value | Effect |
+| :--- | :--- | :--- |
+| `echo-receive-interval` | 100 ms | How often DUT expects an echo back |
+| `detect-multiplier` | 3 | Failures before session declared down |
+| **Detection time** | **300 ms** | `100ms × 3` — comfortably within 1000ms SLO |
+| `receive-interval` (control) | 1000 ms | Control packet rate (maintenance only in echo mode) |
+| `transmit-interval` (control) | 1000 ms | Control packet rate (maintenance only in echo mode) |
+
+> **Deviation from hardware SD-WAN appliances:** Commercial SD-WAN devices (FortiGate, VeloCloud, Cisco) use **SLA probe-based monitoring** — ICMP or HTTP probes directed at remote servers through the WAN path. BFD echo mode is used here for its implementation simplicity (zero changes to TC container, pure FRR configuration). Both mechanisms achieve sub-second detection of packet loss; the difference is an implementation detail hidden behind the `WANEdgeDevice` template. **Test case portability is maintained** — `measure_failover_convergence()` and `assert_path_steers_on_impairment()` call `get_active_wan_interface()` and have no knowledge of the detection mechanism.
+
+**`/etc/frr/daemons` — enable `bfdd`:**
+
+```bash
+zebra=yes
+staticd=yes
+bfdd=yes       # required for BFD echo mode
+```
+
+**`frr.conf` — complete configuration (using SDWAN testbed IPs from `SDWAN_Testbed_Configuration.md`):**
+
 ```vtysh
 !
-interface eth2
- description WAN1 - Primary
- ip address 10.1.0.2/24
+! == Interfaces ==
 !
-interface eth3
- description WAN2 - Backup
- ip address 10.2.0.2/24
+interface eth-lan
+ ip address 192.168.10.1/24
 !
-! Health check via static route tracking or BFD
-ip route 0.0.0.0/0 10.1.0.1 eth2 10
-ip route 0.0.0.0/0 10.2.0.1 eth3 20
+interface eth-wan1
+ description WAN1 - Primary (MPLS/Fiber)
+ ip address 10.10.1.1/30
 !
-! PBR for application steering (Productivity -> WAN1)
-access-list PBR_PROD seq 10 permit ip any 203.0.113.0/24
+interface eth-wan2
+ description WAN2 - Backup (Internet/Cable)
+ ip address 10.10.2.1/30
 !
-route-map SDWAN_POLICY permit 10
- match ip address PBR_PROD
- set ip next-hop 10.1.0.1
+! == BFD: Echo mode for sub-second WAN failure detection ==
+!
+! Echo packets are sent to the WAN gateway MAC; the TC container's IP stack
+! reflects them back without a BFD daemon. When netem drops packets, echoes
+! fail after detect-multiplier attempts → nexthop declared unreachable →
+! static route withdrawn automatically by FRR zebra NHT.
+!
+bfd
+ !
+ peer 10.10.1.2 local-address 10.10.1.1 interface eth-wan1
+  receive-interval 1000
+  transmit-interval 1000
+  detect-multiplier 3
+  echo-mode
+  echo-receive-interval 100
+ !
+ peer 10.10.2.2 local-address 10.10.2.1 interface eth-wan2
+  receive-interval 1000
+  transmit-interval 1000
+  detect-multiplier 3
+  echo-mode
+  echo-receive-interval 100
+ !
+!
+! == Static routes — metric-based failover ==
+!
+! WAN1: primary (metric 10 — lower metric = preferred)
+! Withdrawn automatically when BFD peer 10.10.1.2 goes down (FRR NHT)
+ip route 0.0.0.0/0 10.10.1.2 10
+!
+! WAN2: backup (metric 20 — installed when WAN1 route is withdrawn)
+ip route 0.0.0.0/0 10.10.2.2 20
+!
+! == PBR for application steering (see apply_policy() in §3.3) ==
+!
+! Example: steer video traffic (AF41 DSCP=34) via WAN2
+! Applied dynamically via vtysh by LinuxSDWANRouter.apply_policy()
 !
 ```
+
+> **Phase alignment:** BFD echo mode is configured from **Phase 1 (Foundation)**. The sub-second failover SLO (`measure_failover_convergence() ≤ 1000ms`) is formally validated in **Phase 2 (Raikou Integration)**, once the full testbed topology with TC containers is available. See [Component Readiness Map](WAN_Edge_Appliance_testing.md#component-readiness-map).
 
 ### 3.3 Driver Implementation (`LinuxSDWANRouter`)
 
@@ -247,6 +303,75 @@ The `LinuxSDWANRouter` class translates abstract `WANEdgeDevice` methods into co
 3.  **Phase 3: Integration** *(Project Phase 2 — Raikou Integration)*
     *   Deploy in Raikou (Dual WAN topology).
     *   Verify `WANEdgeDevice` template compliance.
+4.  **Phase 3.5: Digital Twin Hardening** *(Project Phase 3.5 — Optional)*
+    *   Install StrongSwan; configure IKEv2 tunnel (see §3.4).
+    *   Stand up testbed CA; distribute CA cert to Application Services and QoE Client.
+    *   Verify IPsec tunnel establishment and ESP traffic on WAN link.
+
+---
+
+### 3.4 StrongSwan Configuration _(Phase 3.5 — Optional)_
+
+> **Purpose:** Add IPsec/IKEv2 overlay encryption to the Linux Router, providing a functional analog to commercial SD-WAN appliances' VPN tunnel capability. A shared testbed CA is established as a side-effect and reused for TLS on application servers (enabling HTTPS/HTTP/3 in Phase 3.5 without a separate PKI setup).
+
+**Container additions (`Dockerfile`):**
+
+```dockerfile
+RUN apt-get install -y strongswan strongswan-pki easy-rsa libcharon-extra-plugins
+```
+
+**Testbed CA setup (one-time, per testbed deployment):**
+
+> See **[`Testbed_CA_Setup.md`](Testbed_CA_Setup.md)** for the complete, step-by-step procedure covering all certificate consumers (Nginx TLS, WebRTC WSS, StrongSwan IKEv2, Playwright trust store). The commands below are the DUT-specific subset extracted from that document.
+
+```bash
+# Run from the project root on the management host
+cd testbed-ca
+easyrsa gen-req dut-strongswan nopass
+EASYRSA_SAN="DNS:dut.sdwan.testbed" easyrsa sign-req server dut-strongswan
+# Outputs: pki/issued/dut-strongswan.crt, pki/private/dut-strongswan.key
+```
+
+Mount into the DUT container via `docker-compose.yaml` (see `Testbed_CA_Setup.md §6`):
+
+```yaml
+volumes:
+    - ./testbed-ca/pki/ca.crt:/etc/strongswan/certs/ca.crt:ro
+    - ./testbed-ca/pki/issued/dut-strongswan.crt:/etc/strongswan/certs/dut.crt:ro
+    - ./testbed-ca/pki/private/dut-strongswan.key:/etc/strongswan/private/dut.key:ro
+```
+
+**`/etc/ipsec.conf` — IKEv2 tunnel to a stub peer:**
+
+```ini
+config setup
+    charondebug="ike 1, knl 1, cfg 0"
+
+conn sdwan-overlay
+    keyexchange=ikev2
+    left=%defaultroute
+    leftid=@dut.testbed.local
+    leftcert=dut-cert.pem
+    leftsubnet=192.168.10.0/24        # LAN segment (from SDWAN_Testbed_Configuration.md)
+    right=10.10.1.2                   # WAN1 TC container south-facing IP
+    rightid=@tc-wan1.testbed.local
+    rightsubnet=203.0.113.0/24        # North-side services segment
+    auto=start
+    ike=aes256-sha256-modp2048!
+    esp=aes256-sha256!
+    dpdaction=restart
+    dpddelay=30s
+```
+
+**Verification:**
+
+```bash
+ipsec statusall                   # → shows ESTABLISHED + INSTALLED
+ip xfrm policy                    # → shows inbound/outbound SPD entries
+ping -c 3 203.0.113.10            # → LAN→North traffic via encrypted tunnel
+```
+
+> **Phase alignment:** StrongSwan is configured in **Phase 3.5 (Digital Twin Hardening)**. If Phase 3.5 is skipped, StrongSwan is added in **Phase 4 (Linux Router Expansion)** as part of the security pillar. The `WANEdgeDevice` template is not affected — VPN tunnel state is not currently exposed as a template method.
 
 ---
 

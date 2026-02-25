@@ -133,6 +133,10 @@ Per-device settings are split between **inventory** (connection/topology) and **
 
 During tests, `set_impairment_profile(profile)` can be called again with new parameters—either from a preset name (resolved via env config) or explicit dict.
 
+> **Teardown requirement:** Before calling `set_impairment_profile()` in a test step, the step (or its use-case helper) must save the current profile to `bf_context["original_impairments"][device_name]`. The `reset_sdwan_testbed_after_scenario` autouse fixture in `tests/conftest.py` reads this registry and restores all modified profiles after each scenario, ensuring a clean baseline for the next test. See `WAN_Edge_Appliance_testing.md §3.9` for the full teardown strategy.
+>
+> `inject_transient()` does **not** require manual teardown — it auto-restores the previous kernel state after `duration_ms` via a background daemon thread (see §7.2).
+
 ---
 
 ## 5. Device Getter and BDD Steps

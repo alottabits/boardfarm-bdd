@@ -907,8 +907,9 @@ def verify_device_online(
 | `qoe.py` | QoE measurement and SLO assertions | `measure_productivity()`, `measure_streaming()`, `measure_conferencing()`, `assert_qoe_slo()`, `calculate_mos()` |
 | `wan_edge.py` | WAN path steering and failover | `get_active_wan_interface()`, `apply_policy()`, `assert_path()`, `measure_failover_convergence()` |
 | `traffic_control.py` | Network impairment control | `set_impairment_profile()`, `get_impairment_profile()`, `clear_impairment()`, `inject_transient()`, `apply_preset()` |
-| `threat_use_cases.py` | Threat injection operations | `run_port_scan()`, `inject_syn_flood()`, `start_c2_listener()`, `stop_c2_listener()` |
-| `security_use_cases.py` | Security policy assertions | `assert_port_scan_blocked()`, `assert_c2_callback_blocked()`, `assert_eicar_blocked()` |
+| `security_use_cases.py` | Security composite scenarios + DUT assertions | `assert_port_scan_detected()`, `assert_syn_flood_mitigated()`, `assert_c2_callback_blocked()`, `assert_eicar_download_blocked()`, `assert_traffic_blocked()` |
+
+> **Security layer allocation:** Raw attack actions (`run_port_scan`, `inject_syn_flood`, `start_c2_listener`, `get_eicar_url`, etc.) are **template methods on `MaliciousHost`** — they are device actions, not use-case business logic, following the same principle as `TrafficController.inject_transient()`. `security_use_cases.py` orchestrates these template calls into complete test scenarios and adds DUT-side log/counter assertions. There is no separate `threat_use_cases.py`; that would be a misallocation of device actions into the use-case layer.
 
 ### Function Documentation Pattern
 
