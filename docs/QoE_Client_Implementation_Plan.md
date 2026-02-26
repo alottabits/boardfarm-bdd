@@ -153,7 +153,7 @@ class QoEResult:
     """Jitter (ms) from RTCPeerConnection.getStats()."""
     packet_loss_pct: float | None = None
     """Packet loss percentage from RTCPeerConnection.getStats()."""
-    mos: float | None = None
+    mos_score: float | None = None
     """Mean Opinion Score (1.0–5.0) calculated by lib/qoe.py using the ITU-T G.107 E-model."""
 
     # --- Transport metadata (Phase 3.5+) ---

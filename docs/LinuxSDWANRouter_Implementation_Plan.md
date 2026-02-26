@@ -42,6 +42,8 @@ The container/VM exposes three primary network interfaces:
 *   **eth2 (WAN1):** Connected to WAN1 TrafficController (North-bound).
 *   **eth3 (WAN2):** Connected to WAN2 TrafficController (North-bound).
 
+> **SD-WAN Docker/Raikou deployment:** For the Raikou-based SD-WAN testbed, the DUT uses `network_mode: none` and Raikou-injected interfaces: `eth-lan`, `eth-wan1`, `eth-wan2` (no management interface). The `wan_interfaces` inventory maps logical labels to these names, e.g. `{"wan1": "eth-wan1", "wan2": "eth-wan2"}`. The topology above describes the VM/generic layout; see `SDWAN_Testbed_Configuration.md` for the Raikou-specific setup.
+
 ---
 
 ## 3. Implementation Details
@@ -253,9 +255,37 @@ The `LinuxSDWANRouter` class translates abstract `WANEdgeDevice` methods into co
         exit
         ```
     *   **Clean up:** Before applying a new policy, remove any existing route-map and access-list with the same name via `vtysh`: `no route-map <name>` and `no ip access-list <name>`. This ensures determinism without leaving stale kernel rules.
-    *   **Note:** The `wan_gateway_ip` for the `set ip next-hop` command is the physical gateway address on the WAN link (e.g. `10.1.0.1` for WAN1), derived from the `policy["via_wan"]` logical label via `self._wan_interfaces`.
+    *   **Note:** The `wan_gateway_ip` for the `set ip next-hop` command is the physical gateway address on the WAN link (e.g. `10.10.1.2` for WAN1), derived from the `policy["action"]["prefer_wan"]` logical label via `self._wan_interfaces`. The policy dict follows the vendor-neutral format: `{"match": {...}, "action": {"prefer_wan": "wan2"}}`. See `WAN_Edge_Appliance_testing.md §3.8`.
 
-6.  **`get_telemetry()`**
+6.  **`remove_policy(name)`**
+    *   **Goal:** Remove a PBR policy by name for teardown.
+    *   **Commands (via `vtysh`):**
+        ```vtysh
+        configure terminal
+        !
+        ! Remove pbr-policy from LAN interface (if applied)
+        interface <lan_interface>
+         no pbr-policy <name>
+         exit
+        !
+        no route-map <name>
+        no ip access-list <name>
+        exit
+        ```
+    *   **Teardown:** Called by `reset_sdwan_testbed_after_scenario` for each policy in `bf_context["applied_policies"]`. See `WAN_Edge_Appliance_testing.md §3.9`.
+
+7.  **`bring_wan_down(label)`**
+    *   **Goal:** Bring a WAN interface down (simulate cable unplug).
+    *   **Command:** `ip link set <physical_iface> down`
+    *   **Translation:** Map logical label → physical interface via `self._wan_interfaces[label]`.
+    *   **Teardown:** Interfaces brought down during a scenario are recorded in `bf_context["downed_interfaces"]`; `bring_wan_up(label)` is called for each during teardown. See `WAN_Edge_Appliance_testing.md §3.9`.
+
+8.  **`bring_wan_up(label)`**
+    *   **Goal:** Bring a WAN interface up (restore after bring_wan_down).
+    *   **Command:** `ip link set <physical_iface> up`
+    *   **Translation:** Map logical label → physical interface via `self._wan_interfaces[label]`.
+
+9.  **`get_telemetry()`**
     *   **Goal:** Device health stats.
     *   **Commands:**
         *   **CPU:** Read `/proc/stat` or run `top -bn1`.

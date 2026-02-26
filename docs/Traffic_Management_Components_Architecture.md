@@ -12,9 +12,10 @@ This document defines the Boardfarm architecture for Traffic Control (network im
 ### Key Design Principles
 
 1. **Test Portability**: Use cases depend on the `TrafficController` template interface only—they never call Linux `tc` or Spirent APIs directly.
-2. **Per-Device Defaults in Env Config**: Each TrafficController device has an `impairment_profile` defined in the **environment config** (`environment_def`)—the default applied at testbed initialization. Named presets (cable_typical, satellite, etc.) are also defined in env config for BDD vocabulary.
-3. **Parameter-Based API**: `set_impairment_profile(profile)` and `get_impairment_profile()` work with parameter objects, not profile names.
-4. **Topology Flexibility**: The number of WAN links (1, 2, 3, or more) is driven by the testbed inventory—never hardcoded in lib.
+2. **Per-Device Defaults in Env Config**: Each TrafficController device has `impairment_interface` and `impairment_profile` defined in the **environment config** (`environment_def`)—the interface to impair and the default applied at testbed initialization. Named presets (cable_typical, satellite, etc.) are also defined in env config for BDD vocabulary.
+3. **Explicit Interface Assignment**: The interface to apply tc/netem on is specified in env config, not hard-coded. Raikou/Docker topology varies across testbeds (single-interface, dual-homed, custom layouts); each testbed declares its `impairment_interface` explicitly for portability.
+4. **Parameter-Based API**: `set_impairment_profile(profile)` and `get_impairment_profile()` work with parameter objects, not profile names.
+5. **Topology Flexibility**: The number of WAN links (1, 2, 3, or more) is driven by the testbed inventory—never hardcoded in lib.
 
 ---
 
@@ -23,8 +24,8 @@ This document defines the Boardfarm architecture for Traffic Control (network im
 | Layer           | Purpose                                              | Location                                     |
 | --------------- | ---------------------------------------------------- | -------------------------------------------- |
 | **Template**    | Defines the contract (abstract interface)             | `boardfarm3/templates/traffic_controller.py` |
-| **Env Config**  | Per-device `impairment_profile`, named presets       | Boardfarm env JSON (`environment_def`)      |
-| **Inventory**   | Device identity, connection details, `impairment_interface` | Boardfarm inventory JSON                 |
+| **Env Config**  | Per-device `impairment_interface`, `impairment_profile`, named presets | Boardfarm env JSON (`environment_def`) |
+| **Inventory**   | Device identity, connection details, topology        | Boardfarm inventory JSON                     |
 | **Lib**         | ImpairmentProfile schema, tc helpers, adapter        | `boardfarm3/lib/traffic_control.py`          |
 | **Devices**     | Concrete implementations (Linux, Spirent)             | `boardfarm3/devices/`                        |
 | **Use Cases**   | Test operations, `get_traffic_controller()`           | `boardfarm3/use_cases/traffic_control.py`    |
@@ -80,25 +81,27 @@ Per-device settings are split between **inventory** (connection/topology) and **
 
 ```json
 "wan1_impairment": {
-  "type": "bf_traffic_controller",
+  "type": "linux_traffic_controller",
   "name": "wan1_impairment",
-  "impairment_interface": "eth1",
-  "connection_type": "authenticated_ssh",
+  "connection_type": "ssh",
   "ipaddr": "localhost",
-  "port": 4010
+  "port": 5001
 }
 ```
 
-- **impairment_interface**: Interface to apply tc/netem on (Linux implementation).
+Inventory holds device identity and connection details only. Topology keys (e.g. `dut_iface`, `north_iface`) may appear in inventory when they describe the physical layout; the interface to apply impairment on is defined in env config (§4.2) for portability.
 
-### 4.2 Env Config (Per-Device Defaults and Named Presets)
+### 4.2 Env Config (Per-Device Defaults, Behavior, and Named Presets)
 
 **Location:** Boardfarm env config (e.g., `boardfarm_env.json`)
+
+Env config defines per-device defaults, provisioning behavior, and named presets. Each testbed explicitly specifies which interface the TrafficController uses for impairment — Raikou/Docker topology varies across testbeds (single-interface, dual-homed, custom layouts). No hard-coding.
 
 ```json
 {
   "environment_def": {
     "wan1_impairment": {
+      "impairment_interface": "eth-north",
       "impairment_profile": {
         "latency_ms": 5,
         "jitter_ms": 1,
@@ -119,15 +122,17 @@ Per-device settings are split between **inventory** (connection/topology) and **
 
 **Structure:** `environment_def` contains both **device-specific keys** (device names like `wan1_impairment`) and **shared keys** (like `impairment_presets`). Device keys are merged into each device's config; shared keys like `impairment_presets` provide a BDD vocabulary used by all TrafficController devices.
 
+- **environment_def[device_name].impairment_interface**: Interface name to apply tc/netem on (Linux implementation). **Required** for `LinuxTrafficController`. Must match the container's actual interface (e.g. `"eth-north"` for SD-WAN dual-homed TC, `"eth1"` for single-interface). Explicit per testbed for portability.
 - **environment_def[device_name].impairment_profile**: Default parameters for that device. Merged into device config and applied at init.
 - **environment_def.impairment_presets**: Optional named presets for BDD steps (e.g. "Given the network is set to cable_typical"). Steps resolve preset names from the merged config.
 
 ### 4.3 Initialization Flow
 
 1. Device boots and connects.
-2. Merged config (inventory + env) provides `impairment_profile` for the device.
-3. `set_impairment_profile(config["impairment_profile"])` is called at init.
-4. The link starts in the configured state.
+2. Merged config (inventory + env) provides `impairment_interface` and `impairment_profile` for the device.
+3. `LinuxTrafficController` reads `config.get("impairment_interface")` from the merged config (raises if missing — no default; each testbed must be explicit).
+4. `set_impairment_profile(config["impairment_profile"])` is called at init.
+5. The link starts in the configured state.
 
 ### 4.4 Runtime Changes
 
@@ -366,7 +371,12 @@ If no netem qdisc is present the interface is unimpaired; return `ImpairmentProf
 class LinuxTrafficController(LinuxDevice, TrafficController):
     def __init__(self, config: dict, cmdline_args: Namespace) -> None:
         super().__init__(config, cmdline_args)
-        self._interface = config.get("impairment_interface", "eth1")
+        self._interface = config.get("impairment_interface")
+        if not self._interface:
+            raise KeyError(
+                "impairment_interface is required for LinuxTrafficController. "
+                "Define it in environment_def[device_name] (boardfarm_env.json)."
+            )
         # Apply default from config at init
         if profile_data := config.get("impairment_profile"):
             self.set_impairment_profile(profile_data)
@@ -527,6 +537,37 @@ Each WAN link has exactly one `TrafficController` device in inventory. Test use 
 
 **Location:** `boardfarm3/use_cases/traffic_control.py`
 
+### 9.1 apply_preset
+
+Resolves a named preset from env config and applies it. Uses the same `impairment_presets` structure as §4.2 — presets are defined in `environment_def.impairment_presets` (cable_typical, satellite, pristine, etc.).
+
+```python
+def apply_preset(
+    controller: TrafficController,
+    preset_name: str,
+    duration_ms: int | None = None,
+) -> None:
+    """Apply a named impairment preset from env config.
+
+    Resolves preset_name from environment_def.impairment_presets (§4.2).
+    If duration_ms is provided: applies as transient via inject_transient
+    (preset defines event type and parameters). Otherwise: applies sustained
+    profile via set_impairment_profile.
+
+    :param controller: TrafficController device to impair.
+    :param preset_name: Name from impairment_presets (e.g. "cable_typical").
+    :param duration_ms: If set, apply as transient; else apply as sustained.
+    """
+    preset = _get_preset_from_config(config, preset_name)  # §4.2, §5.3
+    if duration_ms is not None:
+        # Transient path: apply via inject_transient (event/params from preset or mapping)
+        controller.inject_transient("brownout", duration_ms)  # Example; implementation may vary
+    else:
+        controller.set_impairment_profile(preset)
+```
+
+### 9.2 Other Use Cases
+
 ```python
 def set_impairment_profile(
     controller: TrafficController,
@@ -612,6 +653,7 @@ Each device has its own `impairment_profile` default in env config (`environment
 | Component | Type | Location | Purpose |
 |-----------|------|----------|---------|
 | `TrafficController` | Template (ABC) | `templates/traffic_controller.py` | Abstract interface |
+| `impairment_interface` | Env config | `environment_def[device_name]` | Interface to apply tc/netem on (required; explicit per testbed) |
 | `impairment_profile` | Env config | `environment_def[device_name]` | Per-device default (4 params) |
 | `impairment_presets` | Env config | `environment_def.impairment_presets` | Named presets for BDD steps |
 | `ImpairmentProfile`, `profile_from_dict` | Lib | `lib/traffic_control.py` | Schema and parsing |

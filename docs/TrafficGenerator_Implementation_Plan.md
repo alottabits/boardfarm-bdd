@@ -245,7 +245,7 @@ traffic_use_cases.start_traffic(generator, spec=TrafficSpec(
 
 # 2. Assert QoE SLO for priority traffic (while background load is running)
 qoe_result = qoe_use_cases.measure_conferencing(client, conf_server)
-assert qoe_result.mos >= 4.0, "MOS below threshold under load"
+assert qoe_result.mos_score >= 4.0, "MOS below threshold under load"
 
 # 3. Stop background load and collect generator results
 result = traffic_use_cases.stop_traffic(generator)

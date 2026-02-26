@@ -310,6 +310,33 @@ class WANEdgeDevice(ABC):
         """
 
     @abstractmethod
+    def remove_policy(self, name: str, via: str = "nbi") -> None:
+        """Remove a previously applied policy by name.
+
+        Required for teardown: scenarios that apply policies must remove them so
+        the next scenario starts from a clean baseline.
+
+        :param name: Policy name (as recorded when applied, e.g. from policy dict).
+        :param via: Interface to use.
+        """
+
+    @abstractmethod
+    def bring_wan_down(self, label: str, via: str = "console") -> None:
+        """Bring a WAN interface down (e.g. cable unplug simulation).
+
+        :param label: Logical WAN label (e.g. "wan1", "wan2").
+        :param via: Interface to use.
+        """
+
+    @abstractmethod
+    def bring_wan_up(self, label: str, via: str = "console") -> None:
+        """Bring a WAN interface up (restore after bring_wan_down).
+
+        :param label: Logical WAN label (e.g. "wan1", "wan2").
+        :param via: Interface to use.
+        """
+
+    @abstractmethod
     def get_telemetry(self, via: str = "nbi") -> dict:
         """Return a snapshot of DUT telemetry (uptime, session counts, CPU, etc.).
         
@@ -346,6 +373,11 @@ class QoEResult:
 class QoEClient(ABC):
     """Abstract measurement client for end-user experience validation."""
 
+    @property
+    @abstractmethod
+    def ip_address(self) -> str:
+        """Return the LAN-side IP address of this client (for source identification in security assertions)."""
+
     @abstractmethod
     def measure_productivity(self, url: str, scenario: str = "page_load") -> QoEResult:
         """Load a URL and capture navigation timing / TTFB."""
@@ -377,6 +409,7 @@ class TrafficSpec:
     bandwidth_mbps: int
     dscp: int               # DSCP marking, e.g. 46 for EF (voice)
     duration_s: int
+    destination: str        # iPerf3 server IP or hostname
     parallel_streams: int = 1
 
 @dataclass
@@ -430,6 +463,11 @@ class MaliciousHost(ABC):
 
     Implementations: KaliMaliciousHost.
     """
+
+    @property
+    @abstractmethod
+    def ip_address(self) -> str:
+        """Return the WAN-side IP address of this threat host (from inventory simulated_ip)."""
 
     # --- Active inbound attacks (WAN → DUT) ---
 
@@ -682,8 +720,8 @@ def assert_conferencing_qoe(
     server_stats = conferencing_server.get_session_stats(session_id)
 
     # Client-side SLO assertions
-    assert result.mos is not None and result.mos >= min_mos, (
-        f"MOS {result.mos:.2f} below {min_mos} SLO"
+    assert result.mos_score is not None and result.mos_score >= min_mos, (
+        f"MOS {result.mos_score:.2f} below {min_mos} SLO"
     )
     assert result.jitter_ms is not None and result.jitter_ms <= max_jitter_ms, (
         f"Client jitter {result.jitter_ms:.1f}ms exceeds {max_jitter_ms}ms SLO"
@@ -723,7 +761,7 @@ def assert_conferencing_qoe_step(qoe_client, conf_server, bf_context):
         qoe_client, conf_server, bf_context.session_url
     )
     print(
-        f"✓ MOS {result.mos:.2f} | client loss {result.packet_loss_pct:.1f}% "
+        f"✓ MOS {result.mos_score:.2f} | client loss {result.packet_loss_pct:.1f}% "
         f"| server loss {100.0 * server_stats.get('packets_lost', 0) / server_stats['packets_sent']:.1f}%"
     )
 ```
@@ -820,12 +858,12 @@ Feature File (Gherkin)
 
 Two additional template methods are needed beyond the base definitions in §3.4:
 
-**`QoEClient`** — add `attempt_tcp_connection()`:
+**`QoEClient`** — add `attempt_outbound_connection()`:
 
 ```python
 @abstractmethod
-def attempt_tcp_connection(self, host: str, port: int, timeout_s: float = 5) -> bool:
-    """Attempt a raw TCP connection from the LAN client to the given host:port.
+def attempt_outbound_connection(self, host: str, port: int, timeout_s: float = 5) -> bool:
+    """Attempt an outbound connection from the LAN client to the given host:port.
 
     Used to simulate a compromised host initiating a C2 callback.
     The connection attempt is intentionally fire-and-forget: success or failure
@@ -833,9 +871,9 @@ def attempt_tcp_connection(self, host: str, port: int, timeout_s: float = 5) -> 
     is expected to intercept and block it.
 
     :param host: IP address or hostname to connect to (e.g. MaliciousHost WAN IP).
-    :param port: TCP port (e.g. 4444 for C2).
+    :param port: Port number (e.g. 4444 for C2).
     :param timeout_s: Connection timeout in seconds.
-    :return: True if the TCP three-way handshake completed; False if refused/blocked.
+    :return: True if the connection completed; False if refused/blocked.
     """
 ```
 
@@ -965,9 +1003,9 @@ def assert_c2_callback_blocked(
     """
     malicious_host.start_c2_listener(c2_port)
     try:
-        qoe_client.attempt_tcp_connection(malicious_host.ip, c2_port, timeout_s=5)
+        qoe_client.attempt_outbound_connection(malicious_host.ip_address, c2_port, timeout_s=5)
         connection_reached = malicious_host.check_connection_received(
-            c2_port, source_ip=qoe_client.ip
+            c2_port, source_ip=qoe_client.ip_address
         )
         assert not connection_reached, (
             f"C2 callback on port {c2_port} reached the WAN listener — "
@@ -1379,7 +1417,7 @@ bf_context.pop("original_impairments", None)
 | `WANEdgeDevice.apply_policy(policy)` | Call `remove_policy(policy.name)` for each applied policy (from `bf_context`) | Policy names recorded at apply time |
 | `WANEdgeDevice.bring_wan_down(label)` | Call `bring_wan_up(label)` for each downed interface | Interface labels recorded at bring-down time |
 | `TrafficGenerator.start_traffic(...)` | Call `stop_traffic()` — `bf_context` flag set when traffic is running | Only needed if traffic is still active at teardown time |
-| `MaliciousHost.start_attack(...)` | Call `stop_attack()` | Attack context recorded in `bf_context` |
+| MaliciousHost attacks started during scenario | Call security use-case to stop active attacks | Attack context recorded in `bf_context` |
 
 #### `autouse` Fixture Pattern
 
@@ -1433,14 +1471,10 @@ def reset_sdwan_testbed_after_scenario(devices, bf_context):
                 pass
     bf_context.pop("active_traffic_generators", None)
 
-    # 5. Stop any active attacks on MaliciousHost
+    # 5. Stop any active attacks on MaliciousHost (via security use-case)
     mh = getattr(devices, "malicious_host", None)
     if mh:
-        for attack_handle in bf_context.get("active_attacks", []):
-            try:
-                mh.stop_attack(attack_handle)
-            except Exception:
-                pass
+        security_use_cases.stop_active_attacks(mh, bf_context)
     bf_context.pop("active_attacks", None)
 ```
 

@@ -896,6 +896,8 @@ Access Grafana at `http://localhost:3001` (credentials: `admin` / `testbed`). Ad
 
 ### 6.1 Device Mapping (Boardfarm Inventory)
 
+Inventory holds device identity and connection details. Topology keys (`dut_iface`, `north_iface`) describe the TC container's interfaces for reference; the interface to apply impairment on is defined in env config (§6.2).
+
 ```json
 {
     "devices": [
@@ -992,7 +994,47 @@ Access Grafana at `http://localhost:3001` (credentials: `admin` / `testbed`). Ad
 }
 ```
 
-### 6.2 Startup Sequence
+### 6.2 Environment Config (Boardfarm Env)
+
+**Location:** `bf_config/boardfarm_env.json` (or `--env-config` path)
+
+The environment config defines per-device defaults and behavior. Each TrafficController **must** have `impairment_interface` in `environment_def` — it specifies which interface to apply tc/netem on. This is explicit per testbed for portability (Raikou/Docker layouts differ).
+
+For the SD-WAN dual-homed TC, impairment is applied on the north-facing interface (`eth-north`) where traffic egresses toward the north-segment. See `Traffic_Management_Components_Architecture.md §4.2`.
+
+```json
+{
+  "environment_def": {
+    "wan1_impairment": {
+      "impairment_interface": "eth-north",
+      "impairment_profile": {
+        "latency_ms": 5,
+        "jitter_ms": 1,
+        "loss_percent": 0,
+        "bandwidth_limit_mbps": 1000
+      }
+    },
+    "wan2_impairment": {
+      "impairment_interface": "eth-north",
+      "impairment_profile": {
+        "latency_ms": 5,
+        "jitter_ms": 1,
+        "loss_percent": 0,
+        "bandwidth_limit_mbps": 1000
+      }
+    },
+    "impairment_presets": {
+      "pristine":      { "latency_ms": 5,   "jitter_ms": 1,  "loss_percent": 0,   "bandwidth_limit_mbps": 1000 },
+      "cable_typical": { "latency_ms": 15,  "jitter_ms": 5,  "loss_percent": 0.1, "bandwidth_limit_mbps": 100  },
+      "4g_mobile":     { "latency_ms": 80,  "jitter_ms": 30, "loss_percent": 1,   "bandwidth_limit_mbps": 20   },
+      "satellite":     { "latency_ms": 600, "jitter_ms": 50, "loss_percent": 2,   "bandwidth_limit_mbps": 10   },
+      "congested":     { "latency_ms": 25,  "jitter_ms": 40, "loss_percent": 3,   "bandwidth_limit_mbps": null }
+    }
+  }
+}
+```
+
+### 6.3 Startup Sequence
 
 1. **`docker compose up -d`** — starts all containers. Raikou starts last (`depends_on`). MinIO starts before `app-server` (declared dependency).
 2. **Raikou** reads `config.json`, creates OVS bridges, and injects veth pairs into each container with the configured IP and interface names.
@@ -1012,7 +1054,7 @@ Access Grafana at `http://localhost:3001` (credentials: `admin` / `testbed`). Ad
     ```
     At runtime, `app-server` proxies to MinIO at `http://10.100.0.2:9000` over the `content-internal` Raikou bridge — not via Docker hostname resolution.
     See `Application_Services_Implementation_Plan.md §3.2` for the full FFmpeg command and bitrate ladder.
-6. **Boardfarm** connects to all containers via SSH (or `docker exec` for DUT), verifies connectivity, and the testbed is ready.
+6. **Boardfarm** connects to all containers via SSH (or `docker exec` for DUT), parses inventory and env config, instantiates devices with merged config (including `impairment_interface` from env for each TC), and the testbed is ready.
 
 ---
 
