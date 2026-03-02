@@ -1,0 +1,36 @@
+#!/bin/sh
+#
+# Streaming Server init — start nginx, sshd
+# Raikou OVS injects eth1 (north-segment), eth2 (content-internal → MinIO).
+#
+set -e
+
+# Wait for eth1 (north-segment) and add route for LAN clients via TC
+count=0
+while [ $count -lt 30 ]; do
+    if ip addr show eth1 2>/dev/null | grep -q "inet "; then
+        ip route add 192.168.10.0/24 via 172.16.0.1 dev eth1 2>/dev/null || true
+        ip route add 10.10.1.0/30 via 172.16.0.1 dev eth1 2>/dev/null || true
+        ip route add 10.10.2.0/30 via 172.16.0.1 dev eth1 2>/dev/null || true
+        break
+    fi
+    sleep 1
+    count=$((count + 1))
+done
+
+# Wait for eth2 (content-internal) for MinIO/streaming
+count=0
+while [ $count -lt 30 ]; do
+    if ip addr show eth2 2>/dev/null | grep -q "inet "; then
+        break
+    fi
+    sleep 1
+    count=$((count + 1))
+done
+
+# Start nginx (streaming on 8081)
+nginx -g "daemon off;" &
+sleep 1
+
+# Start SSH for Boardfarm
+exec /usr/sbin/sshd -D
