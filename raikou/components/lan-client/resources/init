@@ -1,0 +1,58 @@
+#!/bin/bash -e
+#
+# QoE Client init script
+# Waits for Raikou-injected eth1 (lan-segment, 192.168.10.10/24),
+# configures Dante SOCKS v5 proxy to route traffic via eth1,
+# then starts Dante and SSH.
+#
+# See: docs/QoE_Client_Implementation_Plan.md §3.1
+#
+
+# Wait for eth1 (Raikou OVS lan-segment bridge — NOT Docker network)
+count=0
+while [ $count -lt 60 ]; do
+    if ip addr show eth1 2>/dev/null | grep -q "inet "; then
+        echo "eth1 has IP address"
+        break
+    fi
+    echo "Waiting for eth1 (lan-segment)..."
+    sleep 2
+    count=$((count + 1))
+done
+
+if ! ip addr show eth1 2>/dev/null | grep -q "inet "; then
+    echo "ERROR: eth1 not found or no IP after 120s"
+    exit 1
+fi
+
+# Route north-segment (app-server, conf-server) via DUT so test traffic uses testbed path
+ip route add 172.16.0.0/24 via 192.168.10.1 dev eth1 2>/dev/null || true
+
+# Dante routes proxied traffic out via eth1 → DUT → WAN → north-side services.
+# The developer's browser traverses the exact same network path as Playwright.
+ETH1_IP=$(ip addr show eth1 | grep "inet " | awk '{print $2}' | cut -d/ -f1)
+EXTERNAL="${ETH1_IP:-eth1}"
+
+cat > /etc/danted.conf << EOF
+logoutput: stderr
+internal: 0.0.0.0 port = 8080
+external: $EXTERNAL
+clientmethod: none
+socksmethod: username none
+user.privileged: root
+user.unprivileged: nobody
+client pass {
+    from: 0.0.0.0/0 to: 0.0.0.0/0
+    log: connect disconnect error
+}
+socks pass {
+    from: 0.0.0.0/0 to: 0.0.0.0/0
+    log: connect disconnect error
+}
+EOF
+
+echo "Starting Dante SOCKS proxy (external: $EXTERNAL)..."
+service danted start
+
+echo "QoE Client ready. Starting SSH..."
+exec /usr/sbin/sshd -D
