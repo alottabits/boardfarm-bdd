@@ -1,0 +1,227 @@
+# SD-WAN Testbed — Phase 1
+# Dual-WAN router + Raikou OVS orchestrator.
+#
+# NETWORKING: Containers are NOT connected via Docker networks for test traffic.
+# - Test traffic flows through Raikou OVS bridges (lan-segment, dut-wan1, dut-wan2,
+#   north-segment). Raikou injects interfaces per config_sdwan.json.
+# - The default network (192.168.55.0/24) is management-only: SSH access and host
+#   port mapping. DUT uses network_mode: none (all interfaces from Raikou).
+#
+# See: docs/SDWAN_Testbed_Configuration.md
+# Usage: docker compose -p boardfarm-bdd-sdwan -f docker-compose-sdwan.yaml up -d
+
+name: boardfarm-bdd-sdwan
+---
+services:
+
+    # ── Device Under Test ──────────────────────────────────────────────────────
+    # All interfaces from Raikou OVS (eth-lan, eth-wan1, eth-wan2). No Docker network.
+    linux-sdwan-router:
+        container_name: linux-sdwan-router
+        build:
+            context: ./components/sdwan-router
+            tags:
+                - sdwan-router:sdwan_frr_0.01
+        network_mode: none
+        privileged: true
+        hostname: sdwan-router
+        environment:
+            - LAN_IFACE=eth-lan
+            - WAN1_IFACE=eth-wan1
+            - WAN2_IFACE=eth-wan2
+        deploy:
+            resources:
+                limits:
+                    cpus: '2.0'
+                    memory: 512M
+                reservations:
+                    cpus: '1.5'
+                    memory: 256M
+
+    # ── Traffic Controllers (WAN Impairment) ───────────────────────────────────
+    # Test traffic via Raikou OVS: eth-dut (dut-wan1), eth-north (north-segment).
+    wan1-tc:
+        container_name: wan1-tc
+        build:
+            context: ./components/traffic-controller
+            tags:
+                - traffic-controller:traffic_controller_0.01
+        ports:
+            - "5001:22"
+        environment:
+            - TC_DUT_IFACE=eth-dut
+            - TC_NORTH_IFACE=eth-north
+            - LEGACY=no
+        privileged: true
+        hostname: wan1-tc
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.5'
+                    memory: 128M
+                reservations:
+                    cpus: '0.25'
+                    memory: 64M
+
+    # Test traffic via Raikou OVS: eth-dut (dut-wan2), eth-north (north-segment).
+    wan2-tc:
+        container_name: wan2-tc
+        build:
+            context: ./components/traffic-controller
+            tags:
+                - traffic-controller:traffic_controller_0.01
+        ports:
+            - "5002:22"
+        environment:
+            - TC_DUT_IFACE=eth-dut
+            - TC_NORTH_IFACE=eth-north
+            - LEGACY=no
+        privileged: true
+        hostname: wan2-tc
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.5'
+                    memory: 128M
+                reservations:
+                    cpus: '0.25'
+                    memory: 64M
+
+    # ── QoE Client (Playwright) ─────────────────────────────────────────────────
+    # Test traffic via Raikou OVS: eth1 (lan-segment). Docker eth0 for SSH/port mapping only.
+    lan-client:
+        container_name: lan-client
+        build:
+            context: ./components/lan-client
+            tags:
+                - lan-client:qoe_client_0.01
+        ports:
+            - "5003:22"
+            - "18090:8080"   # Dante SOCKS v5 proxy — developer access to LAN-side services
+        environment:
+            - LEGACY=no
+        privileged: true
+        hostname: lan-client
+        deploy:
+            resources:
+                limits:
+                    cpus: '3.0'
+                    memory: 3G
+                reservations:
+                    cpus: '1.5'
+                    memory: 1G
+
+    # ── North-Side Application Services ────────────────────────────────────────
+    # Separate containers enable L7 path steering: productivity vs streaming via different WAN paths.
+    # See: docs/WAN_Edge_Appliance_testing.md §4.2
+    productivity-server:
+        container_name: productivity-server
+        build:
+            context: ./components/productivity-server
+            tags:
+                - productivity-server:productivity_server_0.01
+        ports:
+            - "5005:22"
+            - "18080:8080"       # Nginx productivity (HTTP)
+        environment:
+            - LEGACY=no
+        privileged: true
+        hostname: productivity-server
+        deploy:
+            resources:
+                limits:
+                    cpus: '1.0'
+                    memory: 256M
+                reservations:
+                    cpus: '0.5'
+                    memory: 128M
+
+    # Test traffic via Raikou OVS: eth1 (north-segment), eth2 (content-internal → MinIO).
+    streaming-server:
+        container_name: streaming-server
+        build:
+            context: ./components/streaming-server
+            tags:
+                - streaming-server:streaming_server_0.01
+        ports:
+            - "5006:22"
+            - "18081:8081"       # Nginx streaming (HLS proxy)
+        environment:
+            - LEGACY=no
+        privileged: true
+        hostname: streaming-server
+        deploy:
+            resources:
+                limits:
+                    cpus: '2.0'
+                    memory: 512M
+                reservations:
+                    cpus: '1.0'
+                    memory: 256M
+
+    # ── Content Origin (MinIO) ───────────────────────────────────────────────────
+    # S3-compatible store for HLS content. Raikou OVS: eth1 on content-internal only.
+    # Management: host ports 19000 (S3 API), 19001 (console) via Docker.
+    minio:
+        container_name: minio
+        build:
+            context: ./components/minio
+            tags:
+                - minio:content_origin_0.01
+        ports:
+            - "19000:9000"       # S3 API (management ingest)
+            - "19001:9001"       # Web console
+        environment:
+            - MINIO_ROOT_USER=testbed
+            - MINIO_ROOT_PASSWORD=testbed-secret
+        volumes:
+            - minio-data:/data
+        privileged: true
+        hostname: minio
+        deploy:
+            resources:
+                limits:
+                    cpus: '1.0'
+                    memory: 256M
+
+    # ── Raikou OVS Orchestrator ────────────────────────────────────────────────
+    raikou-net:
+        container_name: orchestrator
+        image: ghcr.io/ketantewari/raikou/orchestrator:v1
+        volumes:
+            - /lib/modules:/lib/modules
+            - /var/run/docker.sock:/var/run/docker.sock
+            - ./config_sdwan.json:/root/config.json
+        privileged: true
+        environment:
+            - USE_LINUX_BRIDGE=false
+        pid: host
+        network_mode: host
+        hostname: orchestrator
+        depends_on:
+            - linux-sdwan-router
+            - lan-client
+            - wan1-tc
+            - wan2-tc
+            - productivity-server
+            - streaming-server
+            - minio
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.5'
+                    memory: 128M
+                reservations:
+                    cpus: '0.25'
+                    memory: 64M
+
+# Management network only — SSH and host port mapping. Test traffic uses Raikou OVS.
+networks:
+    default:
+        ipam:
+            config:
+                - subnet: 192.168.55.0/24
+                  gateway: 192.168.55.1
+
+volumes:
+    minio-data: {}

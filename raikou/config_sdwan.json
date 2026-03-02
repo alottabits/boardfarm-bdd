@@ -1,0 +1,90 @@
+{
+    "_comment": "Raikou OVS topology. Containers connect via OVS bridges, NOT Docker networks. Test traffic flows through these bridges. See docs/SDWAN_Testbed_Configuration.md",
+    "bridge": {
+        "lan-segment": {},
+        "dut-wan1": {},
+        "dut-wan2": {},
+        "north-segment": {},
+        "content-internal": {}
+    },
+    "container": {
+        "lan-client": [
+            {
+                "bridge": "lan-segment",
+                "iface": "eth1",
+                "ipaddress": "192.168.10.10/24",
+                "gateway": "192.168.10.1"
+            }
+        ],
+        "wan1-tc": [
+            {
+                "bridge": "dut-wan1",
+                "iface": "eth-dut",
+                "ipaddress": "10.10.1.2/30"
+            },
+            {
+                "bridge": "north-segment",
+                "iface": "eth-north",
+                "ipaddress": "172.16.0.1/24"
+            }
+        ],
+        "wan2-tc": [
+            {
+                "bridge": "dut-wan2",
+                "iface": "eth-dut",
+                "ipaddress": "10.10.2.2/30"
+            },
+            {
+                "bridge": "north-segment",
+                "iface": "eth-north",
+                "ipaddress": "172.16.0.2/24"
+            }
+        ],
+        "productivity-server": [
+            {
+                "bridge": "north-segment",
+                "iface": "eth1",
+                "ipaddress": "172.16.0.10/24",
+                "gateway": "172.16.0.1"
+            }
+        ],
+        "streaming-server": [
+            {
+                "bridge": "north-segment",
+                "iface": "eth1",
+                "ipaddress": "172.16.0.11/24",
+                "gateway": "172.16.0.1"
+            },
+            {
+                "bridge": "content-internal",
+                "iface": "eth2",
+                "ipaddress": "10.100.0.1/30"
+            }
+        ],
+        "minio": [
+            {
+                "bridge": "content-internal",
+                "iface": "eth1",
+                "ipaddress": "10.100.0.2/30"
+            }
+        ],
+        "linux-sdwan-router": [
+            {
+                "bridge": "lan-segment",
+                "iface": "eth-lan",
+                "ipaddress": "192.168.10.1/24"
+            },
+            {
+                "bridge": "dut-wan1",
+                "iface": "eth-wan1",
+                "ipaddress": "10.10.1.1/30"
+            },
+            {
+                "bridge": "dut-wan2",
+                "iface": "eth-wan2",
+                "ipaddress": "10.10.2.1/30"
+            }
+        ]
+    },
+    "vlan_translations": []
+}
