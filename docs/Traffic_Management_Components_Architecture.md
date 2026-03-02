@@ -12,8 +12,8 @@ This document defines the Boardfarm architecture for Traffic Control (network im
 ### Key Design Principles
 
 1. **Test Portability**: Use cases depend on the `TrafficController` template interface only—they never call Linux `tc` or Spirent APIs directly.
-2. **Per-Device Defaults in Env Config**: Each TrafficController device has `impairment_interface` and `impairment_profile` defined in the **environment config** (`environment_def`)—the interface to impair and the default applied at testbed initialization. Named presets (cable_typical, satellite, etc.) are also defined in env config for BDD vocabulary.
-3. **Explicit Interface Assignment**: The interface to apply tc/netem on is specified in env config, not hard-coded. Raikou/Docker topology varies across testbeds (single-interface, dual-homed, custom layouts); each testbed declares its `impairment_interface` explicitly for portability.
+2. **Per-Device Defaults in Env Config**: Each TrafficController device has impairment interface(s) and `impairment_profile` defined in the **environment config** (`environment_def`)—the interface(s) to impair and the default applied at testbed initialization. Dual-homed TCs use `impairment_interface_north` and `impairment_interface_dut`; single-interface TCs use `impairment_interface`. Named presets (cable_typical, satellite, etc.) are also defined in env config for BDD vocabulary.
+3. **Per-Direction Interface Assignment**: For dual-homed Traffic Controllers (e.g. SD-WAN TC), impairment uses **two interfaces** — one per direction. `impairment_interface_north` (forward: client→server) and `impairment_interface_dut` (return: server→client). Single-interface TCs use `impairment_interface` only. Raikou/Docker topology varies; each testbed declares interfaces explicitly for portability.
 4. **Parameter-Based API**: `set_impairment_profile(profile)` and `get_impairment_profile()` work with parameter objects, not profile names.
 5. **Topology Flexibility**: The number of WAN links (1, 2, 3, or more) is driven by the testbed inventory—never hardcoded in lib.
 
@@ -24,7 +24,7 @@ This document defines the Boardfarm architecture for Traffic Control (network im
 | Layer           | Purpose                                              | Location                                     |
 | --------------- | ---------------------------------------------------- | -------------------------------------------- |
 | **Template**    | Defines the contract (abstract interface)             | `boardfarm3/templates/traffic_controller.py` |
-| **Env Config**  | Per-device `impairment_interface`, `impairment_profile`, named presets | Boardfarm env JSON (`environment_def`) |
+| **Env Config**  | Per-device `impairment_interface` (or `impairment_interface_north`/`impairment_interface_dut` for dual-homed), `impairment_profile`, named presets | Boardfarm env JSON (`environment_def`) |
 | **Inventory**   | Device identity, connection details, topology        | Boardfarm inventory JSON                     |
 | **Lib**         | ImpairmentProfile schema, tc helpers, adapter        | `boardfarm3/lib/traffic_control.py`          |
 | **Devices**     | Concrete implementations (Linux, Spirent)             | `boardfarm3/devices/`                        |
@@ -97,11 +97,14 @@ Inventory holds device identity and connection details only. Topology keys (e.g.
 
 Env config defines per-device defaults, provisioning behavior, and named presets. Each testbed explicitly specifies which interface the TrafficController uses for impairment — Raikou/Docker topology varies across testbeds (single-interface, dual-homed, custom layouts). No hard-coding.
 
+**Dual-homed TC (SD-WAN):** Use per-direction interfaces. Forward (client→server) and return (server→client) traffic egress different interfaces; apply netem on both for asymmetric impairment. No IFB required.
+
 ```json
 {
   "environment_def": {
     "wan1_impairment": {
-      "impairment_interface": "eth-north",
+      "impairment_interface_north": "eth-north",
+      "impairment_interface_dut": "eth-dut",
       "impairment_profile": {
         "latency_ms": 5,
         "jitter_ms": 1,
@@ -122,19 +125,30 @@ Env config defines per-device defaults, provisioning behavior, and named presets
 
 **Structure:** `environment_def` contains both **device-specific keys** (device names like `wan1_impairment`) and **shared keys** (like `impairment_presets`). Device keys are merged into each device's config; shared keys like `impairment_presets` provide a BDD vocabulary used by all TrafficController devices.
 
-- **environment_def[device_name].impairment_interface**: Interface name to apply tc/netem on (Linux implementation). **Required** for `LinuxTrafficController`. Must match the container's actual interface (e.g. `"eth-north"` for SD-WAN dual-homed TC, `"eth1"` for single-interface). Explicit per testbed for portability.
+- **environment_def[device_name].impairment_interface**: Interface name for single-interface TCs. **Required** when only one interface exists.
+- **environment_def[device_name].impairment_interface_north**: Interface for **forward** direction (client→server). Traffic egressing this interface goes toward north-segment. Used by dual-homed TCs.
+- **environment_def[device_name].impairment_interface_dut**: Interface for **return** direction (server→client). Traffic egressing this interface goes toward DUT. Used by dual-homed TCs. For asymmetric impairment, both north and dut interfaces are impaired with potentially different profiles.
 - **environment_def[device_name].impairment_profile**: Default parameters for that device. Merged into device config and applied at init.
 - **environment_def.impairment_presets**: Optional named presets for BDD steps (e.g. "Given the network is set to cable_typical"). Steps resolve preset names from the merged config.
 
 ### 4.3 Initialization Flow
 
 1. Device boots and connects.
-2. Merged config (inventory + env) provides `impairment_interface` and `impairment_profile` for the device.
-3. `LinuxTrafficController` reads `config.get("impairment_interface")` from the merged config (raises if missing — no default; each testbed must be explicit).
+2. Merged config (inventory + env) provides impairment interfaces and `impairment_profile` for the device.
+3. `LinuxTrafficController` reads `impairment_interface` (single-interface) or `impairment_interface_north` + `impairment_interface_dut` (dual-homed) from the merged config. At least one interface config is required (no default; each testbed must be explicit).
 4. `set_impairment_profile(config["impairment_profile"])` is called at init.
 5. The link starts in the configured state.
 
-### 4.4 Runtime Changes
+### 4.4 Per-Direction Impairment (Dual-Homed TC)
+
+For dual-homed Traffic Controllers (e.g. SD-WAN wan1-tc, wan2-tc), the topology naturally provides two egress interfaces:
+
+- **eth-north** (north-segment): Forward traffic (client → server) egresses here.
+- **eth-dut** (dut-wan1/dut-wan2): Return traffic (server → client) egresses here.
+
+Linux `tc netem` operates on egress only. By applying netem on **both** interfaces, we achieve asymmetric impairment without IFB (Intermediate Functional Block). Each direction gets its own qdisc with independent latency, jitter, loss, and bandwidth parameters. This approach is simpler and more robust than IFB-based ingress mirroring.
+
+### 4.5 Runtime Changes
 
 During tests, `set_impairment_profile(profile)` can be called again with new parameters—either from a preset name (resolved via env config) or explicit dict.
 
@@ -263,6 +277,8 @@ Contains:
 
 ### 6.1 ImpairmentProfile Schema
 
+**Direction mapping (dual-homed TC):** From the LAN client's perspective, `egress` = forward (client→server) = traffic egressing `impairment_interface_north`. `ingress` = return (server→client) = traffic egressing `impairment_interface_dut`. Each direction gets its own netem qdisc; no IFB required.
+
 ```python
 from dataclasses import dataclass
 
@@ -276,8 +292,9 @@ class ImpairmentProfile:
     bandwidth_limit_mbps: int | None  # None = no limit (no TBF qdisc applied)
 
     # Per-direction overrides (None = use symmetric value above)
-    egress_bandwidth_limit_mbps: int | None = None   # DUT → WAN (upload)
-    ingress_bandwidth_limit_mbps: int | None = None  # WAN → DUT (download)
+    # Dual-homed TC: egress → eth-north (forward), ingress → eth-dut (return)
+    egress_bandwidth_limit_mbps: int | None = None   # Forward: client → server
+    ingress_bandwidth_limit_mbps: int | None = None  # Return: server → client
     egress_loss_percent: float | None = None
     ingress_loss_percent: float | None = None
 
@@ -305,17 +322,19 @@ def profile_from_dict(data: dict) -> ImpairmentProfile:
 
 ### 6.2 Linux tc Helper Functions
 
-**Note — Ingress Limitation:** Linux `tc netem` operates on egress only. Ingress rate-limiting and impairment require an IFB (Intermediate Functional Block) virtual device with an ingress filter redirect. The helper functions must handle IFB setup automatically when `ingress_*` overrides are set.
+**Per-direction approach (dual-homed TC):** Linux `tc netem` operates on egress only. For dual-homed TCs, forward and return traffic egress different physical interfaces (eth-north and eth-dut). Apply netem on both interfaces — no IFB required. For single-interface TCs, only the forward direction is impaired (symmetric profile).
 
 ```python
 def set_profile_via_tc(
     console: _LinuxConsole,
-    interface: str,
+    interface_north: str | None,
+    interface_dut: str | None,
     profile: ImpairmentProfile,
 ) -> None:
     """Build and execute tc qdisc/netem commands.
     
-    Handles IFB creation for ingress impairments if required.
+    For dual-homed: applies to interface_north (forward) and interface_dut (return).
+    For single-interface: interface_dut is None; applies symmetric profile to interface_north.
     """
     ...
 
@@ -371,11 +390,13 @@ If no netem qdisc is present the interface is unimpaired; return `ImpairmentProf
 class LinuxTrafficController(LinuxDevice, TrafficController):
     def __init__(self, config: dict, cmdline_args: Namespace) -> None:
         super().__init__(config, cmdline_args)
-        self._interface = config.get("impairment_interface")
-        if not self._interface:
+        # Dual-homed: per-direction interfaces; single-interface: impairment_interface only
+        self._interface_north = config.get("impairment_interface_north") or config.get("impairment_interface")
+        self._interface_dut = config.get("impairment_interface_dut")
+        if not self._interface_north:
             raise KeyError(
-                "impairment_interface is required for LinuxTrafficController. "
-                "Define it in environment_def[device_name] (boardfarm_env.json)."
+                "impairment_interface or impairment_interface_north is required for LinuxTrafficController. "
+                "Define in environment_def[device_name] (boardfarm_env.json)."
             )
         # Apply default from config at init
         if profile_data := config.get("impairment_profile"):
@@ -383,38 +404,22 @@ class LinuxTrafficController(LinuxDevice, TrafficController):
 
     def set_impairment_profile(self, profile: ImpairmentProfile | dict) -> None:
         p = profile_from_dict(profile) if isinstance(profile, dict) else profile
-        set_profile_via_tc(self._console, self._interface, p)
+        set_profile_via_tc(self._console, self._interface_north, self._interface_dut, p)
         # No self._current assignment — get_impairment_profile reads from the kernel.
 
     def get_impairment_profile(self) -> ImpairmentProfile:
         """Parse current impairment from tc -j qdisc show (kernel state, not memory).
 
-        Parses netem qdisc for latency/jitter/loss and tbf qdisc for bandwidth.
-        Returns ImpairmentProfile(0, 0, 0.0, None) if no netem qdisc is present.
+        For dual-homed: reads both interface_north (forward) and interface_dut (return).
+        Returns merged ImpairmentProfile; asymmetric values from per-interface netem.
         """
-        raw = self._console.sendline_and_read(
-            f"tc -j qdisc show dev {self._interface}"
-        )
-        qdiscs = json.loads(raw)
-        latency_ms = jitter_ms = 0
-        loss_pct = 0.0
-        bandwidth_limit_mbps = None
-        for q in qdiscs:
-            if q.get("kind") == "netem":
-                opts = q.get("options", {})
-                if delay := opts.get("delay"):
-                    latency_ms = int(delay.get("delay", 0) * 1000)
-                    jitter_ms = int(delay.get("jitter", 0) * 1000)
-                if loss := opts.get("loss-random"):
-                    loss_pct = round(loss.get("loss", 0.0) * 100, 2)
-            elif q.get("kind") == "tbf":
-                rate = q.get("options", {}).get("rate", {}).get("rate")
-                if rate:
-                    bandwidth_limit_mbps = rate // 1_000_000
-        return ImpairmentProfile(latency_ms, jitter_ms, loss_pct, bandwidth_limit_mbps)
+        # Parse both interfaces when dual-homed; merge into single profile
+        ...
 
     def clear(self) -> None:
-        clear_tc_impairment(self._console, self._interface)
+        clear_tc_impairment(self._console, self._interface_north)
+        if self._interface_dut:
+            clear_tc_impairment(self._console, self._interface_dut)
 ```
 
 ### 7.2 SpirentTrafficController (Hardware Appliance)
@@ -463,7 +468,7 @@ def inject_transient(self, event: str, duration_ms: int, **kwargs) -> None:
 
     previous = self.get_impairment_profile()  # read kernel state, not memory
     transient = _build_transient_profile(event, previous, **kwargs)
-    set_profile_via_tc(self._console, self._interface, transient)
+    set_profile_via_tc(self._console, self._interface_north, self._interface_dut, transient)
 
     cancel_event = threading.Event()
     self._restore_cancel = cancel_event
@@ -471,7 +476,7 @@ def inject_transient(self, event: str, duration_ms: int, **kwargs) -> None:
     def _restore() -> None:
         cancelled = cancel_event.wait(timeout=duration_ms / 1000)
         if not cancelled:
-            set_profile_via_tc(self._console, self._interface, previous)
+            set_profile_via_tc(self._console, self._interface_north, self._interface_dut, previous)
 
     threading.Thread(target=_restore, daemon=True).start()
 
@@ -653,7 +658,9 @@ Each device has its own `impairment_profile` default in env config (`environment
 | Component | Type | Location | Purpose |
 |-----------|------|----------|---------|
 | `TrafficController` | Template (ABC) | `templates/traffic_controller.py` | Abstract interface |
-| `impairment_interface` | Env config | `environment_def[device_name]` | Interface to apply tc/netem on (required; explicit per testbed) |
+| `impairment_interface` | Env config | `environment_def[device_name]` | Single-interface TC: interface for tc/netem |
+| `impairment_interface_north` | Env config | `environment_def[device_name]` | Dual-homed: forward direction (client→server) |
+| `impairment_interface_dut` | Env config | `environment_def[device_name]` | Dual-homed: return direction (server→client) |
 | `impairment_profile` | Env config | `environment_def[device_name]` | Per-device default (4 params) |
 | `impairment_presets` | Env config | `environment_def.impairment_presets` | Named presets for BDD steps |
 | `ImpairmentProfile`, `profile_from_dict` | Lib | `lib/traffic_control.py` | Schema and parsing |

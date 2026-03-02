@@ -26,7 +26,7 @@ This document defines the scope and implementation plan for a unified testing fr
 
 | Document | Description |
 | :--- | :--- |
-| `SDWAN_Testbed_Configuration.md` | Complete Raikou `config.json`, `docker-compose.yaml`, OVS bridge topology, IP addressing, Boardfarm inventory, and startup sequence for the fully Dockerised SD-WAN testbed |
+| `SDWAN_Testbed_Configuration.md` | Complete Raikou `config_sdwan.json`, `docker-compose-sdwan.yaml` (project `boardfarm-bdd-sdwan`), OVS bridge topology, IP addressing, Boardfarm `bf_config_sdwan.json` / `bf_env_sdwan.json`, and startup sequence for the fully Dockerised SD-WAN testbed |
 | `Testbed_CA_Setup.md` | Step-by-step procedure for generating the testbed root CA and all service certificates (Phase 3.5): Nginx HTTPS/HTTP3, WebRTC WSS, StrongSwan IKEv2, Playwright trust store |
 
 **Framework Architecture**
@@ -147,10 +147,10 @@ Security test cases follow the same four-layer Boardfarm architecture as all oth
 
 | Test Goal | Template Method (device action) | `security_use_cases.py` (composite scenario + assertion) |
 | :--- | :--- | :--- |
-| Port scan detection | `MaliciousHost.run_port_scan(target, port_range)` | `assert_port_scan_detected(malicious_host, wan_edge, target_ip)` |
-| SYN flood mitigation | `MaliciousHost.inject_syn_flood(target, rate_pps, duration_s)` | `assert_syn_flood_mitigated(malicious_host, wan_edge, target_ip)` |
-| C2 callback blocking | `MaliciousHost.start_c2_listener(port)` + `QoEClient.attempt_outbound_connection(ip, port)` | `assert_c2_callback_blocked(malicious_host, qoe_client, wan_edge)` |
-| EICAR file blocking | `MaliciousHost.get_eicar_url()` (URL served by device) | `assert_eicar_download_blocked(malicious_host, qoe_client, wan_edge)` |
+| Port scan detection | `MaliciousHost.run_port_scan(target, port_range)` | `assert_port_scan_detected(malicious_host, target_ip)` |
+| SYN flood mitigation | `MaliciousHost.inject_syn_flood(target, rate_pps, duration_s)` | `assert_syn_flood_mitigated(malicious_host, qoe_client, target_ip, connectivity_url)` |
+| C2 callback blocking | `MaliciousHost.start_c2_listener(port)` + `QoEClient.attempt_outbound_connection(ip, port)` | `assert_c2_callback_blocked(malicious_host, qoe_client)` |
+| EICAR file blocking | `MaliciousHost.get_eicar_url()` (URL served by device) | `assert_eicar_download_blocked(malicious_host, qoe_client)` |
 | Generic traffic block | — | `assert_traffic_blocked(wan_edge, src_ip, dst_port)` |
 
 ---
@@ -369,6 +369,10 @@ class QoEResult:
     resolution: str | None        # e.g. "1080p"
     success: bool
     raw_metrics: dict             # Category-specific extras
+    # Conferencing metrics (from WebRTC getStats())
+    latency_ms: float | None = None
+    jitter_ms: float | None = None
+    packet_loss_pct: float | None = None
 
 class QoEClient(ABC):
     """Abstract measurement client for end-user experience validation."""
@@ -1042,6 +1046,26 @@ def assert_eicar_download_blocked(
     )
 
 
+def stop_active_attacks(malicious_host: MaliciousHost, bf_context: dict) -> None:
+    """Stop any attacks or listeners started during the scenario.
+
+    Called by the teardown fixture to clean up MaliciousHost state. Reads
+    bf_context["active_attacks"] for the list of attack contexts (e.g.
+    C2 listener ports) and stops each one.
+
+    .. hint:: Used by: reset_sdwan_testbed_after_scenario teardown fixture.
+
+    :param malicious_host: WAN-side threat infrastructure.
+    :param bf_context: Test context containing active_attacks (e.g. {"c2_ports": [4444]}).
+    """
+    active = bf_context.get("active_attacks", {})
+    for port in active.get("c2_ports", []):
+        try:
+            malicious_host.stop_c2_listener(port)
+        except Exception:
+            pass  # Log and continue; next scenario starts fresh
+
+
 def assert_traffic_blocked(
     wan_edge: WANEdgeDevice,
     src_ip: str,
@@ -1174,20 +1198,19 @@ def assert_path_steers_on_impairment(
     impairment_ctrl: TrafficController,
     impaired_wan: str,
     expected_fallback_wan: str,
-    impairment_profile: str = "blackout",
     duration_ms: int = 10_000,
     poll_interval_ms: int = 50,
     timeout_ms: int = 3_000,
 ) -> None:
-    """Apply impairment to a WAN link and assert the DUT steers to the expected fallback.
+    """Apply blackout impairment to a WAN link and assert the DUT steers to the expected fallback.
 
     .. hint:: Implements steps such as:
         - When the wan1 link becomes degraded
         - Then traffic should be re-routed to wan2
 
-    Applies a named impairment preset via inject_transient() (self-restoring after
-    duration_ms). Polls until the DUT's active path changes to expected_fallback_wan,
-    then verifies the correct fallback was selected — not just that *any* switch occurred.
+    Injects a blackout via inject_blackout() (self-restoring after duration_ms). Polls
+    until the DUT's active path changes to expected_fallback_wan, then verifies the
+    correct fallback was selected — not just that *any* switch occurred.
 
     Differs from measure_failover_convergence() (§3.6), which measures the convergence
     time for SLO assertions. This function is a correctness assertion: it verifies the
@@ -1197,13 +1220,12 @@ def assert_path_steers_on_impairment(
     :param impairment_ctrl: TrafficController on the impaired WAN link.
     :param impaired_wan: Logical label of the WAN being impaired (e.g. "wan1").
     :param expected_fallback_wan: Logical label the DUT should steer to (e.g. "wan2").
-    :param impairment_profile: Preset name from impairment_presets config (default "blackout").
-    :param duration_ms: How long the impairment lasts before auto-restore.
+    :param duration_ms: How long the blackout lasts before auto-restore.
     :param poll_interval_ms: Polling interval while waiting for DUT to switch.
     :param timeout_ms: Maximum wait for path switch before failing.
     :raises AssertionError: if DUT does not switch to expected_fallback_wan within timeout_ms.
     """
-    tc_use_cases.apply_preset(impairment_ctrl, impairment_profile, duration_ms=duration_ms)
+    tc_use_cases.inject_blackout(impairment_ctrl, duration_ms=duration_ms)
     deadline = time.monotonic() + timeout_ms / 1000
     while time.monotonic() < deadline:
         active = dut.get_active_wan_interface()
@@ -1488,7 +1510,7 @@ Like the teardown fixture, it calls **template methods directly through typed te
 
 ```python
 @pytest.fixture(scope="session", autouse=True)
-def sdwan_testbed_setup(devices):
+def sdwan_testbed_setup(devices, boardfarm_config):
     """Establish the SD-WAN testbed default state once per test session.
 
     Layer 2 responsibility (Boardfarm setup phase):
@@ -1501,14 +1523,18 @@ def sdwan_testbed_setup(devices):
     (not via use_cases) because this is testbed infrastructure, not a
     test operation. The concrete device class is never referenced by name.
     """
+    from boardfarm3.lib.traffic_control import profile_from_dict
+
     dut: WANEdgeDevice             = devices.dut
     wan1_tc: TrafficController     = devices.wan1_impairment
     wan2_tc: TrafficController     = devices.wan2_impairment
     streaming_server: StreamingServer = devices.app_server
 
     # Set baseline impairment state — no degradation applied by default
-    wan1_tc.set_impairment_profile(ImpairmentProfile.pristine())
-    wan2_tc.set_impairment_profile(ImpairmentProfile.pristine())
+    env_def = boardfarm_config.env_config.get("environment_def", {})
+    pristine = profile_from_dict(env_def["impairment_presets"]["pristine"])
+    wan1_tc.set_impairment_profile(pristine)
+    wan2_tc.set_impairment_profile(pristine)
 
     # Apply default DUT routing policy (all traffic forwarded, no PBR overrides)
     dut.apply_policy(default_wan_policy())
@@ -1520,7 +1546,7 @@ def sdwan_testbed_setup(devices):
     # Session-level teardown (if needed — typically not required)
 ```
 
-> **Fixture placement:** `sdwan_testbed_setup` lives in `tests/conftest.py` alongside the existing autouse teardown fixtures. It runs before any test scenario and does not interact with the Raikou network topology (Layer 1 — managed independently by `docker compose up`).
+> **Fixture placement:** `sdwan_testbed_setup` lives in `tests/conftest.py` alongside the existing autouse teardown fixtures. It runs before any test scenario and does not interact with the Raikou network topology (Layer 1 — managed independently by `docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml up`).
 
 ---
 
@@ -1528,7 +1554,7 @@ def sdwan_testbed_setup(devices):
 
 ### 4.1 Container-First Approach
 
-The testbed is built by **developing Docker containers first**, then aligning the Raikou docker-compose file to instantiate them. This approach allows each component to be developed and tested independently before integration.
+The testbed is built by **developing Docker containers first**, then aligning the Raikou `docker-compose-sdwan.yaml` file to instantiate them. This approach allows each component to be developed and tested independently before integration. See `SDWAN_Testbed_Configuration.md` for the configuration file reference (`bf_config_sdwan.json`, `bf_env_sdwan.json`, `docker-compose-sdwan.yaml`, `config_sdwan.json`).
 
 **Development order:**
 
@@ -1696,7 +1722,7 @@ These map directly to `tc netem reorder`, `corrupt`, and `duplicate` parameters.
 
 #### Canonical Preset Completeness
 
-All five canonical presets (`pristine`, `cable_typical`, `4g_mobile`, `satellite`, `congested`) must be present in every `boardfarm_env.json` under `environment_def.impairment_presets`. Tests that reference a preset by name will fail at init if the preset is absent. The `boardfarm_env_example.json` serves as the canonical reference.
+All five canonical presets (`pristine`, `cable_typical`, `4g_mobile`, `satellite`, `congested`) must be present in `bf_config/bf_env_sdwan.json` under `environment_def.impairment_presets`. Tests that reference a preset by name will fail at init if the preset is absent. See `SDWAN_Testbed_Configuration.md §6.2` for the SD-WAN testbed env config.
 
 ---
 
@@ -1745,7 +1771,7 @@ Each component has its own internal phase numbering (see linked documents). The 
 
     **Exit criteria:**
     * `raikou up` brings all containers online without manual intervention.
-    * Boardfarm `parse_boardfarm_config()` resolves all devices (DUT, both TrafficControllers, QoEClient, services) without error.
+    * Boardfarm `parse_boardfarm_config()` resolves all devices from `bf_config_sdwan.json` and `bf_env_sdwan.json` (DUT, both TrafficControllers, QoEClient, services) without error.
     * End-to-end ping from LAN Client to WAN-side service passes through DUT via both WAN paths.
 
 3. **Phase 3: Validation**

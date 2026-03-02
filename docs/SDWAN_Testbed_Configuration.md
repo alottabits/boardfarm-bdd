@@ -6,6 +6,30 @@
 
 ---
 
+## Configuration File Reference
+
+The SD-WAN testbed uses **dedicated configuration files** to keep it isolated from other testbeds (e.g. OpenWrt, prplOS). All references in this document and related implementation plans use these paths.
+
+| Purpose | File | Location |
+| :--- | :--- | :--- |
+| **Boardfarm inventory** | `bf_config_sdwan.json` | `bf_config/bf_config_sdwan.json` |
+| **Boardfarm environment** | `bf_env_sdwan.json` | `bf_config/bf_env_sdwan.json` |
+| **Docker Compose** | `docker-compose-sdwan.yaml` | `raikou/docker-compose-sdwan.yaml` |
+| **Raikou OVS topology** | `config_sdwan.json` | `raikou/config_sdwan.json` |
+
+**Docker project name:** `boardfarm-bdd-sdwan` (set via `name:` in `docker-compose-sdwan.yaml` or `-p boardfarm-bdd-sdwan`).
+
+**CLI usage:**
+```bash
+# Start the SD-WAN testbed
+docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml up -d
+
+# Run Boardfarm tests
+pytest --inventory-config bf_config/bf_config_sdwan.json --env-config bf_config/bf_env_sdwan.json ...
+```
+
+---
+
 ## Overview
 
 The SD-WAN testbed is a fully Dockerised, Raikou-orchestrated environment that simulates a WAN Edge Appliance deployment with two independent WAN paths and a set of North-side application services. It operates on two distinct network layers:
@@ -13,7 +37,7 @@ The SD-WAN testbed is a fully Dockerised, Raikou-orchestrated environment that s
 - **Docker Management Network** (`192.168.55.0/24`): Provides SSH access to all containers for Boardfarm orchestration (the DUT is the exception — see below).
 - **Simulated Network** (four OVS bridges): The functional testbed topology created by Raikou using Open vSwitch. This is the network through which test traffic actually flows.
 
-The Raikou orchestrator container reads a `config.json` file that declares the OVS bridge topology and the interface assignments for each container. Docker Compose starts the containers; Raikou then wires them together via OVS.
+The Raikou orchestrator container reads `config_sdwan.json` that declares the OVS bridge topology and the interface assignments for each container. Docker Compose (`docker-compose-sdwan.yaml`) starts the containers; Raikou then wires them together via OVS.
 
 ---
 
@@ -28,8 +52,9 @@ The Raikou orchestrator container reads a `config.json` file that declares the O
 | **WAN2 Traffic Controller** | Impairment (`TrafficController`) | `wan2-tc` | Linux `tc netem` impairment emulator on the Internet/Cable path. |
 | **LAN Client** | Client (`QoEClient`) | `lan-client` | Playwright-based QoE measurement container (productivity, streaming, conferencing). |
 | **LAN Traffic Generator** | Load (`TrafficGenerator`) | `lan-traffic-gen` | iPerf3 client container for QoS contention background load. |
-| **Application Server** | Server (North-side) | `app-server` | Nginx productivity server + Nginx HLS streaming edge (`nginx-s3-gateway` proxies to MinIO) + iPerf3 server. |
-| **MinIO Content Store** | Infrastructure | `minio` | S3-compatible object store. Holds HLS manifests and `.ts` segments. Connected to the `content-internal` Raikou OVS bridge so that only `app-server` reaches it for proxy traffic. The management host accesses the MinIO console/S3 API directly via a Docker management-network port for content ingest. |
+| **Productivity Server** | Server (North-side) | `productivity-server` | Nginx Mock SaaS (index.html, large_asset.js, /api/latency). Separate container enables L7 path steering. |
+| **Streaming Server** | Server (North-side) | `streaming-server` | Nginx HLS streaming edge (proxies to MinIO). Separate container enables L7 path steering. |
+| **MinIO Content Store** | Infrastructure | `minio` | S3-compatible object store. Holds HLS manifests and `.ts` segments. Connected to the `content-internal` Raikou OVS bridge so that only `streaming-server` reaches it for proxy traffic. The management host accesses the MinIO console/S3 API directly via a Docker management-network port for content ingest. |
 | **Conferencing Server** | Server (North-side) | `conf-server` | `pion`-based WebRTC Echo server for conferencing QoE measurement. |
 | **Malicious Host** | Threat (`MaliciousHost`) | `malicious-host` | Kali Linux container. Active inbound attacker + passive threat services (C2 listener, EICAR). |
 | **Log Collector** | Infrastructure | `log-collector` | Fluent Bit container on the management network. Reads all container stdout/stderr (including DUT) via the Docker socket and writes a unified, timestamped log to the host. No OVS interfaces — log traffic never enters the simulated network. |
@@ -43,7 +68,7 @@ The Raikou orchestrator container reads a `config.json` file that declares the O
 | `dut-wan1` | `10.10.1.0/30` | Point-to-point link: DUT WAN1 ↔ WAN1-TC south port |
 | `dut-wan2` | `10.10.2.0/30` | Point-to-point link: DUT WAN2 ↔ WAN2-TC south port |
 | `north-segment` | `172.16.0.0/24` | North side — application services and threat infrastructure |
-| `content-internal` | `10.100.0.0/30` | Internal only — `app-server` (nginx-s3-gateway) ↔ `minio` content origin |
+| `content-internal` | `10.100.0.0/30` | Internal only — `streaming-server` (HLS proxy) ↔ `minio` content origin |
 
 ---
 
@@ -65,7 +90,8 @@ flowchart LR
     TC2_MGMT[wan2-tc eth0<br/>192.168.55.x<br/>SSH:5002]
     LAN_MGMT[lan-client eth0<br/>192.168.55.x<br/>SSH:5003]
     GEN_MGMT[lan-traffic-gen eth0<br/>192.168.55.x<br/>SSH:5004]
-    APP_MGMT[app-server eth0<br/>192.168.55.x<br/>SSH:5005 HTTP:18080]
+    PROD_MGMT[productivity-server eth0<br/>192.168.55.x<br/>SSH:5005 HTTP:18080]
+    STREAM_MGMT[streaming-server eth0<br/>192.168.55.x<br/>SSH:5006 HTTP:18081]
     MINIO_MGMT[minio<br/>192.168.55.x<br/>S3-API:19000 Console:19001<br/>content ingest only]
     CONF_MGMT[conf-server eth0<br/>192.168.55.x<br/>SSH:5006 WSS:18443]
     MAL_MGMT[malicious-host eth0<br/>192.168.55.x<br/>SSH:5007]
@@ -75,7 +101,8 @@ flowchart LR
     MGMT -.->|SSH/Management| TC2_MGMT
     MGMT -.->|SSH/Management| LAN_MGMT
     MGMT -.->|SSH/Management| GEN_MGMT
-    MGMT -.->|SSH/Management| APP_MGMT
+    MGMT -.->|SSH/Management| PROD_MGMT
+    MGMT -.->|SSH/Management| STREAM_MGMT
     MGMT -.->|S3 API / mc CLI| MINIO_MGMT
     MGMT -.->|SSH/Management| CONF_MGMT
     MGMT -.->|SSH/Management| MAL_MGMT
@@ -83,7 +110,7 @@ flowchart LR
     classDef mgmt stroke-width:3px
     classDef container stroke-width:2px
     class MGMT mgmt
-    class DUT_MGMT,TC1_MGMT,TC2_MGMT,LAN_MGMT,GEN_MGMT,APP_MGMT,MINIO_MGMT,CONF_MGMT,MAL_MGMT container
+    class DUT_MGMT,TC1_MGMT,TC2_MGMT,LAN_MGMT,GEN_MGMT,PROD_MGMT,STREAM_MGMT,MINIO_MGMT,CONF_MGMT,MAL_MGMT container
 ```
 
 ### 2.2 Simulated Network Topology (Dual WAN)
@@ -112,7 +139,8 @@ graph LR
     TC2[wan2-tc<br/>TrafficController<br/>Internet/Cable path<br/>south: 10.10.2.2<br/>north: 172.16.0.2]
 
     %% --- NORTH SIDE SERVICES ---
-    APP[app-server<br/>Nginx Productivity + Streaming<br/>iPerf3 server<br/>172.16.0.10]
+    PROD[productivity-server<br/>Mock SaaS<br/>172.16.0.10]
+    STREAM[streaming-server<br/>HLS proxy<br/>172.16.0.11]
     CONF[conf-server<br/>WebRTC Echo<br/>172.16.0.11]
     MAL[malicious-host<br/>Kali Linux<br/>MaliciousHost<br/>172.16.0.20]
 
@@ -136,12 +164,13 @@ graph LR
     TC2 <-->|eth-north| BR_NORTH
 
     %% --- NORTH-SIDE CONNECTIONS ---
-    APP <-->|eth1| BR_NORTH
+    PROD <-->|eth1| BR_NORTH
+    STREAM <-->|eth1| BR_NORTH
     CONF <-->|eth1| BR_NORTH
     MAL <-->|eth1| BR_NORTH
 
     %% --- CONTENT-INTERNAL CONNECTIONS ---
-    APP <-->|eth2| BR_CONTENT
+    STREAM <-->|eth2| BR_CONTENT
     MINIO <-->|eth1| BR_CONTENT
 
     %% --- STYLING ---
@@ -155,7 +184,7 @@ graph LR
     class DUT dut
     class TC1,TC2 tc
     class LAN_CLIENT,LAN_GEN client
-    class APP,CONF,MAL north
+    class PROD,STREAM,CONF,MAL north
     class BR_LAN,BR_WAN1,BR_WAN2,BR_NORTH,BR_CONTENT bridge
     class MINIO infra
 ```
@@ -196,20 +225,21 @@ The simulated Internet/cloud services network. Both Traffic Controllers connect 
 
 | Container | Interface | IP Address | Role |
 | :--- | :--- | :--- | :--- |
-| `wan1-tc` | `eth-north` | `172.16.0.1/24` | WAN1 uplink to internet (egress applies WAN1 impairment) |
-| `wan2-tc` | `eth-north` | `172.16.0.2/24` | WAN2 uplink to internet (egress applies WAN2 impairment) |
-| `app-server` | `eth1` | `172.16.0.10/24` | Nginx productivity + VOD streaming + iPerf3 server |
+| `wan1-tc` | `eth-dut`, `eth-north` | `10.10.1.2/30`, `172.16.0.1/24` | Per-direction impairment: eth-north (forward), eth-dut (return) |
+| `wan2-tc` | `eth-dut`, `eth-north` | `10.10.2.2/30`, `172.16.0.2/24` | Per-direction impairment: eth-north (forward), eth-dut (return) |
+| `productivity-server` | `eth1` | `172.16.0.10/24` | Nginx Mock SaaS (productivity) |
+| `streaming-server` | `eth1` | `172.16.0.11/24` | Nginx HLS streaming edge |
 | `conf-server` | `eth1` | `172.16.0.11/24` | `pion`-based WebRTC Echo server |
 | `malicious-host` | `eth1` | `172.16.0.20/24` | Kali Linux — active attacks + passive C2/EICAR services |
 
 ### 3.5 Content-Internal Segment (`content-internal` bridge)
 
-An isolated point-to-point link between `app-server` and `minio`. This bridge is invisible to all test traffic — LAN clients cannot reach MinIO directly. The `nginx-s3-gateway` module running inside `app-server` proxies all HLS requests to MinIO over this bridge using the Raikou-assigned IP address (`10.100.0.2:9000`), deliberately avoiding Docker's default DNS resolution (`minio:9000`) to enforce testbed isolation.
+An isolated point-to-point link between `streaming-server` and `minio`. This bridge is invisible to all test traffic — LAN clients cannot reach MinIO directly. The streaming-server proxies all HLS requests to MinIO over this bridge using the Raikou-assigned IP address (`10.100.0.2:9000`), deliberately avoiding Docker's default DNS resolution (`minio:9000`) to enforce testbed isolation.
 
 | Container | Interface | IP Address | Role |
 | :--- | :--- | :--- | :--- |
-| `app-server` | `eth2` | `10.100.0.1/30` | nginx-s3-gateway → MinIO proxy egress |
-| `minio` | `eth1` | `10.100.0.2/30` | MinIO S3 API endpoint for app-server proxy |
+| `streaming-server` | `eth2` | `10.100.0.1/30` | HLS proxy → MinIO egress |
+| `minio` | `eth1` | `10.100.0.2/30` | MinIO S3 API endpoint for streaming-server proxy |
 
 > **Management access to MinIO:** The `minio` container also has a Docker management-network interface (`eth0`), which exposes ports 19000 (S3 API) and 19001 (web console) to the host. This is used exclusively for content ingest (`mc cp`) and operational debugging. It does not carry any testbed traffic.
 
@@ -217,7 +247,9 @@ An isolated point-to-point link between `app-server` and `minio`. This bridge is
 
 ## 4. Raikou Configuration
 
-### 4.1 `config.json` — OVS Bridge and Interface Assignments
+### 4.1 `config_sdwan.json` — OVS Bridge and Interface Assignments
+
+**Location:** `raikou/config_sdwan.json`
 
 The Raikou orchestrator reads this file at startup and:
 1. Creates the four OVS bridges.
@@ -328,7 +360,9 @@ The Raikou orchestrator reads this file at startup and:
 }
 ```
 
-### 4.2 `docker-compose.yaml`
+### 4.2 `docker-compose-sdwan.yaml`
+
+**Location:** `raikou/docker-compose-sdwan.yaml`
 
 #### Resource Allocation
 
@@ -357,7 +391,7 @@ The latency-sensitive containers (`linux-sdwan-router`, `wan1-tc`, `wan2-tc`) ha
 > **CI environments:** On a 4–8 vCPU CI runner, reduce `lan-client` to `cpus: '1.0'` and `app-server` to `cpus: '1.0'`. The `malicious-host` container can be excluded from Phase 1–3 runs (Security pillar not in scope until Phase 4).
 
 ```yaml
-name: sdwan-testbed
+name: boardfarm-bdd-sdwan
 ---
 services:
 
@@ -603,7 +637,7 @@ services:
         volumes:
             - /lib/modules:/lib/modules
             - /var/run/docker.sock:/var/run/docker.sock
-            - ./config.json:/root/config.json
+            - ./config_sdwan.json:/root/config.json
         privileged: true
         environment:
             - USE_LINUX_BRIDGE=false
@@ -716,7 +750,7 @@ With this configuration your browser routes traffic out via the `lan-client`'s `
 | Service reachable via proxy | URL |
 | :--- | :--- |
 | Productivity server | `http://172.16.0.10:8080/` |
-| HLS streaming edge | `http://172.16.0.10:8081/hls/default/index.m3u8` |
+| HLS streaming edge | `http://172.16.0.11:8081/hls/default/index.m3u8` |
 | WebRTC conferencing | `wss://172.16.0.11:8443/session1` |
 
 This is the primary tool for verifying that north-side services are reachable and rendering correctly, and for experiencing impairment profiles firsthand when calibrating QoE SLOs.
@@ -847,7 +881,7 @@ docker logs lan-client --follow
 
 #### Optional Extension — Loki + Grafana
 
-For structured querying and a visual timeline, add the following to `docker-compose.yaml`. Fluent Bit's existing pipeline requires one additional output block only; the flat file output continues to run alongside it.
+For structured querying and a visual timeline, add the following to `docker-compose-sdwan.yaml`. Fluent Bit's existing pipeline requires one additional output block only; the flat file output continues to run alongside it.
 
 **Additional compose services:**
 ```yaml
@@ -895,6 +929,8 @@ Access Grafana at `http://localhost:3001` (credentials: `admin` / `testbed`). Ad
 ## 6. Boardfarm Integration
 
 ### 6.1 Device Mapping (Boardfarm Inventory)
+
+**Location:** `bf_config/bf_config_sdwan.json` (or `--inventory-config` path)
 
 Inventory holds device identity and connection details. Topology keys (`dut_iface`, `north_iface`) describe the TC container's interfaces for reference; the interface to apply impairment on is defined in env config (§6.2).
 
@@ -996,17 +1032,16 @@ Inventory holds device identity and connection details. Topology keys (`dut_ifac
 
 ### 6.2 Environment Config (Boardfarm Env)
 
-**Location:** `bf_config/boardfarm_env.json` (or `--env-config` path)
+**Location:** `bf_config/bf_env_sdwan.json` (or `--env-config` path)
 
-The environment config defines per-device defaults and behavior. Each TrafficController **must** have `impairment_interface` in `environment_def` — it specifies which interface to apply tc/netem on. This is explicit per testbed for portability (Raikou/Docker layouts differ).
-
-For the SD-WAN dual-homed TC, impairment is applied on the north-facing interface (`eth-north`) where traffic egresses toward the north-segment. See `Traffic_Management_Components_Architecture.md §4.2`.
+The environment config defines per-device defaults and behavior. Each TrafficController **must** have impairment interface(s) in `environment_def`. For the SD-WAN dual-homed TC, use **per-direction interfaces**: `impairment_interface_north` (forward: client→server) and `impairment_interface_dut` (return: server→client). See `Traffic_Management_Components_Architecture.md §4.2, §4.4`.
 
 ```json
 {
   "environment_def": {
     "wan1_impairment": {
-      "impairment_interface": "eth-north",
+      "impairment_interface_north": "eth-north",
+      "impairment_interface_dut": "eth-dut",
       "impairment_profile": {
         "latency_ms": 5,
         "jitter_ms": 1,
@@ -1015,7 +1050,8 @@ For the SD-WAN dual-homed TC, impairment is applied on the north-facing interfac
       }
     },
     "wan2_impairment": {
-      "impairment_interface": "eth-north",
+      "impairment_interface_north": "eth-north",
+      "impairment_interface_dut": "eth-dut",
       "impairment_profile": {
         "latency_ms": 5,
         "jitter_ms": 1,
@@ -1036,8 +1072,8 @@ For the SD-WAN dual-homed TC, impairment is applied on the north-facing interfac
 
 ### 6.3 Startup Sequence
 
-1. **`docker compose up -d`** — starts all containers. Raikou starts last (`depends_on`). MinIO starts before `app-server` (declared dependency).
-2. **Raikou** reads `config.json`, creates OVS bridges, and injects veth pairs into each container with the configured IP and interface names.
+1. **`docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml up -d`** — starts all containers. Raikou starts last (`depends_on`). MinIO starts before `app-server` (declared dependency).
+2. **Raikou** reads `config_sdwan.json`, creates OVS bridges, and injects veth pairs into each container with the configured IP and interface names.
 3. **DUT startup** — FRR initialises BGP/OSPF adjacencies and policy-based routing. WAN1 and WAN2 interfaces receive their IPs from Raikou.
 4. **TC startup** — each Traffic Controller enables IP forwarding between `eth-dut` and `eth-north`. No impairment is applied by default (`pristine` state).
 5. **Content ingest (handled automatically by Boardfarm)** — The `sdwan_testbed_setup` session-scoped autouse fixture in `tests/conftest.py` calls `streaming_server.ensure_content_available()` through the typed `StreamingServer` template reference before the first test runs. The method is idempotent: it checks whether the asset is already present in MinIO and returns immediately if so; otherwise it runs FFmpeg content generation and `mc cp` ingest automatically.
@@ -1054,7 +1090,7 @@ For the SD-WAN dual-homed TC, impairment is applied on the north-facing interfac
     ```
     At runtime, `app-server` proxies to MinIO at `http://10.100.0.2:9000` over the `content-internal` Raikou bridge — not via Docker hostname resolution.
     See `Application_Services_Implementation_Plan.md §3.2` for the full FFmpeg command and bitrate ladder.
-6. **Boardfarm** connects to all containers via SSH (or `docker exec` for DUT), parses inventory and env config, instantiates devices with merged config (including `impairment_interface` from env for each TC), and the testbed is ready.
+6. **Boardfarm** connects to all containers via SSH (or `docker exec` for DUT), parses `bf_config_sdwan.json` and `bf_env_sdwan.json`, instantiates devices with merged config (including `impairment_interface_north` and `impairment_interface_dut` from env for each TC), and the testbed is ready.
 
 ---
 
@@ -1118,7 +1154,7 @@ lan-client (192.168.10.10) attempts outbound TCP → 172.16.0.20:4444
 | DUT–WAN1 (p2p) | `10.10.1.0/30` | DUT WAN1 ↔ WAN1-TC south |
 | DUT–WAN2 (p2p) | `10.10.2.0/30` | DUT WAN2 ↔ WAN2-TC south |
 | North Segment | `172.16.0.0/24` | Application services and threat infrastructure |
-| Content-Internal (p2p) | `10.100.0.0/30` | app-server (nginx-s3-gateway) ↔ MinIO origin — invisible to test traffic |
+| Content-Internal (p2p) | `10.100.0.0/30` | streaming-server (HLS proxy) ↔ MinIO origin — invisible to test traffic |
 
 ### 8.2 Service IP Quick Reference
 
@@ -1141,7 +1177,7 @@ lan-client (192.168.10.10) attempts outbound TCP → 172.16.0.20:4444
 
 ## 9. Triple WAN Expansion
 
-When expanding to Triple WAN (Project Phase 4), add the following to `config.json` and `docker-compose.yaml`:
+When expanding to Triple WAN (Project Phase 4), add the following to `config_sdwan.json` and `docker-compose-sdwan.yaml`:
 
 **Additional container:** `wan3-tc` (LTE/4G mobile path)
 
@@ -1156,7 +1192,7 @@ When expanding to Triple WAN (Project Phase 4), add the following to `config.jso
 }
 ```
 
-**`wan3-tc` config.json entry:**
+**`wan3-tc` config_sdwan.json entry:**
 ```json
 "wan3-tc": [
     { "bridge": "dut-wan3",    "iface": "eth-dut",   "ipaddress": "10.10.3.2/30" },
@@ -1170,9 +1206,11 @@ No changes are required to the North segment or application services — WAN3 si
 
 ## 10. Verification Commands
 
+All commands assume the SD-WAN testbed is running under project name `boardfarm-bdd-sdwan`. Run from the project root.
+
 ```bash
 # Verify all containers are running
-docker compose ps
+docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml ps
 
 # Check OVS bridge topology (run on host)
 docker exec orchestrator ovs-vsctl show

@@ -156,9 +156,9 @@ EASYRSA_SAN="DNS:hub.sdwan.testbed" \
 
 ## 6. Step 3 — Distribute Certificates via Volume Mounts
 
-Certificate files are mounted read-only into containers at startup. Add the following `volumes` entries to the relevant services in `docker-compose.yaml` when enabling Phase 3.5.
+Certificate files are mounted read-only into containers at startup. Add the following `volumes` entries to the relevant services in `raikou/docker-compose-sdwan.yaml` when enabling Phase 3.5.
 
-> **Note — HTTPS port mappings:** Enabling TLS on `app-server` and `conf-server` requires adding HTTPS port mappings alongside the HTTP ones. `app-server` gains `443` (HTTPS/HTTP3) and `conf-server`'s existing port `8443` changes from plain WS to WSS. Update the `ports:` blocks in `docker-compose.yaml` accordingly.
+> **Note — HTTPS port mappings:** Enabling TLS on `app-server` and `conf-server` requires adding HTTPS port mappings alongside the HTTP ones. `app-server` gains `443` (HTTPS/HTTP3) and `conf-server`'s existing port `8443` changes from plain WS to WSS. Update the `ports:` blocks in `docker-compose-sdwan.yaml` accordingly.
 
 **`app-server`:**
 
@@ -248,7 +248,7 @@ The `update-ca-certificates` command reads all `.crt` files in `/usr/local/share
 
 ## 8. Verification Commands
 
-Run after `docker compose up` to confirm each consumer has a valid, trusted certificate chain.
+Run after `docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml up` to confirm each consumer has a valid, trusted certificate chain.
 
 ### 8.1 Nginx TLS — app-server
 
@@ -330,7 +330,7 @@ easyrsa renew hub-strongswan nopass
 Then restart the affected containers:
 
 ```bash
-docker compose restart app-server conf-server linux-sdwan-router
+docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml restart app-server conf-server linux-sdwan-router
 ```
 
 No container rebuild is required — the renewed files in `pki/issued/` and `pki/private/` are read from the volume mount on next container startup.
