@@ -184,6 +184,32 @@ services:
                     cpus: '1.0'
                     memory: 256M
 
+    # ── Centralized Log Collector ──────────────────────────────────────────────
+    # Management network only. NOT in config_sdwan.json — no Raikou OVS interfaces.
+    # Tails Docker log files; unified output at ./logs/sdwan-testbed.log
+    # See: docs/Centralized_Log_Collector_Implementation.md
+    log-collector:
+        container_name: log-collector
+        image: fluent/fluent-bit:3.2
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - /var/lib/docker/containers:/var/lib/docker/containers:ro
+            - ./components/log-collector/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+            - ./components/log-collector/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+            - ./components/log-collector/format.lua:/fluent-bit/etc/format.lua:ro
+            - ./logs:/logs
+            - fluent-bit-db:/fluent-bit/db
+        hostname: log-collector
+        restart: unless-stopped
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.25'
+                    memory: 128M
+                reservations:
+                    cpus: '0.1'
+                    memory: 64M
+
     # ── Raikou OVS Orchestrator ────────────────────────────────────────────────
     raikou-net:
         container_name: orchestrator
@@ -225,3 +251,5 @@ networks:
 
 volumes:
     minio-data: {}
+    fluent-bit-db:
+        driver: local
