@@ -1,0 +1,21 @@
+{
+    "sdwan": {
+        "devices": [
+            {
+                "name": "sdwan",
+                "type": "linux_sdwan_router",
+                "connection_type": "local_cmd",
+                "conn_cmd": ["docker exec -i linux-sdwan-router bash -i"],
+                "wan_interfaces": {
+                    "wan1": "eth-wan1",
+                    "wan2": "eth-wan2"
+                },
+                "wan_gateways": {
+                    "wan1": "10.10.1.2",
+                    "wan2": "10.10.2.2"
+                },
+                "lan_interface": "eth-lan"
+            }
+        ]
+    }
+}

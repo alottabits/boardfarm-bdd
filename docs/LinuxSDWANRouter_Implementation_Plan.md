@@ -42,7 +42,17 @@ The container/VM exposes three primary network interfaces:
 *   **eth2 (WAN1):** Connected to WAN1 TrafficController (North-bound).
 *   **eth3 (WAN2):** Connected to WAN2 TrafficController (North-bound).
 
-> **SD-WAN Docker/Raikou deployment:** For the Raikou-based SD-WAN testbed, the DUT uses `network_mode: none` and Raikou-injected interfaces: `eth-lan`, `eth-wan1`, `eth-wan2` (no management interface). The `wan_interfaces` inventory maps logical labels to these names, e.g. `{"wan1": "eth-wan1", "wan2": "eth-wan2"}`. The topology above describes the VM/generic layout; see `SDWAN_Testbed_Configuration.md` for the Raikou-specific setup.
+> **SD-WAN Docker/Raikou deployment:** For the Raikou-based SD-WAN testbed, the device uses `network_mode: none` and Raikou-injected interfaces: `eth-lan`, `eth-wan1`, `eth-wan2` (no management interface). The `wan_interfaces` inventory maps logical labels to these names, e.g. `{"wan1": "eth-wan1", "wan2": "eth-wan2"}`. The topology above describes the VM/generic layout; see `SDWAN_Testbed_Configuration.md` for the Raikou-specific setup.
+
+### 2.3 Boardfarm Boot Hooks
+
+`LinuxSDWANRouter` implements `boardfarm_device_boot` and `boardfarm_device_boot_async` so Boardfarm can boot the device without `--skip-boot`. The boot sequence:
+
+1. **Connect** — establish console via `docker exec` (or SSH).
+2. **Power cycle** — for `local_cmd` / `docker_exec` only: run `reboot -f`, disconnect, retry connect until success or timeout.
+3. **Wait for interfaces** — verify `eth-lan`, `eth-wan1`, `eth-wan2` via `ip -o link show`.
+
+For containers, `restart: always` in docker-compose is required so the container restarts after `reboot`.
 
 ---
 
@@ -55,6 +65,8 @@ The container/VM exposes three primary network interfaces:
 *   Install `openssh`, `iproute2`, `tcpdump`, `iptables`, `net-tools`.
 *   Configure SSH keys for passwordless access (Boardfarm requirement).
 *   Enable IP forwarding (`net.ipv4.ip_forward=1`) via sysctl or entrypoint.
+
+**Container restart:** For `boardfarm_device_boot` (power cycle via `reboot -f`), the container must have `restart: always` in docker-compose so Docker restarts it after the reboot.
 
 **Capabilities:**
 The container requires elevated privileges to manipulate network stack:

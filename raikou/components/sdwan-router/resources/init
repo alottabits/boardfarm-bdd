@@ -36,8 +36,8 @@ wait_for_iface "$WAN2_IFACE"
 # Apply sysctl for IP forwarding
 sysctl -p /etc/sysctl.conf 2>/dev/null || true
 
-# Ensure FRR daemons are enabled (zebra, staticd, bfdd)
-for svc in zebra staticd bfdd; do
+# Ensure FRR daemons are enabled (zebra, staticd, bfdd, pbrd)
+for svc in zebra staticd bfdd pbrd; do
     if grep -q "^${svc}=no" /etc/frr/daemons 2>/dev/null; then
         sed -i "s/^${svc}=no/${svc}=yes/" /etc/frr/daemons
     fi
@@ -46,8 +46,18 @@ done
 echo "Starting FRR..."
 service frr start
 
-# Wait for FRR to apply config
-sleep 3
+# Wait for FRR daemons to be ready (vtysh can connect, routes installed)
+echo "Waiting for FRR daemons..."
+for i in $(seq 1 30); do
+    if vtysh -c "show ip route" 2>/dev/null | grep -q "0.0.0.0/0"; then
+        echo "FRR ready (routes installed)"
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        echo "WARNING: FRR routes not ready after 30s, continuing anyway"
+    fi
+    sleep 1
+done
 
 # Use iptables-legacy if available (some images have nft as default)
 if update-alternatives --list iptables 2>/dev/null | grep -q iptables-legacy; then

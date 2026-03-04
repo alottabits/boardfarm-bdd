@@ -1,11 +1,13 @@
-# FRR daemons for SD-WAN Router (Dual WAN, BFD failover)
+# FRR daemons for SD-WAN Router (Dual WAN, BFD failover, PBR steering)
 # zebra + staticd + bfdd (BFD echo mode for sub-second failover)
+# pbrd (Policy-Based Routing for LinuxSDWANRouter.apply_policy)
 #
 # See: docs/LinuxSDWANRouter_Implementation_Plan.md §3.2.1
 
 zebra=yes
 staticd=yes
 bfdd=yes
+pbrd=yes
 
 bgpd=no
 ospfd=no
@@ -20,7 +22,6 @@ nhrpd=no
 eigrpd=no
 babeld=no
 sharpd=no
-pbrd=no
 fabricd=no
 vrrpd=no
 pathd=no
@@ -29,3 +30,4 @@ vtysh_enable=yes
 zebra_options=" -A 127.0.0.1 -s 90000000"
 staticd_options="-A 127.0.0.1"
 bfdd_options=" -A 127.0.0.1"
+pbrd_options="-A 127.0.0.1"

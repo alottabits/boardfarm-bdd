@@ -78,7 +78,7 @@ The Raikou orchestrator container reads `config_sdwan.json` that declares the OV
 
 Boardfarm uses the Docker management network to SSH into containers for configuration, test execution, and log inspection. All containers except the DUT are connected to the management network via their `eth0` (Docker default).
 
-> **DUT access:** The `linux-sdwan-router` DUT uses `network_mode: none`. All its interfaces come from Raikou OVS. Boardfarm accesses it via `docker exec` (similar to the CPE in the home-gateway testbed). This prevents management-network traffic from influencing DUT forwarding decisions.
+> **Device access:** The `linux-sdwan-router` device uses `network_mode: none`. All its interfaces come from Raikou OVS. Boardfarm accesses it via `docker exec` (similar to the CPE in the home-gateway testbed). This prevents management-network traffic from influencing device forwarding decisions.
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '12px', 'fontFamily': 'arial' }}}%%
@@ -938,7 +938,7 @@ Inventory holds device identity and connection details. Topology keys (`dut_ifac
 {
     "devices": [
         {
-            "name": "dut",
+            "name": "sdwan",
             "type": "linux_sdwan_router",
             "connection_type": "docker_exec",
             "container_name": "linux-sdwan-router",
@@ -1074,7 +1074,7 @@ The environment config defines per-device defaults and behavior. Each TrafficCon
 
 1. **`docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml up -d`** — starts all containers. Raikou starts last (`depends_on`). MinIO starts before `app-server` (declared dependency).
 2. **Raikou** reads `config_sdwan.json`, creates OVS bridges, and injects veth pairs into each container with the configured IP and interface names.
-3. **DUT startup** — FRR initialises BGP/OSPF adjacencies and policy-based routing. WAN1 and WAN2 interfaces receive their IPs from Raikou.
+3. **Device startup** — The `linux-sdwan-router` container has `restart: always` so it restarts after `boardfarm_device_boot` power cycles it. FRR initialises BGP/OSPF adjacencies and policy-based routing. WAN1 and WAN2 interfaces receive their IPs from Raikou.
 4. **TC startup** — each Traffic Controller enables IP forwarding between `eth-dut` and `eth-north`. No impairment is applied by default (`pristine` state).
 5. **Content ingest (handled automatically by Boardfarm)** — The `sdwan_testbed_setup` session-scoped autouse fixture in `tests/conftest.py` calls `streaming_server.ensure_content_available()` through the typed `StreamingServer` template reference before the first test runs. The method is idempotent: it checks whether the asset is already present in MinIO and returns immediately if so; otherwise it runs FFmpeg content generation and `mc cp` ingest automatically.
 
@@ -1204,7 +1204,29 @@ No changes are required to the North segment or application services — WAN3 si
 
 ---
 
-## 10. Verification Commands
+## 10. Boardfarm Initialization (Device Boot)
+
+To run Boardfarm initialization **with** device boot (power cycle of `linux-sdwan-router`), use:
+
+```bash
+boardfarm --board-name sdwan \
+  --env-config bf_config/bf_env_sdwan.json \
+  --inventory-config bf_config/bf_config_sdwan.json
+```
+
+**Important:** Do **not** pass `--skip-boot`. With `--skip-boot`, Boardfarm runs `boardfarm_skip_boot` instead of `boardfarm_device_boot`, and the DUT will not be power cycled.
+
+When boot runs, you should see log lines:
+- `Booting sdwan (linux_sdwan_router)`
+- `Power cycling sdwan (connection_type=local_cmd)`
+- `Sending reboot command to sdwan`
+- `Reconnected to sdwan after reboot`
+
+The `linux-sdwan-router` container will restart (visible via `docker ps` — its "Up" time resets).
+
+---
+
+## 11. Verification Commands
 
 All commands assume the SD-WAN testbed is running under project name `boardfarm-bdd-sdwan`. Run from the project root.
 

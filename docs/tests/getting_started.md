@@ -80,6 +80,24 @@ pytest --board-name prplos-docker-1 \
 | `--save-console-logs` | Directory for console logs | `./logs/` |
 | `--skip-boot` | Skip device booting | (flag) |
 
+> **Note:** `--board-name` is required for the BoardfarmPlugin to register. Without it, fixtures like `devices` and `device_manager` will fail with "boardfarm plugin is not registered."
+
+### SD-WAN Linux Router Validation
+
+To validate the `LinuxSDWANRouter` device via boardfarm fixtures:
+
+```bash
+pytest tests/dc_methods/test_linux_sdwan_router.py -v \
+    --board-name sdwan \
+    --env-config bf_config/bf_env_sdwan.json \
+    --inventory-config bf_config/bf_config_sdwan.json \
+    --legacy \
+    --skip-boot \
+    --save-console-logs ""
+```
+
+Requires the `linux-sdwan-router` container to be running. See `tests/dc_methods/README.md` for details.
+
 ### Filtering Tests with `-k` Option
 
 The `-k` option allows you to filter tests by matching against test names, scenario names, and tags.

@@ -10,7 +10,7 @@ Dual-WAN router container for the SD-WAN testbed. Extends the router pattern (FR
 ## Features
 
 - **Interfaces:** eth-lan (192.168.10.1/24), eth-wan1 (10.10.1.1/30), eth-wan2 (10.10.2.1/30)
-- **FRR:** zebra, staticd, bfdd (BFD echo mode for sub-second failover)
+- **FRR:** zebra, staticd, bfdd (BFD echo mode for sub-second failover), pbrd (PBR steering)
 - **BFD:** echo-receive-interval 100 ms, detect-multiplier 3 (~300 ms detection)
 - **Static routes:** WAN1 metric 10 (primary), WAN2 metric 20 (backup)
 - **Base:** ssh:v1.2.0

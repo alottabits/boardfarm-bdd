@@ -18,6 +18,7 @@ services:
     # All interfaces from Raikou OVS (eth-lan, eth-wan1, eth-wan2). No Docker network.
     linux-sdwan-router:
         container_name: linux-sdwan-router
+        restart: always
         build:
             context: ./components/sdwan-router
             tags:

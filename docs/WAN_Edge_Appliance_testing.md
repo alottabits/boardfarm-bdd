@@ -257,11 +257,11 @@ class WANEdgeDevice(ABC):
 
         The return value is ALWAYS a key from the inventory ``wan_interfaces`` mapping
         (e.g. ``"wan1"``, ``"wan2"``), never a physical OS interface name (e.g. ``"eth2"``
-        or ``"GigabitEthernet0/0/0"``). This contract makes test code portable across DUT
-        implementations where physical interface names differ between vendors.
+        or ``"GigabitEthernet0/0/0"``). This contract makes test code portable across
+        device implementations where physical interface names differ between vendors.
 
         Implementations MUST:
-        1. Query the DUT for its active forwarding interface (via CLI, API, or NBI).
+        1. Query the device for its active forwarding interface (via CLI, API, or NBI).
         2. Reverse-look up the physical name in the ``wan_interfaces`` inventory mapping
            to obtain the logical label before returning.
 
@@ -274,13 +274,13 @@ class WANEdgeDevice(ABC):
         :param flow_dst: Optional destination IP/prefix to select a specific flow.
         :param via: Interface to use ("console" for CLI, "nbi" for API, "gui" for web dashboard).
         :return: Logical WAN label, e.g. ``"wan1"`` or ``"wan2"``.
-        :raises KeyError: if the physical interface returned by the DUT is absent from
+        :raises KeyError: if the physical interface returned by the device is absent from
             the ``wan_interfaces`` mapping.
         """
 
     @abstractmethod
     def get_wan_path_metrics(self, via: str = "console") -> dict[str, PathMetrics]:
-        """Return per-link quality metrics as measured by the DUT.
+        """Return per-link quality metrics as measured by the device.
 
         :param via: Interface to use.
         :return: Mapping of logical WAN label → PathMetrics (keys match ``wan_interfaces``).
@@ -337,8 +337,16 @@ class WANEdgeDevice(ABC):
         """
 
     @abstractmethod
+    def power_cycle(self) -> None:
+        """Power cycle (reboot) the device.
+
+        Implementation varies: PDU for hardware; reboot via console for containers
+        (requires restart: always in docker-compose).
+        """
+
+    @abstractmethod
     def get_telemetry(self, via: str = "nbi") -> dict:
-        """Return a snapshot of DUT telemetry (uptime, session counts, CPU, etc.).
+        """Return a snapshot of device telemetry (uptime, session counts, CPU, etc.).
         
         :param via: Interface to use.
         """
@@ -1568,7 +1576,7 @@ The initial proof-of-concept uses the following minimal set of containers:
 
 | Component | Purpose | Boardfarm Template | Notes |
 | :--- | :--- | :--- | :--- |
-| **Linux Router (DUT)** | FRR-based router with two WAN interfaces | `WANEdgeDevice` | Path steering, failover |
+| **Linux Router (device)** | FRR-based router with two WAN interfaces | `WANEdgeDevice` | Path steering, failover |
 | **WAN 1 (TrafficController)** | Impairment container for first WAN link | `TrafficController` | `tc`/netem |
 | **WAN 2 (TrafficController)** | Impairment container for second WAN link | `TrafficController` | `tc`/netem |
 | **WAN-side Services** | Productivity + Streaming servers | — | Mock SaaS, Nginx HLS/DASH |
@@ -1576,7 +1584,7 @@ The initial proof-of-concept uses the following minimal set of containers:
 
 **Topology:** `[LAN Client] → [DUT] → [WAN1 / WAN2] → [Services]`
 
-### 4.3 DUT: Linux Router with FRR (Dual WAN)
+### 4.3 Device: Linux Router with FRR (Dual WAN)
 
 Before validating commercial SD-WAN appliances, the testbed itself must be validated. We use a **Linux Router with FRR** as the software DUT placeholder.
 

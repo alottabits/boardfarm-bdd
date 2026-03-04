@@ -311,6 +311,12 @@ def sipcenter(devices):
     return getattr(devices, "sipcenter", None)
 
 
+@pytest.fixture
+def sdwan(devices):
+    """SD-WAN DUT (LinuxSDWANRouter) when available (e.g. --board-name sdwan)."""
+    return getattr(devices, "sdwan", None)
+
+
 @pytest.fixture(scope="function", autouse=True)
 def cleanup_cpe_config_after_scenario(
     acs: AcsTemplate, cpe: CpeTemplate, bf_context: Any
@@ -323,6 +329,10 @@ def cleanup_cpe_config_after_scenario(
     """
     # Run the scenario first
     yield
+
+    # Skip cleanup for non-CPE testbeds (e.g. SD-WAN) where acs/cpe are None
+    if cpe is None or acs is None:
+        return
 
     # Always refresh console connection to ensure it's valid for the next test
     # The previous test might have rebooted the CPE, and even if the connection
