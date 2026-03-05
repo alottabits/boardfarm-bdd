@@ -25,7 +25,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dante-server \
     iputils-ping \
     net-tools \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/* \
+    && pip3 install --no-cache-dir playwright==1.50.0 \
     && mkdir -p /run/sshd \
     && chmod 755 /run/sshd \
     && chmod +x /root/init \
@@ -34,6 +36,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && echo "root:boardfarm" | chpasswd \
     && sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config \
     && sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+# Point the Python playwright package at the browser binaries already present
+# in the base image — avoids downloading a second copy of Chromium.
+# Written to /etc/environment so SSH login sessions inherit it (Docker ENV is
+# only visible to processes started directly by Docker, not by sshd).
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN echo "PLAYWRIGHT_BROWSERS_PATH=/ms-playwright" >> /etc/environment
 
 EXPOSE 22 8080
 

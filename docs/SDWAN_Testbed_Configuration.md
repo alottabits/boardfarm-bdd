@@ -47,18 +47,18 @@ The Raikou orchestrator container reads `config_sdwan.json` that declares the OV
 
 | Component | Boardfarm Role | Container Name | Description |
 | :--- | :--- | :--- | :--- |
-| **Linux SD-WAN Router** | DUT (`WANEdgeDevice`) | `linux-sdwan-router` | Device Under Test. FRR (BGP/OSPF), Policy-Based Routing, dual WAN. |
+| **Linux SD-WAN Router** | DUT (`WANEdgeDevice`) | `linux-sdwan-router` | Device Under Test. FRR, Policy-Based Routing (pbr-map), dual WAN. |
 | **WAN1 Traffic Controller** | Impairment (`TrafficController`) | `wan1-tc` | Linux `tc netem` impairment emulator on the MPLS/Fiber path. |
 | **WAN2 Traffic Controller** | Impairment (`TrafficController`) | `wan2-tc` | Linux `tc netem` impairment emulator on the Internet/Cable path. |
 | **LAN Client** | Client (`QoEClient`) | `lan-client` | Playwright-based QoE measurement container (productivity, streaming, conferencing). |
-| **LAN Traffic Generator** | Load (`TrafficGenerator`) | `lan-traffic-gen` | iPerf3 client container for QoS contention background load. |
-| **Productivity Server** | Server (North-side) | `productivity-server` | Nginx Mock SaaS (index.html, large_asset.js, /api/latency). Separate container enables L7 path steering. |
-| **Streaming Server** | Server (North-side) | `streaming-server` | Nginx HLS streaming edge (proxies to MinIO). Separate container enables L7 path steering. |
-| **MinIO Content Store** | Infrastructure | `minio` | S3-compatible object store. Holds HLS manifests and `.ts` segments. Connected to the `content-internal` Raikou OVS bridge so that only `streaming-server` reaches it for proxy traffic. The management host accesses the MinIO console/S3 API directly via a Docker management-network port for content ingest. |
-| **Conferencing Server** | Server (North-side) | `conf-server` | `pion`-based WebRTC Echo server for conferencing QoE measurement. |
-| **Malicious Host** | Threat (`MaliciousHost`) | `malicious-host` | Kali Linux container. Active inbound attacker + passive threat services (C2 listener, EICAR). |
+| **Productivity Server** | Server (North-side) | `productivity-server` | Nginx Mock SaaS (index.html, large_asset.js, /api/latency). Separate from `streaming-server` to enable independent L7 path steering. |
+| **Streaming Server** | Server (North-side) | `streaming-server` | Nginx HLS streaming edge (proxies to MinIO via `content-internal` bridge). Separate from `productivity-server` to enable independent L7 path steering. |
+| **MinIO Content Store** | Infrastructure | `minio` | S3-compatible object store. Holds HLS manifests and `.ts` segments. Connected to the `content-internal` Raikou OVS bridge — only `streaming-server` reaches it for proxy traffic. The management host accesses the MinIO S3 API via a Docker management-network port for content ingest. |
 | **Log Collector** | Infrastructure | `log-collector` | Fluent Bit container on the management network. Reads all container stdout/stderr (including DUT) via the Docker socket and writes a unified, timestamped log to the host. No OVS interfaces — log traffic never enters the simulated network. |
 | **Raikou Orchestrator** | Infrastructure | `orchestrator` | OVS bridge manager. Creates and wires simulated network. No test traffic. |
+| **LAN Traffic Generator** _(Phase 2+)_ | Load (`TrafficGenerator`) | `lan-traffic-gen` | iPerf3 client container for QoS contention background load. Added when QoS pillar validation begins. |
+| **Conferencing Server** _(Phase 2+)_ | Server (North-side) | `conf-server` | `pion`-based WebRTC Echo server for conferencing QoE measurement. Added when conferencing QoE tests begin. |
+| **Malicious Host** _(Phase 4+)_ | Threat (`MaliciousHost`) | `malicious-host` | Kali Linux container. Active inbound attacker + passive threat services (C2 listener, EICAR). Added when Security pillar validation begins. |
 
 ### 1.2 Network Segments
 
@@ -88,29 +88,23 @@ flowchart LR
     DUT_MGMT[DUT Container<br/>No Management Network<br/>docker exec only]
     TC1_MGMT[wan1-tc eth0<br/>192.168.55.x<br/>SSH:5001]
     TC2_MGMT[wan2-tc eth0<br/>192.168.55.x<br/>SSH:5002]
-    LAN_MGMT[lan-client eth0<br/>192.168.55.x<br/>SSH:5003]
-    GEN_MGMT[lan-traffic-gen eth0<br/>192.168.55.x<br/>SSH:5004]
+    LAN_MGMT[lan-client eth0<br/>192.168.55.x<br/>SSH:5003 SOCKS:18090]
     PROD_MGMT[productivity-server eth0<br/>192.168.55.x<br/>SSH:5005 HTTP:18080]
     STREAM_MGMT[streaming-server eth0<br/>192.168.55.x<br/>SSH:5006 HTTP:18081]
     MINIO_MGMT[minio<br/>192.168.55.x<br/>S3-API:19000 Console:19001<br/>content ingest only]
-    CONF_MGMT[conf-server eth0<br/>192.168.55.x<br/>SSH:5006 WSS:18443]
-    MAL_MGMT[malicious-host eth0<br/>192.168.55.x<br/>SSH:5007]
 
     MGMT -.->|docker exec| DUT_MGMT
     MGMT -.->|SSH/Management| TC1_MGMT
     MGMT -.->|SSH/Management| TC2_MGMT
     MGMT -.->|SSH/Management| LAN_MGMT
-    MGMT -.->|SSH/Management| GEN_MGMT
     MGMT -.->|SSH/Management| PROD_MGMT
     MGMT -.->|SSH/Management| STREAM_MGMT
     MGMT -.->|S3 API / mc CLI| MINIO_MGMT
-    MGMT -.->|SSH/Management| CONF_MGMT
-    MGMT -.->|SSH/Management| MAL_MGMT
 
     classDef mgmt stroke-width:3px
     classDef container stroke-width:2px
     class MGMT mgmt
-    class DUT_MGMT,TC1_MGMT,TC2_MGMT,LAN_MGMT,GEN_MGMT,PROD_MGMT,STREAM_MGMT,MINIO_MGMT,CONF_MGMT,MAL_MGMT container
+    class DUT_MGMT,TC1_MGMT,TC2_MGMT,LAN_MGMT,PROD_MGMT,STREAM_MGMT,MINIO_MGMT container
 ```
 
 ### 2.2 Simulated Network Topology (Dual WAN)
@@ -122,7 +116,7 @@ This is the functional testbed network created by Raikou using OVS bridges. Test
 graph LR
     %% --- LAN SIDE ---
     LAN_CLIENT[lan-client<br/>QoEClient<br/>192.168.10.10]
-    LAN_GEN[lan-traffic-gen<br/>TrafficGenerator<br/>192.168.10.20]
+    LAN_GEN[lan-traffic-gen<br/>TrafficGenerator<br/>192.168.10.20<br/>Phase 2+]
 
     %% --- OVS BRIDGES ---
     BR_LAN[lan-segment bridge<br/>192.168.10.0/24]
@@ -141,15 +135,15 @@ graph LR
     %% --- NORTH SIDE SERVICES ---
     PROD[productivity-server<br/>Mock SaaS<br/>172.16.0.10]
     STREAM[streaming-server<br/>HLS proxy<br/>172.16.0.11]
-    CONF[conf-server<br/>WebRTC Echo<br/>172.16.0.11]
-    MAL[malicious-host<br/>Kali Linux<br/>MaliciousHost<br/>172.16.0.20]
+    CONF[conf-server<br/>WebRTC Echo<br/>172.16.0.12<br/>Phase 2+]
+    MAL[malicious-host<br/>Kali Linux<br/>MaliciousHost<br/>172.16.0.20<br/>Phase 4+]
 
     %% --- CONTENT ORIGIN ---
     MINIO[minio<br/>MinIO Content Store<br/>10.100.0.2]
 
     %% --- LAN CONNECTIONS ---
     LAN_CLIENT <-->|eth1| BR_LAN
-    LAN_GEN <-->|eth1| BR_LAN
+    LAN_GEN -. eth1 .-> BR_LAN
     DUT <-->|eth-lan| BR_LAN
 
     %% --- DUT-to-TC CONNECTIONS ---
@@ -166,8 +160,8 @@ graph LR
     %% --- NORTH-SIDE CONNECTIONS ---
     PROD <-->|eth1| BR_NORTH
     STREAM <-->|eth1| BR_NORTH
-    CONF <-->|eth1| BR_NORTH
-    MAL <-->|eth1| BR_NORTH
+    CONF -. eth1 .-> BR_NORTH
+    MAL -. eth1 .-> BR_NORTH
 
     %% --- CONTENT-INTERNAL CONNECTIONS ---
     STREAM <-->|eth2| BR_CONTENT
@@ -178,13 +172,16 @@ graph LR
     classDef tc fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:black
     classDef client fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:black
     classDef north fill:#fce4ec,stroke:#c62828,stroke-width:2px,color:black
+    classDef planned fill:#fafafa,stroke:#9e9e9e,stroke-width:1px,stroke-dasharray:5 5,color:#757575
     classDef bridge fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:black
     classDef infra fill:#f5f5f5,stroke:#616161,stroke-width:2px,color:black
 
     class DUT dut
     class TC1,TC2 tc
-    class LAN_CLIENT,LAN_GEN client
-    class PROD,STREAM,CONF,MAL north
+    class LAN_CLIENT client
+    class LAN_GEN planned
+    class PROD,STREAM north
+    class CONF,MAL planned
     class BR_LAN,BR_WAN1,BR_WAN2,BR_NORTH,BR_CONTENT bridge
     class MINIO infra
 ```
@@ -199,7 +196,7 @@ graph LR
 | :--- | :--- | :--- | :--- |
 | `linux-sdwan-router` | `eth-lan` | `192.168.10.1/24` | LAN gateway |
 | `lan-client` | `eth1` | `192.168.10.10/24` | QoEClient — Playwright measurements |
-| `lan-traffic-gen` | `eth1` | `192.168.10.20/24` | TrafficGenerator — iPerf3 client |
+| `lan-traffic-gen` _(Phase 2+)_ | `eth1` | `192.168.10.20/24` | TrafficGenerator — iPerf3 client |
 
 ### 3.2 DUT–WAN1 Segment (`dut-wan1` bridge)
 
@@ -228,9 +225,9 @@ The simulated Internet/cloud services network. Both Traffic Controllers connect 
 | `wan1-tc` | `eth-dut`, `eth-north` | `10.10.1.2/30`, `172.16.0.1/24` | Per-direction impairment: eth-north (forward), eth-dut (return) |
 | `wan2-tc` | `eth-dut`, `eth-north` | `10.10.2.2/30`, `172.16.0.2/24` | Per-direction impairment: eth-north (forward), eth-dut (return) |
 | `productivity-server` | `eth1` | `172.16.0.10/24` | Nginx Mock SaaS (productivity) |
-| `streaming-server` | `eth1` | `172.16.0.11/24` | Nginx HLS streaming edge |
-| `conf-server` | `eth1` | `172.16.0.11/24` | `pion`-based WebRTC Echo server |
-| `malicious-host` | `eth1` | `172.16.0.20/24` | Kali Linux — active attacks + passive C2/EICAR services |
+| `streaming-server` | `eth1`, `eth2` | `172.16.0.11/24`, `10.100.0.1/30` | Nginx HLS streaming edge (`eth1` north-segment, `eth2` content-internal to MinIO) |
+| `conf-server` _(Phase 2+)_ | `eth1` | `172.16.0.12/24` | `pion`-based WebRTC Echo server |
+| `malicious-host` _(Phase 4+)_ | `eth1` | `172.16.0.20/24` | Kali Linux — active attacks + passive C2/EICAR services |
 
 ### 3.5 Content-Internal Segment (`content-internal` bridge)
 
@@ -314,19 +311,20 @@ The Raikou orchestrator reads this file at startup and:
                 "gateway":   "192.168.10.1"
             }
         ],
-        "lan-traffic-gen": [
-            {
-                "bridge":    "lan-segment",
-                "iface":     "eth1",
-                "ipaddress": "192.168.10.20/24",
-                "gateway":   "192.168.10.1"
-            }
-        ],
-        "app-server": [
+        "productivity-server": [
             {
                 "bridge":    "north-segment",
                 "iface":     "eth1",
-                "ipaddress": "172.16.0.10/24"
+                "ipaddress": "172.16.0.10/24",
+                "gateway":   "172.16.0.1"
+            }
+        ],
+        "streaming-server": [
+            {
+                "bridge":    "north-segment",
+                "iface":     "eth1",
+                "ipaddress": "172.16.0.11/24",
+                "gateway":   "172.16.0.1"
             },
             {
                 "bridge":    "content-internal",
@@ -340,21 +338,10 @@ The Raikou orchestrator reads this file at startup and:
                 "iface":     "eth1",
                 "ipaddress": "10.100.0.2/30"
             }
-        ],
-        "conf-server": [
-            {
-                "bridge":    "north-segment",
-                "iface":     "eth1",
-                "ipaddress": "172.16.0.11/24"
-            }
-        ],
-        "malicious-host": [
-            {
-                "bridge":    "north-segment",
-                "iface":     "eth1",
-                "ipaddress": "172.16.0.20/24"
-            }
         ]
+        // Phase 2+: add "lan-traffic-gen" (192.168.10.20/24, lan-segment)
+        //           and "conf-server" (172.16.0.12/24, north-segment)
+        // Phase 4+: add "malicious-host" (172.16.0.20/24, north-segment)
     },
     "vlan_translations": []
 }
@@ -380,40 +367,51 @@ The latency-sensitive containers (`linux-sdwan-router`, `wan1-tc`, `wan2-tc`) ha
 | `linux-sdwan-router` | 2.0 | 1.5 | 512M | BFD timer sensitivity — guaranteed cores |
 | `wan1-tc` / `wan2-tc` | 0.5 | 0.25 | 128M | `tc netem` is kernel-driven; container is near-idle |
 | `lan-client` | 3.0 | 1.5 | 3G | Chromium + WebRTC codec work; largest memory consumer |
-| `lan-traffic-gen` | 1.0 | 0.5 | 256M | iPerf3 UDP at 85 Mbps is PPS-heavy in userspace |
-| `app-server` | 2.0 | 1.0 | 512M | Nginx + iPerf3 server + nginx-s3-gateway proxy |
-| `minio` | 1.0 | 0.5 | 2G | Memory-heavy during FFmpeg content ingest phase |
-| `conf-server` | 0.5 | 0.25 | 256M | pion WebRTC echo — trivially light |
-| `malicious-host` | 1.5 | 0.5 | 256M | Brief spikes during nmap scans / hping3 floods |
+| `productivity-server` | 1.0 | 0.5 | 256M | Nginx serving static assets |
+| `streaming-server` | 2.0 | 1.0 | 512M | Nginx + MinIO proxy for HLS segments |
+| `minio` | 1.0 | — | 256M | Content origin; management-plane ingest only |
 | `log-collector` | 0.25 | 0.1 | 128M | Fluent Bit is extremely lightweight at this log volume |
 | `raikou-net` | 0.5 | 0.25 | 128M | Startup only; idle during tests |
+| `lan-traffic-gen` _(Phase 2+)_ | 1.0 | 0.5 | 256M | iPerf3 UDP at 85 Mbps is PPS-heavy in userspace |
+| `conf-server` _(Phase 2+)_ | 0.5 | 0.25 | 256M | pion WebRTC echo — trivially light |
+| `malicious-host` _(Phase 4+)_ | 1.5 | 0.5 | 256M | Brief spikes during nmap scans / hping3 floods |
 
-> **CI environments:** On a 4–8 vCPU CI runner, reduce `lan-client` to `cpus: '1.0'` and `app-server` to `cpus: '1.0'`. The `malicious-host` container can be excluded from Phase 1–3 runs (Security pillar not in scope until Phase 4).
+> **CI environments:** On a 4–8 vCPU CI runner, reduce `lan-client` to `cpus: '1.0'` and `streaming-server` to `cpus: '1.0'`. Phase 2+ containers (`lan-traffic-gen`, `conf-server`) and Phase 4+ containers (`malicious-host`) are not in scope until their respective pillars are validated.
 
 ```yaml
+# SD-WAN Testbed — Phase 1
+# Dual-WAN router + Raikou OVS orchestrator.
+#
+# NETWORKING: Containers are NOT connected via Docker networks for test traffic.
+# - Test traffic flows through Raikou OVS bridges (lan-segment, dut-wan1, dut-wan2,
+#   north-segment). Raikou injects interfaces per config_sdwan.json.
+# - The default network (192.168.55.0/24) is management-only: SSH access and host
+#   port mapping. DUT uses network_mode: none (all interfaces from Raikou).
+#
+# See: docs/SDWAN_Testbed_Configuration.md
+# Usage: docker compose -p boardfarm-bdd-sdwan -f docker-compose-sdwan.yaml up -d
+
 name: boardfarm-bdd-sdwan
 ---
 services:
 
     # ── Device Under Test ──────────────────────────────────────────────────────
+    # All interfaces from Raikou OVS (eth-lan, eth-wan1, eth-wan2). No Docker network.
+    # restart: always ensures power_cycle() (docker restart) is fully effective.
     linux-sdwan-router:
         container_name: linux-sdwan-router
+        restart: always
         build:
             context: ./components/sdwan-router
             tags:
-                - sdwan-router:v0.1.0
-        # network_mode: none — all interfaces come from Raikou OVS.
-        # Boardfarm accesses DUT via `docker exec`.
+                - sdwan-router:sdwan_frr_0.01
         network_mode: none
         privileged: true
         hostname: sdwan-router
         environment:
-            - FRR_AUTO_CONF=yes
+            - LAN_IFACE=eth-lan
             - WAN1_IFACE=eth-wan1
             - WAN2_IFACE=eth-wan2
-            - LAN_IFACE=eth-lan
-        depends_on:
-            - raikou-net
         deploy:
             resources:
                 limits:
@@ -424,12 +422,13 @@ services:
                     memory: 256M
 
     # ── Traffic Controllers (WAN Impairment) ───────────────────────────────────
+    # Test traffic via Raikou OVS: eth-dut (dut-wan1), eth-north (north-segment).
     wan1-tc:
         container_name: wan1-tc
         build:
             context: ./components/traffic-controller
             tags:
-                - traffic-controller:v0.1.0
+                - traffic-controller:traffic_controller_0.01
         ports:
             - "5001:22"
         environment:
@@ -438,8 +437,6 @@ services:
             - LEGACY=no
         privileged: true
         hostname: wan1-tc
-        depends_on:
-            - raikou-net
         deploy:
             resources:
                 limits:
@@ -449,12 +446,13 @@ services:
                     cpus: '0.25'
                     memory: 64M
 
+    # Test traffic via Raikou OVS: eth-dut (dut-wan2), eth-north (north-segment).
     wan2-tc:
         container_name: wan2-tc
         build:
             context: ./components/traffic-controller
             tags:
-                - traffic-controller:v0.1.0
+                - traffic-controller:traffic_controller_0.01
         ports:
             - "5002:22"
         environment:
@@ -463,8 +461,6 @@ services:
             - LEGACY=no
         privileged: true
         hostname: wan2-tc
-        depends_on:
-            - raikou-net
         deploy:
             resources:
                 limits:
@@ -474,22 +470,21 @@ services:
                     cpus: '0.25'
                     memory: 64M
 
-    # ── LAN-Side Clients ───────────────────────────────────────────────────────
+    # ── QoE Client (Playwright) ─────────────────────────────────────────────────
+    # Test traffic via Raikou OVS: eth1 (lan-segment). Docker eth0 for SSH/port mapping only.
     lan-client:
         container_name: lan-client
         build:
             context: ./components/lan-client
             tags:
-                - lan-client:v0.1.0
+                - lan-client:qoe_client_0.01
         ports:
             - "5003:22"
-            - "18090:8080"   # Dante SOCKS v5 proxy — developer access to LAN-side services (see §5.2)
+            - "18090:8080"   # Dante SOCKS v5 proxy — developer access to LAN-side services
         environment:
             - LEGACY=no
         privileged: true
         hostname: lan-client
-        depends_on:
-            - raikou-net
         deploy:
             resources:
                 limits:
@@ -499,20 +494,21 @@ services:
                     cpus: '1.5'
                     memory: 1G
 
-    lan-traffic-gen:
-        container_name: lan-traffic-gen
+    # ── North-Side Application Services ────────────────────────────────────────
+    # Separate containers enable L7 path steering: productivity vs streaming via different WAN paths.
+    productivity-server:
+        container_name: productivity-server
         build:
-            context: ./components/traffic-generator
+            context: ./components/productivity-server
             tags:
-                - traffic-generator:v0.1.0
+                - productivity-server:productivity_server_0.01
         ports:
-            - "5004:22"
+            - "5005:22"
+            - "18080:8080"       # Nginx productivity (HTTP)
         environment:
             - LEGACY=no
         privileged: true
-        hostname: lan-traffic-gen
-        depends_on:
-            - raikou-net
+        hostname: productivity-server
         deploy:
             resources:
                 limits:
@@ -522,57 +518,20 @@ services:
                     cpus: '0.5'
                     memory: 128M
 
-    # ── Content Origin ─────────────────────────────────────────────────────────
-    minio:
-        container_name: minio
-        image: minio/minio:latest
-        command: server /data --console-address ":9001"
-        ports:
-            - "19000:9000"       # S3 API — management-plane content ingest only (mc cp)
-            - "19001:9001"       # MinIO web console — debugging/browsing
-        environment:
-            - MINIO_ROOT_USER=testbed
-            - MINIO_ROOT_PASSWORD=testbed-secret
-        volumes:
-            - minio-data:/data   # Persists content across container restarts
-        hostname: minio
-        # Raikou injects eth1 (10.100.0.2/30) on the content-internal bridge.
-        # app-server proxies to this address via nginx-s3-gateway.
-        # The management-network eth0 exposes ports 19000/19001 for content ingest ONLY.
-        depends_on:
-            - raikou-net
-        deploy:
-            resources:
-                limits:
-                    cpus: '1.0'
-                    memory: 2G
-                reservations:
-                    cpus: '0.5'
-                    memory: 512M
-
-    # ── North-Side Application Services ────────────────────────────────────────
-    app-server:
-        container_name: app-server
+    # Test traffic via Raikou OVS: eth1 (north-segment), eth2 (content-internal → MinIO).
+    streaming-server:
+        container_name: streaming-server
         build:
-            context: ./components/app-server
+            context: ./components/streaming-server
             tags:
-                - app-server:v0.1.0
+                - streaming-server:streaming_server_0.01
         ports:
-            - "5005:22"
-            - "18080:8080"       # Nginx productivity (HTTP)
-            - "18081:8081"       # Nginx HLS streaming edge (proxies to MinIO via nginx-s3-gateway)
-            # iPerf3 server (5201) is on the simulated network only — no host port mapping
+            - "5006:22"
+            - "18081:8081"       # Nginx streaming (HLS proxy)
         environment:
             - LEGACY=no
-            - MINIO_ENDPOINT=http://10.100.0.2:9000
-            - MINIO_BUCKET=streaming-content
-            - MINIO_ACCESS_KEY=testbed
-            - MINIO_SECRET_KEY=testbed-secret
         privileged: true
-        hostname: app-server
-        depends_on:
-            - raikou-net
-            - minio
+        hostname: streaming-server
         deploy:
             resources:
                 limits:
@@ -582,53 +541,55 @@ services:
                     cpus: '1.0'
                     memory: 256M
 
-    conf-server:
-        container_name: conf-server
+    # ── Content Origin (MinIO) ───────────────────────────────────────────────────
+    # S3-compatible store for HLS content. Raikou OVS: eth1 on content-internal only.
+    # Management: host ports 19000 (S3 API), 19001 (console) via Docker.
+    minio:
+        container_name: minio
         build:
-            context: ./components/conf-server
+            context: ./components/minio
             tags:
-                - conf-server:v0.1.0
+                - minio:content_origin_0.01
         ports:
-            - "5006:22"
-            - "18443:8443"       # WebRTC Echo signalling (WSS)
+            - "19000:9000"       # S3 API (management ingest)
+            - "19001:9001"       # Web console
         environment:
-            - LEGACY=no
+            - MINIO_ROOT_USER=testbed
+            - MINIO_ROOT_PASSWORD=testbed-secret
+        volumes:
+            - minio-data:/data
         privileged: true
-        hostname: conf-server
-        depends_on:
-            - raikou-net
+        hostname: minio
         deploy:
             resources:
                 limits:
-                    cpus: '0.5'
+                    cpus: '1.0'
                     memory: 256M
-                reservations:
+
+    # ── Centralized Log Collector ──────────────────────────────────────────────
+    # Management network only. NOT in config_sdwan.json — no Raikou OVS interfaces.
+    # Tails Docker log files; unified output at ./logs/sdwan-testbed.log
+    log-collector:
+        container_name: log-collector
+        image: fluent/fluent-bit:3.2
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - /var/lib/docker/containers:/var/lib/docker/containers:ro
+            - ./components/log-collector/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+            - ./components/log-collector/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+            - ./components/log-collector/format.lua:/fluent-bit/etc/format.lua:ro
+            - ./logs:/logs
+            - fluent-bit-db:/fluent-bit/db
+        hostname: log-collector
+        restart: unless-stopped
+        deploy:
+            resources:
+                limits:
                     cpus: '0.25'
                     memory: 128M
-
-    # ── Threat Infrastructure (Phase 4 — Expansion) ───────────────────────────
-    malicious-host:
-        container_name: malicious-host
-        build:
-            context: ./components/malicious-host
-            tags:
-                - malicious-host:v0.1.0
-        ports:
-            - "5007:22"
-        environment:
-            - LEGACY=no
-        privileged: true
-        hostname: malicious-host
-        depends_on:
-            - raikou-net
-        deploy:
-            resources:
-                limits:
-                    cpus: '1.5'
-                    memory: 256M
                 reservations:
-                    cpus: '0.5'
-                    memory: 128M
+                    cpus: '0.1'
+                    memory: 64M
 
     # ── Raikou OVS Orchestrator ────────────────────────────────────────────────
     raikou-net:
@@ -646,14 +607,12 @@ services:
         hostname: orchestrator
         depends_on:
             - linux-sdwan-router
+            - lan-client
             - wan1-tc
             - wan2-tc
-            - lan-client
-            - lan-traffic-gen
-            - app-server
+            - productivity-server
+            - streaming-server
             - minio
-            - conf-server
-            - malicious-host
         deploy:
             resources:
                 limits:
@@ -663,37 +622,7 @@ services:
                     cpus: '0.25'
                     memory: 64M
 
-    # ── Centralized Log Collector ──────────────────────────────────────────────
-    log-collector:
-        container_name: log-collector
-        image: cr.fluentbit.io/fluent/fluent-bit:3.3
-        volumes:
-            # Docker socket — read-only access to all container logs via the daemon.
-            # Works for network_mode: none containers (DUT) because Docker itself
-            # captures stdout/stderr regardless of the container's network stack.
-            - /var/run/docker.sock:/var/run/docker.sock:ro
-            # Docker log files — Fluent Bit tails these directly for low-latency capture.
-            - /var/lib/docker/containers:/var/lib/docker/containers:ro
-            # Fluent Bit configuration (see §5.4 for full config content)
-            - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
-            - ./fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
-            # Unified log output on the host — grepable, rotating, 7-day retention
-            - ./logs:/logs
-            # Position database — tracks tail offsets across container restarts
-            - fluent-bit-db:/fluent-bit/db
-        hostname: log-collector
-        restart: unless-stopped
-        # Management network only — no OVS interfaces injected by Raikou.
-        # Log traffic flows on the management network (eth0), never on OVS bridges.
-        deploy:
-            resources:
-                limits:
-                    cpus: '0.25'
-                    memory: 128M
-                reservations:
-                    cpus: '0.1'
-                    memory: 64M
-
+# Management network only — SSH and host port mapping. Test traffic uses Raikou OVS.
 networks:
     default:
         ipam:
@@ -702,12 +631,12 @@ networks:
                   gateway: 192.168.55.1
 
 volumes:
-    minio-data:
-        driver: local    # Persists HLS content across container restarts
+    minio-data: {}
     fluent-bit-db:
-        driver: local    # Persists Fluent Bit tail position across container restarts
+        driver: local
 ```
 
+> **Phase 2+ services** (`lan-traffic-gen`, `conf-server`) and **Phase 4+ services** (`malicious-host`) are added to the compose file and `config_sdwan.json` when their respective testing pillars begin implementation.
 ---
 
 ## 5. Container Specifications
@@ -720,11 +649,12 @@ volumes:
 | `wan1-tc` | 5001 | — | `ssh -p 5001 root@localhost` | |
 | `wan2-tc` | 5002 | — | `ssh -p 5002 root@localhost` | |
 | `lan-client` | 5003 | 18090 (SOCKS v5 proxy) | `ssh -p 5003 root@localhost` | SOCKS proxy for developer browser access to LAN-side services — see §5.2 |
-| `lan-traffic-gen` | 5004 | — | `ssh -p 5004 root@localhost` | |
-| `app-server` | 5005 | 18080 (HTTP prod), 18081 (HLS edge) | `ssh -p 5005 root@localhost` | HLS edge proxies to MinIO; iPerf3 on simulated net only |
+| `productivity-server` | 5005 | 18080 (HTTP prod) | `ssh -p 5005 root@localhost` | Nginx productivity SaaS |
+| `streaming-server` | 5006 | 18081 (HLS edge) | `ssh -p 5006 root@localhost` | HLS proxy to MinIO via content-internal |
 | `minio` | — | 19000 (S3 API), 19001 (Console) | `mc alias set testbed http://localhost:19000 testbed testbed-secret` | Management network (ingest/debug only); eth1 on `content-internal` bridge carries proxy traffic |
-| `conf-server` | 5006 | 18443 (WSS) | `ssh -p 5006 root@localhost` | |
-| `malicious-host` | 5007 | — | `ssh -p 5007 root@localhost` | |
+| `lan-traffic-gen` _(Phase 2+)_ | 5004 | — | `ssh -p 5004 root@localhost` | |
+| `conf-server` _(Phase 2+)_ | 5007 | 18443 (WSS) | `ssh -p 5007 root@localhost` | |
+| `malicious-host` _(Phase 4+)_ | 5008 | — | `ssh -p 5008 root@localhost` | |
 | `log-collector` | — | — | `tail -f logs/sdwan-testbed.log` | Management network only; no OVS interfaces — see §5.4 |
 
 **Default credentials:** `root` / `boardfarm`
@@ -751,7 +681,7 @@ With this configuration your browser routes traffic out via the `lan-client`'s `
 | :--- | :--- |
 | Productivity server | `http://172.16.0.10:8080/` |
 | HLS streaming edge | `http://172.16.0.11:8081/hls/default/index.m3u8` |
-| WebRTC conferencing | `wss://172.16.0.11:8443/session1` |
+| WebRTC conferencing _(Phase 2+)_ | `wss://172.16.0.12:8443/session1` |
 
 This is the primary tool for verifying that north-side services are reachable and rendering correctly, and for experiencing impairment profiles firsthand when calibrating QoE SLOs.
 
@@ -773,11 +703,13 @@ See `QoE_Client_Implementation_Plan.md §3.4` for the full tracing setup and CI 
 | `linux-sdwan-router` | `components/sdwan-router` | `frr`, `iproute2`, `iptables`, `strongswan` |
 | `wan1-tc`, `wan2-tc` | `components/traffic-controller` | `iproute2` (tc + netem), `openssh-server` |
 | `lan-client` | `components/lan-client` | `playwright`, `chromium`, `openssh-server` |
-| `lan-traffic-gen` | `components/traffic-generator` | `iperf3`, `openssh-server`, `iproute2` |
-| `app-server` | `components/app-server` | `nginx`, `iperf3`, `openssh-server` |
-| `conf-server` | `components/conf-server` | `pion` WebRTC Echo binary, `openssh-server` |
-| `malicious-host` | `components/malicious-host` | `kali-linux-core`, `nmap`, `hping3`, `netcat`, `openssh-server` |
-| `log-collector` | `cr.fluentbit.io/fluent/fluent-bit:3.3` (official image, no custom build) | — |
+| `productivity-server` | `components/productivity-server` | `nginx`, `openssh-server` |
+| `streaming-server` | `components/streaming-server` | `nginx`, `openssh-server` |
+| `minio` | `components/minio` | Custom build on MinIO base |
+| `log-collector` | `fluent/fluent-bit:3.2` (official image, no custom build) | — |
+| `lan-traffic-gen` _(Phase 2+)_ | `components/traffic-generator` | `iperf3`, `openssh-server`, `iproute2` |
+| `conf-server` _(Phase 2+)_ | `components/conf-server` | `pion` WebRTC Echo binary, `openssh-server` |
+| `malicious-host` _(Phase 4+)_ | `components/malicious-host` | `kali-linux-core`, `nmap`, `hping3`, `netcat`, `openssh-server` |
 
 ---
 
@@ -980,52 +912,33 @@ Inventory holds device identity and connection details. Topology keys (`dut_ifac
             "password": "boardfarm"
         },
         {
-            "name": "lan_traffic_gen",
-            "type": "iperf_traffic_generator",
-            "connection_type": "ssh",
-            "ipaddr": "localhost",
-            "port": 5004,
-            "username": "root",
-            "password": "boardfarm"
-        },
-        {
-            "name": "app_server",
-            "type": "nginx_app_server",
+            "name": "productivity_server",
+            "type": "nginx_productivity_server",
             "connection_type": "ssh",
             "ipaddr": "localhost",
             "port": 5005,
             "username": "root",
             "password": "boardfarm",
-            "simulated_ip": "172.16.0.10",
-            "streaming": {
-                "s3_endpoint": "http://10.100.0.2:9000",
-                "s3_bucket": "streaming-content",
-                "s3_access_key": "testbed",
-                "s3_secret_key": "testbed-secret",
-                "hls_base_url": "http://172.16.0.10:8081/hls"
-            }
+            "simulated_ip": "172.16.0.10"
         },
         {
-            "name": "conf_server",
-            "type": "webrtc_echo_server",
+            "name": "streaming_server",
+            "type": "nginx_streaming_server",
             "connection_type": "ssh",
             "ipaddr": "localhost",
             "port": 5006,
             "username": "root",
             "password": "boardfarm",
             "simulated_ip": "172.16.0.11",
-            "wss_url": "wss://172.16.0.11:8443/session1"
-        },
-        {
-            "name": "malicious_host",
-            "type": "kali_malicious_host",
-            "connection_type": "ssh",
-            "ipaddr": "localhost",
-            "port": 5007,
-            "username": "root",
-            "password": "boardfarm",
-            "simulated_ip": "172.16.0.20"
+            "hls_base_url": "http://172.16.0.11:8081/hls",
+            "s3_endpoint": "http://10.100.0.2:9000",
+            "s3_bucket": "streaming-content",
+            "s3_access_key": "testbed",
+            "s3_secret_key": "testbed-secret"
         }
+        // Phase 2+: add "lan_traffic_gen" (port: 5004, type: iperf_traffic_generator)
+        //           and "conf_server"     (port: 5007, simulated_ip: "172.16.0.12")
+        // Phase 4+: add "malicious_host"  (port: 5008, simulated_ip: "172.16.0.20")
     ]
 }
 ```
@@ -1072,13 +985,13 @@ The environment config defines per-device defaults and behavior. Each TrafficCon
 
 ### 6.3 Startup Sequence
 
-1. **`docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml up -d`** — starts all containers. Raikou starts last (`depends_on`). MinIO starts before `app-server` (declared dependency).
+1. **`docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml up -d`** — starts all containers. Raikou starts last (`depends_on`). The `streaming-server` may start before MinIO is ready — content ingest is handled by the Boardfarm session fixture, not at startup.
 2. **Raikou** reads `config_sdwan.json`, creates OVS bridges, and injects veth pairs into each container with the configured IP and interface names.
 3. **Device startup** — The `linux-sdwan-router` container has `restart: always` so it restarts after `boardfarm_device_boot` power cycles it. FRR initialises BGP/OSPF adjacencies and policy-based routing. WAN1 and WAN2 interfaces receive their IPs from Raikou.
 4. **TC startup** — each Traffic Controller enables IP forwarding between `eth-dut` and `eth-north`. No impairment is applied by default (`pristine` state).
 5. **Content ingest (handled automatically by Boardfarm)** — The `sdwan_testbed_setup` session-scoped autouse fixture in `tests/conftest.py` calls `streaming_server.ensure_content_available()` through the typed `StreamingServer` template reference before the first test runs. The method is idempotent: it checks whether the asset is already present in MinIO and returns immediately if so; otherwise it runs FFmpeg content generation and `mc cp` ingest automatically.
 
-    > **Manual fallback (debugging only):** If needed outside of a Boardfarm session, the ingest can be triggered manually. The shell script below mirrors what `ensure_content_available()` does internally via SSH into `app-server`:
+    > **Manual fallback (debugging only):** If needed outside of a Boardfarm session, the ingest can be triggered manually. The shell script below mirrors what `ensure_content_available()` does internally via SSH into `streaming-server`:
     ```bash
     # Generate synthetic HLS content
     scripts/generate_streaming_content.sh
@@ -1088,7 +1001,7 @@ The environment config defines per-device defaults and behavior. Each TrafficCon
     mc mb --ignore-existing testbed/streaming-content
     mc cp --recursive /tmp/streaming/ testbed/streaming-content/
     ```
-    At runtime, `app-server` proxies to MinIO at `http://10.100.0.2:9000` over the `content-internal` Raikou bridge — not via Docker hostname resolution.
+    At runtime, `streaming-server` proxies to MinIO at `http://10.100.0.2:9000` over the `content-internal` Raikou bridge — not via Docker hostname resolution.
     See `Application_Services_Implementation_Plan.md §3.2` for the full FFmpeg command and bitrate ladder.
 6. **Boardfarm** connects to all containers via SSH (or `docker exec` for DUT), parses `bf_config_sdwan.json` and `bf_env_sdwan.json`, instantiates devices with merged config (including `impairment_interface_north` and `impairment_interface_dut` from env for each TC), and the testbed is ready.
 
@@ -1105,7 +1018,7 @@ lan-client (192.168.10.10)
   → [dut-wan1 bridge]
   → wan1-tc eth-dut → [netem impairment applied] → wan1-tc eth-north
   → [north-segment bridge]
-  → app-server (172.16.0.10) :8080
+  → productivity-server (172.16.0.10) :8080
 ```
 
 ### 7.2 Path Failover Flow (WAN1 → WAN2)
@@ -1113,9 +1026,9 @@ lan-client (192.168.10.10)
 ```
 wan1-tc applies: ImpairmentProfile(latency_ms=600, loss_percent=50)  ← brownout / blackout
 DUT BFD/SLA probe on WAN1 detects breach
-DUT FRR route-map switches active nexthop to eth-wan2
+DUT BFD echo detects WAN1 failure; FRR metric-based routing promotes WAN2 route
 Traffic re-routes:
-  lan-client → DUT eth-wan2 → [dut-wan2 bridge] → wan2-tc → [north-segment] → app-server
+  lan-client → DUT eth-wan2 → [dut-wan2 bridge] → wan2-tc → [north-segment] → productivity-server
 ```
 
 ### 7.3 QoS Contention Flow (Background load + Priority traffic)
@@ -1124,12 +1037,12 @@ Traffic re-routes:
 lan-traffic-gen (192.168.10.20)
   → iPerf3 UDP DSCP=0 (Best Effort, 85 Mbps background)
   → DUT → wan1-tc (100 Mbps WAN1 link creates queue pressure)
-  → north-segment → app-server :5201 (iPerf3 server)
+  → north-segment → lan-traffic-gen (Phase 2+) iPerf3 server
 
 lan-client (192.168.10.10)
   → WebRTC DSCP=46 (EF — voice priority)
   → DUT QoS policy: EF traffic in high-priority queue → guaranteed forwarding
-  → conf-server (172.16.0.11) :8443
+  → conf-server (172.16.0.12) :8443  ← Phase 2+
 ```
 
 ### 7.4 Security Flow (C2 Callback Block Test)
@@ -1167,11 +1080,12 @@ lan-client (192.168.10.10) attempts outbound TCP → 172.16.0.20:4444
 | WAN2-TC south | `10.10.2.2` | — | `wan2_impairment` |
 | WAN1-TC north | `172.16.0.1` | — | `wan1_impairment` |
 | WAN2-TC north | `172.16.0.2` | — | `wan2_impairment` |
-| Productivity + Streaming server | `172.16.0.10` | 8080 (HTTP), 8081 (HLS), 5201 (iPerf3) | `app_server` |
-| app-server → MinIO proxy egress | `10.100.0.1` | — (internal) | `app_server` |
+| Productivity server | `172.16.0.10` | 8080 (HTTP prod) | `productivity_server` |
+| Streaming server (HLS edge) | `172.16.0.11` | 8081 (HLS proxy) | `streaming_server` |
+| Streaming server → MinIO egress | `10.100.0.1` | — (content-internal) | `streaming_server` |
 | MinIO content origin | `10.100.0.2` | 9000 (S3 API via content-internal) | — |
-| Conferencing server | `172.16.0.11` | 8443 (WSS) | `conf_server` |
-| Malicious host | `172.16.0.20` | 4444 (C2), 80 (EICAR HTTP) | `malicious_host` |
+| Conferencing server _(Phase 2+)_ | `172.16.0.12` | 8443 (WSS) | `conf_server` |
+| Malicious host _(Phase 4+)_ | `172.16.0.20` | 4444 (C2), 80 (EICAR HTTP) | `malicious_host` |
 
 ---
 
@@ -1250,15 +1164,12 @@ docker exec lan-client ping -c 3 172.16.0.10          # App server (via WAN)
 docker exec wan1-tc ip route show
 docker exec wan1-tc tc qdisc show dev eth-north        # Confirm netem is clean
 
-# Verify app-server services
-curl http://172.16.0.10:8080/health                    # From host (via port mapping 18080)
-docker exec app-server iperf3 -s --daemon              # Start iPerf3 server if not running
+# Verify application server services
+curl http://localhost:18080/health                     # From host (productivity-server via port mapping)
+curl http://localhost:18081/hls/default/index.m3u8    # From host (streaming-server HLS playlist)
 
-# Verify conferencing server
-curl -k https://localhost:18443/                       # WebRTC Echo signalling endpoint
-
-# Check SSH access to all containers
-for port in 5001 5002 5003 5004 5005 5006 5007; do
+# Check SSH access to Phase 1 containers
+for port in 5001 5002 5003 5005 5006; do
     ssh -p $port -o ConnectTimeout=3 root@localhost "hostname" && echo "Port $port OK"
 done
 ```

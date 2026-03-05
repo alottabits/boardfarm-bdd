@@ -125,10 +125,19 @@ This class implements the `QoEClient` template defined in the Technical Brief.
 
 #### `QoEResult` data class
 
-All measurement methods return a `QoEResult` instance. Fields are `None` when not applicable to the measurement type.
+**Canonical location:** `boardfarm3/lib/qoe.py` — imported by both the `QoEClient` template (`boardfarm3/templates/qoe_client.py`) and the use-case layer (`boardfarm3/use_cases/qoe.py`). Defined once; used at all layers. The architecture is:
+
+```
+boardfarm3/lib/qoe.py          ← QoEResult definition + MOS R-Factor calculation
+boardfarm3/templates/qoe_client.py  ← QoEClient template (imports QoEResult from lib)
+boardfarm3/devices/playwright_qoe_client.py  ← concrete Playwright implementation
+boardfarm3/use_cases/qoe.py    ← SLO assertion helpers (imports QoEResult from lib)
+```
+
+All measurement methods return a `QoEResult` instance. Fields are `None` when not applicable to the measurement type. `success` defaults to `True`; the device class sets it to `False` when the underlying request fails or is blocked (e.g. EICAR download intercepted by Application Control).
 
 ```python
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 @dataclass
 class QoEResult:
@@ -146,7 +155,7 @@ class QoEResult:
     rebuffer_ratio: float | None = None
     """Fraction of session spent buffering (0.0 = no rebuffering, 1.0 = all buffering)."""
 
-    # --- Conferencing metrics ---
+    # --- Conferencing metrics (WebRTC getStats()) ---
     latency_ms: float | None = None
     """Round-trip time (ms) from RTCPeerConnection.getStats()."""
     jitter_ms: float | None = None
@@ -156,12 +165,17 @@ class QoEResult:
     mos_score: float | None = None
     """Mean Opinion Score (1.0–5.0) calculated by lib/qoe.py using the ITU-T G.107 E-model."""
 
-    # --- Transport metadata (Phase 3.5+) ---
+    # --- Transport metadata (Project Phase 3.5+) ---
     protocol: str | None = None
     """HTTP version actually negotiated, e.g. 'http/1.1', 'h2', 'h3'.
     Populated from Navigation Timing entry nextHopProtocol (zero additional cost).
     None in Phase 1–3 (plain HTTP — nextHopProtocol not available for non-TLS).
-    Available once HTTPS is enabled in Phase 3.5."""
+    Available once HTTPS is enabled in Project Phase 3.5."""
+
+    # --- Request outcome ---
+    success: bool = True
+    """False when the underlying request was blocked or failed (e.g. HTTP 4xx/5xx,
+    network error, or EICAR download intercepted). Used by security use-case assertions."""
 ```
 
 #### Key Methods & Logic
@@ -215,8 +229,8 @@ The `lan-client` container runs a **Dante SOCKS v5 proxy** on port 8080 (exposed
 
 **What this enables:**
 - Browse directly to `http://172.16.0.10:8080/` (productivity server) and verify the page renders correctly under current impairment conditions.
-- Access the HLS streaming endpoint at `http://172.16.0.10:8081/hls/default/index.m3u8` to verify content availability.
-- Reach the WebRTC conferencing server at `wss://172.16.0.11:8443/` for manual session testing.
+- Access the HLS streaming endpoint at `http://172.16.0.11:8081/hls/default/index.m3u8` to verify content availability.
+- Reach the WebRTC conferencing server at `wss://172.16.0.12:8443/` for manual session testing.
 - Experience impairment profiles firsthand — browsing under `satellite` conditions (600 ms latency) is useful when calibrating QoE SLOs.
 
 **Browser configuration (Firefox recommended):**

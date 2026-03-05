@@ -11,7 +11,8 @@ Playwright-based QoE measurement container for the SD-WAN testbed. Simulates end
 
 ## Features
 
-- **Base:** `mcr.microsoft.com/playwright:v1.50.0-jammy` (Chromium, Firefox, WebKit)
+- **Base:** `mcr.microsoft.com/playwright:v1.50.0-jammy` (Chromium, Firefox, WebKit browser binaries at `/ms-playwright`)
+- **Python playwright:** `playwright==1.50.0` (Python bindings; `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright` reuses base-image browsers)
 - **SSH:** Boardfarm access on port 5003
 - **Dante SOCKS v5:** Port 8080 (host 18090) — developer browser debugging via LAN path
 - **Interface:** eth1 on lan-segment (192.168.10.10/24), gateway 192.168.10.1 — Raikou OVS

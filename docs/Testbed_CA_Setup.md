@@ -28,7 +28,7 @@ All four capabilities require TLS certificates signed by a shared root that all 
 | Component | Container | Certificate purpose | Subject / SAN |
 | :--- | :--- | :--- | :--- |
 | Nginx Productivity + Streaming | `app-server` | HTTPS / HTTP/3 server TLS | `DNS:app-server`, `IP:172.16.0.10` |
-| pion WebRTC Echo | `conf-server` | WSS (WebSocket Secure) TLS | `DNS:conf-server`, `IP:172.16.0.11` |
+| pion WebRTC Echo | `conf-server` | WSS (WebSocket Secure) TLS | `DNS:conf-server`, `IP:172.16.0.12` |
 | StrongSwan DUT | `linux-sdwan-router` | IKEv2 peer identity | `DNS:dut.sdwan.testbed` |
 | StrongSwan Hub (stub peer) | separate container | IKEv2 peer identity | `DNS:hub.sdwan.testbed` |
 | Playwright / Chromium | `lan-client` | CA root trust store | CA root cert only — no service cert |
@@ -113,7 +113,7 @@ EASYRSA_SAN="IP:172.16.0.10,DNS:app-server" \
 ```bash
 easyrsa gen-req conf-server nopass
 
-EASYRSA_SAN="IP:172.16.0.11,DNS:conf-server" \
+EASYRSA_SAN="IP:172.16.0.12,DNS:conf-server" \
     easyrsa sign-req server conf-server
 ```
 
@@ -274,7 +274,7 @@ Expected: `HTTP/3 200`.
 
 ```bash
 docker exec lan-client openssl s_client \
-    -connect 172.16.0.11:8443 \
+    -connect 172.16.0.12:8443 \
     -CAfile /usr/local/share/ca-certificates/testbed-ca.crt \
     </dev/null 2>&1 | grep -E "Verify return code|subject|issuer"
 ```

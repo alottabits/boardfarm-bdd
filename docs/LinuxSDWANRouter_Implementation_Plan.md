@@ -75,7 +75,7 @@ The container requires elevated privileges to manipulate network stack:
 
 ### 3.2 FRR Configuration (Path Steering & Failover)
 
-To simulate SD-WAN behaviour (intelligent path selection), the Linux Router uses FRR's **BFD echo mode** for sub-second failure detection combined with **metric-based static routes** for path selection, and **Policy Based Routing (PBR) via route-maps** for application steering.
+To simulate SD-WAN behaviour (intelligent path selection), the Linux Router uses FRR's **BFD echo mode** for sub-second failure detection combined with **metric-based static routes** for path selection, and **Policy Based Routing (PBR) via FRR pbr-maps** for application steering.
 
 #### 3.2.1 Failure Detection: BFD Single-Hop Echo Mode
 
@@ -158,7 +158,7 @@ ip route 0.0.0.0/0 10.10.2.2 20
 !
 ```
 
-> **Phase alignment:** BFD echo mode is configured from **Phase 1 (Foundation)**. The sub-second failover SLO (`measure_failover_convergence() ≤ 1000ms`) is formally validated in **Phase 2 (Raikou Integration)**, once the full testbed topology with TC containers is available. See [Component Readiness Map](WAN_Edge_Appliance_testing.md#component-readiness-map).
+> **Phase alignment:** BFD echo mode is configured from **Component Phase 1 (Foundation)**. The sub-second failover SLO (`measure_failover_convergence() ≤ 1000ms`) is formally validated in **Component Phase 3 / Project Phase 2 (Raikou Integration)**, once the full testbed topology with TC containers is available. See [Component Readiness Map](WAN_Edge_Appliance_testing.md#component-readiness-map).
 
 ### 3.3 Driver Implementation (`LinuxSDWANRouter`)
 
@@ -215,8 +215,8 @@ The `LinuxSDWANRouter` class translates abstract `WANEdgeDevice` methods into co
 2.  **`get_wan_path_metrics()`**
     *   **Goal:** Retrieve Latency, Jitter, and Loss for each WAN link, keyed by logical label.
     *   **Logic:**
-        *   **Phase 1 (Basic):** Check interface carrier state via `ip -j link show`. Returns placeholder metrics (0ms latency) if Up.
-        *   **Phase 2 (Active):** For each physical interface in `self._wan_interfaces.values()`, run `ping -c 5 -i 0.2 <gateway>` and parse:
+        *   **Component Phase 1 (Basic):** Check interface carrier state via `ip -j link show`. Returns placeholder metrics (0ms latency) if Up.
+        *   **Component Phase 2 (Active):** For each physical interface in `self._wan_interfaces.values()`, run `ping -c 5 -i 0.2 <gateway>` using the configured `wan_gateways` and parse:
             *   Latency = `rtt min/avg/max/mdev` avg field
             *   Loss = `packet loss` %
             *   Jitter = `mdev` (mean deviation)
@@ -245,29 +245,29 @@ The `LinuxSDWANRouter` class translates abstract `WANEdgeDevice` methods into co
 5.  **`apply_policy(policy)`**
     *   **Goal:** Apply PBR (Policy Based Routing) to steer traffic via FRR's control plane.
     *   **Why FRR vtysh, not kernel `ip rule`:** FRR is the active routing daemon and owns the kernel routing table. Writing kernel `ip rule` / `ip route` entries directly bypasses FRR and risks being overwritten by it. Configuring PBR through `vtysh` ensures FRR installs the corresponding kernel rules itself, keeping the control plane and forwarding plane consistent. This is also the correct structural analog for commercial DUTs, where `apply_policy()` targets the vendor's management interface (REST/NETCONF) rather than the device's kernel.
-    *   **Mechanism:** FRR's PBR uses **route-maps** applied to a LAN ingress interface (`pbr-policy`). The driver translates the abstract policy dict into FRR route-map configuration and applies it via `vtysh`.
+    *   **Mechanism:** FRR's PBR uses **pbr-maps** applied to a LAN ingress interface (`pbr-policy`). The driver translates the abstract policy dict into FRR pbr-map configuration and applies it via `vtysh`. The `name` field in the policy dict identifies the pbr-map (default: `"pbr-policy"`); `match.dst_prefix` specifies the destination prefix to steer (default: `"0.0.0.0/0"` for all traffic); `action.prefer_wan` (required) is the logical WAN label resolved to a gateway IP via `wan_gateways`.
     *   **Commands (via `vtysh`):**
         ```vtysh
         configure terminal
         !
-        ! 1. Define traffic match criteria
-        ip access-list <policy_name> seq 10 permit ip any <dst_prefix>
+        ! 1. Clear any existing pbr-map with this name (idempotent re-application)
+        no pbr-map <policy_name>
         !
-        ! 2. Define the steering action (next-hop is the physical WAN gateway IP)
-        route-map <policy_name> permit 10
-         match ip address <policy_name>
-         set ip next-hop <wan_gateway_ip>
+        ! 2. Define the pbr-map with destination match and nexthop action
+        pbr-map <policy_name> seq 10
+         match dst-ip <dst_prefix>
+         set nexthop <wan_gateway_ip>
          exit
         !
-        ! 3. Apply the policy to the LAN ingress interface
+        ! 3. Apply (or re-apply) the pbr-policy to the LAN ingress interface
         interface <lan_interface>
+         no pbr-policy
          pbr-policy <policy_name>
          exit
         !
         exit
         ```
-    *   **Clean up:** Before applying a new policy, remove any existing route-map and access-list with the same name via `vtysh`: `no route-map <name>` and `no ip access-list <name>`. This ensures determinism without leaving stale kernel rules.
-    *   **Note:** The `wan_gateway_ip` for the `set ip next-hop` command is the physical gateway address on the WAN link (e.g. `10.10.1.2` for WAN1), derived from the `policy["action"]["prefer_wan"]` logical label via `self._wan_interfaces`. The policy dict follows the vendor-neutral format: `{"match": {...}, "action": {"prefer_wan": "wan2"}}`. See `WAN_Edge_Appliance_testing.md §3.8`.
+    *   **Note:** The `wan_gateway_ip` for `set nexthop` is the physical gateway address on the WAN link (e.g. `10.10.1.2` for WAN1), looked up from `self._wan_gateways[prefer_wan]`. The policy dict follows the vendor-neutral format: `{"name": "pbr-policy", "match": {"dst_prefix": "0.0.0.0/0"}, "action": {"prefer_wan": "wan2"}}`. `name` defaults to `"pbr-policy"`; `match.dst_prefix` defaults to `"0.0.0.0/0"` (all traffic). See `WAN_Edge_Appliance_testing.md §3.8`.
 
 6.  **`remove_policy(name)`**
     *   **Goal:** Remove a PBR policy by name for teardown.
@@ -275,13 +275,13 @@ The `LinuxSDWANRouter` class translates abstract `WANEdgeDevice` methods into co
         ```vtysh
         configure terminal
         !
-        ! Remove pbr-policy from LAN interface (if applied)
+        ! Remove pbr-policy from LAN interface (no name argument needed)
         interface <lan_interface>
-         no pbr-policy <name>
+         no pbr-policy
          exit
         !
-        no route-map <name>
-        no ip access-list <name>
+        ! Remove the pbr-map itself
+        no pbr-map <name>
         exit
         ```
     *   **Teardown:** Called by `reset_sdwan_testbed_after_scenario` for each policy in `bf_context["applied_policies"]`. See `WAN_Edge_Appliance_testing.md §3.9`.
@@ -314,14 +314,17 @@ The `LinuxSDWANRouter` class translates abstract `WANEdgeDevice` methods into co
 ```json
 "dut_router": {
   "type": "linux_sdwan_router",
-  "connection_type": "ssh",
-  "ipaddr": "172.20.0.10",
-  "username": "root",
-  "password": "password",
+  "connection_type": "docker_exec",
+  "container_name": "linux-sdwan-router",
   "wan_interfaces": {
-    "wan1": "eth2",
-    "wan2": "eth3"
-  }
+    "wan1": "eth-wan1",
+    "wan2": "eth-wan2"
+  },
+  "wan_gateways": {
+    "wan1": "10.10.1.2",
+    "wan2": "10.10.2.2"
+  },
+  "lan_interface": "eth-lan"
 }
 ```
 
@@ -332,20 +335,22 @@ The `LinuxSDWANRouter` class translates abstract `WANEdgeDevice` methods into co
 > "wan_interfaces": {"wan1": "GigabitEthernet0/0/0", "wan2": "GigabitEthernet0/0/1"}
 > ```
 
+> **`wan_gateways` is required** for `get_wan_path_metrics()` and `apply_policy()`. It maps each logical WAN label to the gateway IP on that WAN link — the address the DUT pings for latency/loss measurement and uses as the `set nexthop` target in pbr-maps. For `LinuxSDWANRouter` this is the TC container's south-facing IP (e.g. `10.10.1.2` for WAN1). If absent, a warning is logged and the two methods that depend on it will not work. Commercial DUT implementations may derive this from the device's own SLA probe configuration via NBI instead.
+
 ### 4.2 Development Phases
 
 > See the [Component Readiness Map](WAN_Edge_Appliance_testing.md#component-readiness-map) in `WAN_Edge_Appliance_testing.md §5` for how these phases map to project-level gates.
 
-1.  **Phase 1: Base Container** *(Project Phase 1 — Foundation)*
+1.  **Component Phase 1: Base Container** *(Project Phase 1 — Foundation)*
     *   Build Dockerfile with SSH + FRR.
     *   Verify manual `ip route` manipulation.
-2.  **Phase 2: Driver Development** *(Project Phase 1 — Foundation)*
+2.  **Component Phase 2: Driver Development** *(Project Phase 1 — Foundation)*
     *   Implement `LinuxSDWANRouter` class.
     *   Unit test `get_active_wan_interface` logic against mock outputs.
-3.  **Phase 3: Integration** *(Project Phase 2 — Raikou Integration)*
+3.  **Component Phase 3: Integration** *(Project Phase 2 — Raikou Integration)*
     *   Deploy in Raikou (Dual WAN topology).
     *   Verify `WANEdgeDevice` template compliance.
-4.  **Phase 3.5: Digital Twin Hardening** *(Project Phase 3.5 — Optional)*
+4.  **Component Phase 3.5: Digital Twin Hardening** *(Project Phase 3.5 — Optional)*
     *   Install StrongSwan; configure IKEv2 tunnel (see §3.4).
     *   Stand up testbed CA; distribute CA cert to Application Services and QoE Client.
     *   Verify IPsec tunnel establishment and ESP traffic on WAN link.
