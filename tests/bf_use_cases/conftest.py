@@ -79,11 +79,11 @@ def tc(wan1_tc: TrafficController) -> TrafficController:
 
 
 @pytest.fixture()
-def lan_client(devices: object) -> "QoEClient":
-    """lan_client QoEClient device (integration tests only)."""
-    dev = getattr(devices, "lan_client", None)
+def lan_qoe_client(devices: object) -> "QoEClient":
+    """lan_qoe_client QoEClient device (integration tests only)."""
+    dev = getattr(devices, "lan_qoe_client", None)
     if dev is None:
-        pytest.skip("lan_client not in testbed (use --board-name sdwan)")
+        pytest.skip("lan_qoe_client not in testbed (use --board-name sdwan)")
     return dev  # type: ignore[return-value]
 
 

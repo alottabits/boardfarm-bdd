@@ -31,7 +31,7 @@ All four capabilities require TLS certificates signed by a shared root that all 
 | pion WebRTC Echo | `conf-server` | WSS (WebSocket Secure) TLS | `DNS:conf-server`, `IP:172.16.0.12` |
 | StrongSwan DUT | `linux-sdwan-router` | IKEv2 peer identity | `DNS:dut.sdwan.testbed` |
 | StrongSwan Hub (stub peer) | separate container | IKEv2 peer identity | `DNS:hub.sdwan.testbed` |
-| Playwright / Chromium | `lan-client` | CA root trust store | CA root cert only — no service cert |
+| Playwright / Chromium | `lan-qoe-client` | CA root trust store | CA root cert only — no service cert |
 
 The CA private key (`pki/private/ca.key`) is **never mounted into any container**. Only `ca.crt` and per-service key/cert pairs are distributed.
 
@@ -220,7 +220,7 @@ And in `/etc/strongswan.conf` or `/etc/ipsec.secrets`:
 : RSA /etc/strongswan/private/dut.key
 ```
 
-**`lan-client` (CA trust store only):**
+**`lan-qoe-client` (CA trust store only):**
 
 ```yaml
 volumes:
@@ -231,9 +231,9 @@ volumes:
 
 ## 7. Step 4 — Trust the CA in the QoE Client
 
-The `lan-client` container's init script must register the CA root with the system trust store on startup. This makes Playwright/Chromium accept HTTPS connections to `app-server` and WSS connections to `conf-server` without errors.
+The `lan-qoe-client` container's init script must register the CA root with the system trust store on startup. This makes Playwright/Chromium accept HTTPS connections to `app-server` and WSS connections to `conf-server` without errors.
 
-**In the `lan-client` init script** (add before starting `sshd`):
+**In the `lan-qoe-client` init script** (add before starting `sshd`):
 
 ```bash
 # Register testbed CA — required for Playwright/Chromium HTTPS/WSS acceptance
@@ -253,8 +253,8 @@ Run after `docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.
 ### 8.1 Nginx TLS — app-server
 
 ```bash
-# From inside lan-client — simulates Playwright's exact network path and trust store
-docker exec lan-client curl -sv \
+# From inside lan-qoe-client — simulates Playwright's exact network path and trust store
+docker exec lan-qoe-client curl -sv \
     --cacert /usr/local/share/ca-certificates/testbed-ca.crt \
     https://172.16.0.10/
 ```
@@ -263,7 +263,7 @@ Expected: `SSL connection using TLSv1.3`, issuer `SD-WAN Testbed CA`, HTTP 200.
 
 ```bash
 # Verify HTTP/3 upgrade — check for Alt-Svc header and h3 protocol on second request
-docker exec lan-client curl -sv \
+docker exec lan-qoe-client curl -sv \
     --cacert /usr/local/share/ca-certificates/testbed-ca.crt \
     --http3 https://172.16.0.10/
 ```
@@ -273,7 +273,7 @@ Expected: `HTTP/3 200`.
 ### 8.2 WebRTC WSS — conf-server
 
 ```bash
-docker exec lan-client openssl s_client \
+docker exec lan-qoe-client openssl s_client \
     -connect 172.16.0.12:8443 \
     -CAfile /usr/local/share/ca-certificates/testbed-ca.crt \
     </dev/null 2>&1 | grep -E "Verify return code|subject|issuer"
@@ -296,7 +296,7 @@ Expected: `sdwan-overlay[...]: ESTABLISHED`, two SPD entries.
 
 ```bash
 # End-to-end: encrypted ping from LAN through DUT tunnel to north side
-docker exec lan-client ping -c 3 172.16.0.10
+docker exec lan-qoe-client ping -c 3 172.16.0.10
 ```
 
 Expected: 3 replies; `ip xfrm monitor` on DUT shows ESP packet counts incrementing.
@@ -305,7 +305,7 @@ Expected: 3 replies; `ip xfrm monitor` on DUT shows ESP packet counts incrementi
 
 ```bash
 # Confirm the CA root is registered and validates against itself
-docker exec lan-client openssl verify \
+docker exec lan-qoe-client openssl verify \
     -CAfile /usr/local/share/ca-certificates/testbed-ca.crt \
     /usr/local/share/ca-certificates/testbed-ca.crt
 ```

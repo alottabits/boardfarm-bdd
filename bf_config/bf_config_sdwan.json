@@ -39,7 +39,7 @@
                 "password": "boardfarm"
             },
             {
-                "name": "lan_client",
+                "name": "lan_qoe_client",
                 "type": "playwright_qoe_client",
                 "connection_type": "authenticated_ssh",
                 "ipaddr": "localhost",

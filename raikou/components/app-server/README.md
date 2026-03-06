@@ -45,5 +45,5 @@ Requires Raikou to inject eth1 (north-segment) and eth2 (content-internal). Use 
 docker compose -p boardfarm-bdd-sdwan -f docker-compose-sdwan.yaml up -d
 ```
 
-**Productivity URL:** `http://172.16.0.10:8080/` (from lan-client via DUT)  
+**Productivity URL:** `http://172.16.0.10:8080/` (from lan-qoe-client via DUT)  
 **Streaming manifest:** `http://172.16.0.10:8081/hls/default/index.m3u8` (after content ingest)

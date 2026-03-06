@@ -156,14 +156,14 @@ WebRTC's ICE process works by gathering **ICE candidates** (IP:port pairs) on ea
 **STUN** is needed when a peer does not know its own public IP because it is behind NAT. **TURN** is needed when all direct paths are blocked. In this testbed, neither condition applies:
 
 *   All peers have statically known, routable IPs on Raikou OVS bridges — no NAT is present.
-*   The direct path `lan-client` (`192.168.10.10`) → DUT → TrafficController → `conf-server` (`172.16.0.12`) is always available.
+*   The direct path `lan-qoe-client` (`192.168.10.10`) → DUT → TrafficController → `conf-server` (`172.16.0.12`) is always available.
 *   A single `host` ICE candidate (`172.16.0.12`) is sufficient. The `srflx` and `relay` candidate types are never required.
 
 > **Future consideration:** If Phase 5/6 commercial DUT testing introduces NAT traversal scenarios (e.g., validating the DUT's ALG or SIP/WebRTC NAT helper), a STUN/TURN server would become relevant. For the controlled testbed, it adds no value and introduces unnecessary complexity.
 
 #### ICE Candidate Configuration (Critical)
 
-The `pion` server runs with two network interfaces: `eth0` (Docker management, `192.168.55.x`) and `eth1` (north-segment, `172.16.0.12`). If `pion` autodiscovers all interfaces, it will advertise the management-network IP as a `host` candidate. The `lan-client` browser (on `192.168.10.0/24`) cannot reach `192.168.55.x`, causing ICE negotiation to fail silently.
+The `pion` server runs with two network interfaces: `eth0` (Docker management, `192.168.55.x`) and `eth1` (north-segment, `172.16.0.12`). If `pion` autodiscovers all interfaces, it will advertise the management-network IP as a `host` candidate. The `lan-qoe-client` browser (on `192.168.10.0/24`) cannot reach `192.168.55.x`, causing ICE negotiation to fail silently.
 
 **The `pion` server must be explicitly configured to advertise only `172.16.0.12`:**
 
@@ -183,7 +183,7 @@ The `QoEClient` uses Playwright/Chromium to drive the WebRTC session. Chromium h
 1. `qoe_client.measure_conferencing(url)` navigates Chromium to the WSS signalling URL (e.g. `wss://172.16.0.12:8443/session1`).
 2. The browser performs WebRTC offer/answer exchange with `pion` over the WSS connection.
 3. ICE negotiation completes using the `host` candidate pair: `192.168.10.10` ↔ `172.16.0.12`.
-4. UDP RTP media flows directly from `lan-client` to `conf-server` through the DUT and TrafficController.
+4. UDP RTP media flows directly from `lan-qoe-client` to `conf-server` through the DUT and TrafficController.
 5. `pion` echoes the media stream back; Playwright measures round-trip latency, jitter, and packet loss via the WebRTC `getStats()` API.
 
 > **Phase 3.5 note:** When TLS is added in Phase 3.5, the signalling URL changes from `ws://` to `wss://`, requiring a TLS certificate issued by the testbed CA. ICE handling is unchanged — STUN/TURN is still not needed after TLS is added. See §6 Phase 3.5 and [`Testbed_CA_Setup.md §5.2`](Testbed_CA_Setup.md) for the `conf-server` certificate setup.

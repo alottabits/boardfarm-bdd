@@ -1,0 +1,26 @@
+#!/bin/sh
+#
+# Conferencing Server init — start pion WebRTC Echo, sshd
+# Raikou OVS injects eth1 (north-segment, 172.16.0.12/24).
+#
+set -e
+
+# Wait for eth1 (north-segment) and add route for LAN clients via TC
+count=0
+while [ $count -lt 30 ]; do
+    if ip addr show eth1 2>/dev/null | grep -q "inet "; then
+        ip route add 192.168.10.0/24 via 172.16.0.1 dev eth1 2>/dev/null || true
+        ip route add 10.10.1.0/30 via 172.16.0.1 dev eth1 2>/dev/null || true
+        ip route add 10.10.2.0/30 via 172.16.0.1 dev eth1 2>/dev/null || true
+        break
+    fi
+    sleep 1
+    count=$((count + 1))
+done
+
+# Start pion WebRTC Echo server (WSS on 8443 if certs present, WS otherwise)
+/usr/local/bin/pion-echo &
+sleep 1
+
+# Start SSH for Boardfarm
+exec /usr/sbin/sshd -D

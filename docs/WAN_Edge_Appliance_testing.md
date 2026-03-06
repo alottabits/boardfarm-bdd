@@ -1180,7 +1180,7 @@ def assert_c2_blocked(malicious_host, qoe_client, bf_context):
 @then('the DUT security log should record the blocked connection')
 def assert_logged(dut, bf_context):
     security_use_cases.assert_traffic_blocked(
-        dut, src_ip=bf_context.lan_client_ip, dst_port=bf_context.c2_port
+        dut, src_ip=bf_context.lan_qoe_client_ip, dst_port=bf_context.c2_port
     )
 ```
 
@@ -1812,14 +1812,16 @@ Each component has its own internal phase numbering (see linked documents). The 
     * Develop `lib/qoe.py` (MOS R-Factor) and `use_cases/qoe.py` (SLO assertions).
     * Develop `use_cases/wan_edge.py` (path assertions, failover convergence).
     * Validate each container independently.
-
+	  
     **Exit criteria:**
     * All container images build successfully and pass standalone smoke tests.
     * `LinuxSDWANRouter` implements all `WANEdgeDevice` abstract methods with unit test coverage.
     * `PlaywrightQoEClient` returns a valid `QoEResult` for each service category against a local test server.
     * `LinuxTrafficController` round-trips `get_impairment_profile()` correctly (parsed from `tc qdisc show`, not memory).
 
-2. **Project Phase 2: Raikou Integration & Dual WAN Topology**
+	**Status: COMPLETE**
+
+3. **Project Phase 2: Raikou Integration & Dual WAN Topology**
     * Create Docker Compose for Raikou with Dual WAN topology.
     * Configure OVS bridges and network links.
     * Deploy full testbed (all containers instantiated via Raikou).
@@ -1830,8 +1832,10 @@ Each component has its own internal phase numbering (see linked documents). The 
     * `raikou up` brings all containers online without manual intervention.
     * Boardfarm `parse_boardfarm_config()` resolves all devices from `bf_config_sdwan.json` and `bf_env_sdwan.json` (DUT, both TrafficControllers, QoEClient, services) without error.
     * End-to-end ping from LAN Client to WAN-side service passes through DUT via both WAN paths.
+	  
+	**Status: COMPLETE**
 
-3. **Project Phase 3: Validation**
+4. **Project Phase 3: Validation**
     * Run all four Pre-Hardware Validation Scenarios (Section 4.3).
     * Execute QoE baseline measurements under `pristine` profile for all three service categories.
     * Measure failover convergence time baseline (no threshold enforced yet — record for calibration).
@@ -1858,27 +1862,19 @@ Each component has its own internal phase numbering (see linked documents). The 
     | `get_active_wan_interface()` correct after every steering event | ✅ Pass | Verified in Scenarios 2, 3, and 4 across all failover/recovery cycles |
     | No business logic in step/test definitions | ✅ Pass | All tests delegate to `use_cases/wan_edge.py`, `use_cases/qoe.py`, `use_cases/traffic_control.py` |
 
-    > **Note — Conferencing QoE (xfail):** The `conf-server` container (WebRTC signalling / pion) is not
-    > yet deployed in the testbed.  The two conferencing SLO tests
-    > (`test_conferencing_slo_pristine`, `test_conferencing_slo_cable_typical`) are therefore marked
-    > `xfail` and are excluded from the passing count.
-    >
-    > Deploying `conf-server` is a **Phase 3.5 task** — the container's WSS endpoint (`wss://…:8443`)
-    > requires a signed TLS certificate, which in turn requires the Testbed CA to be stood up first
-    > (the first step of Phase 3.5).  The correct sequence is therefore:
-    >
-    > 1. Phase 3.5 — stand up the Testbed CA (`easy-rsa`)
-    > 2. Phase 3.5 — issue a certificate for `conf-server` and deploy the container
-    > 3. The two `xfail` conferencing tests activate automatically — no code changes needed
-    >
-    > The omission does **not** block the Phase 3 → Phase 3.5 transition; it is resolved *during* Phase 3.5.
+    > **Note — Conferencing QoE (resolved in Phase 3.5):** At the time of Phase 3 completion, the
+    > `conf-server` container was not yet deployed and the two conferencing SLO tests were marked
+    > `xfail`.  This was resolved during Phase 3.5: the Testbed CA was stood up, a certificate was
+    > issued for `conf-server`, the container was deployed with a WSS endpoint
+    > (`wss://172.16.0.12:8443/session`), and both conferencing tests now pass.  The `xfail` markers
+    > have been removed.  Total QoE test count is now 8 (was 7 at Phase 3 completion).
 
     > **Bug fixed during Phase 3 validation:** `LinuxSDWANRouter.get_wan_path_metrics()` was looking up
     > the wrong key names from `jc.parsers.ping` (`rtt_avg_ms` / `round_trip_avg_ms` instead of
     > `round_trip_ms_avg` / `round_trip_ms_stddev`), causing latency and jitter to be silently reported
     > as `0.0`.  Fixed in `boardfarm3/devices/linux_sdwan_router.py`.
 
-4. **Project Phase 3.5: Digital Twin Hardening (Optional — recommended before Project Phase 5)**
+5. **Project Phase 3.5: Digital Twin Hardening (Optional — recommended before Project Phase 5)**
 
     > **Purpose:** Extend the Linux Router testbed with capabilities that mirror commercial SD-WAN appliances — IPsec overlay encryption, HTTPS application traffic, and HTTP/3 (QUIC). This maximises the functional coverage of the "digital twin" so that the commercial DUT swap in Phase 5 is truly the **only variable**. It also validates the testbed infrastructure needed for commercial DUT test pillars (Application Control / DPI, SSL inspection) before the hardware arrives.
 
@@ -1900,7 +1896,43 @@ Each component has its own internal phase numbering (see linked documents). The 
     * SSL Inspection / TLS MITM (requires commercial DUT to intercept and re-encrypt TLS flows)
     * QUIC blocking / downgrade-to-HTTP/2 policies
 
-5. **Project Phase 4: Linux Router Expansion (Optional)**
+    **Status: COMPLETE** *(2026-03-06)*
+
+    All four exit criteria are met.  Test suite: 276 tests passing (60 unit + 22 WAN edge
+    integration + 8 QoE impairment integration + 186 traffic control integration).
+
+    | Criterion | Result | Evidence |
+    | :--- | :---: | :--- |
+    | StrongSwan tunnel `ESTABLISHED` | ✅ Pass | `ipsec statusall` on `linux-sdwan-router`: IKEv2 SA `ESTABLISHED` to `ipsec-hub` (172.16.0.20), ESP AES_CBC_256/HMAC_SHA2_256_128 |
+    | HTTPS 200 with valid TLS | ✅ Pass | `curl --cacert testbed-ca.crt https://172.16.0.10/` returns HTTP/2 200; `openssl s_client` confirms TLSv1.3 with testbed CA verification OK |
+    | `QoEResult.protocol == "h3"` | ✅ Pass | `test_productivity_slo_pristine_https` asserts `result.protocol == "h3"`; Nginx 1.29.5 `--with-http_v3_module` serves QUIC on UDP:443; Chromium uses `--origin-to-force-quic-on` with NSS-trusted testbed CA |
+    | Phase 3 scenarios pass over HTTPS | ✅ Pass | All 8 QoE tests pass (productivity HTTP + HTTPS/H3, streaming, 2× conferencing WSS under pristine + cable_typical) |
+
+    > **Implementation notes:**
+    >
+    > **Testbed CA (PKI):** `easy-rsa` v3.2.2 root CA (`CN=SD-WAN Testbed CA`). Certificates issued
+    > for: `app-server` (productivity), `streaming-server`, `conf-server`, `dut-strongswan`,
+    > `hub-strongswan`. PEM files stored in `raikou/testbed-ca/pki/`. All issued certs were stripped
+    > of human-readable text headers (StrongSwan requires clean PEM). Private keys converted from
+    > PKCS#8 to traditional RSA format for StrongSwan compatibility.
+    >
+    > **StrongSwan topology:** New `ipsec-hub` container (Alpine + StrongSwan) deployed as the IKEv2
+    > responder on `north-segment` (172.16.0.20). LinuxSDWANRouter acts as IKEv2 initiator.
+    > Certificates and keys mounted to standard `/etc/ipsec.d/{cacerts,certs,private}/` directories.
+    >
+    > **Conferencing (previously xfailed):** `conf-server` deployed with WSS endpoint
+    > (`wss://172.16.0.12:8443/session`). Both conferencing tests now pass — `xfail` markers removed.
+    > WebRTC stats collection updated to use `candidate-pair.currentRoundTripTime` as fallback when
+    > `remote-inbound-rtp.roundTripTime` is null.
+    >
+    > **HTTP/3 (QUIC) — key finding:** Chromium's `--ignore-certificate-errors` flag does **not**
+    > apply to the BoringSSL QUIC stack. QUIC requires proper certificate trust via the NSS database.
+    > The `lan-qoe-client` init script registers the testbed CA in both the system trust store
+    > (`update-ca-certificates`) and Chromium's NSS database (`certutil`). Natural Alt-Svc h3 upgrade
+    > does not reliably trigger in headless Chromium; `--origin-to-force-quic-on` is used as a testbed
+    > workaround for deterministic h3 verification.
+
+6. **Project Phase 4: Linux Router Expansion (Optional)**
     * Add **tc** for QoS shaping validation.
     * Add **iptables** for firewall/security validation.
     * Add **StrongSwan** if not already completed in Phase 3.5.
@@ -1914,7 +1946,24 @@ Each component has its own internal phase numbering (see linked documents). The 
     * Security: Port scan is detected; C2 callback is blocked; EICAR download is blocked.
     * Triple WAN: `dut.get_active_wan_interface()` correctly identifies WAN3 as failover when WAN1 and WAN2 are both degraded.
 
-6. **Project Phase 5: Commercial DUT Integration**
+    **Status: SKIPPED** *(2026-03-06)*
+
+    Phase 4 is an optional expansion phase. The items below summarise the disposition of each
+    deliverable. StrongSwan was completed in Phase 3.5. Triple WAN is deferred. The remaining
+    items (QoS shaping, firewall, security tooling) are not required for the current digital-twin
+    scope and will be addressed when a commercial DUT drives the requirement.
+
+    | Deliverable | Status | Notes |
+    | :--- | :---: | :--- |
+    | StrongSwan (IPsec/IKEv2) | ✅ Done | Completed in Phase 3.5 — IKEv2 tunnel ESTABLISHED between LinuxSDWANRouter and ipsec-hub |
+    | tc QoS shaping on DUT | Deferred | DUT-side traffic shaping (htb, fq_codel) not required for digital-twin validation; revisit for commercial DUT QoS pillar |
+    | iptables firewall on DUT | Deferred | Zone-based firewall rules not required for digital-twin validation; revisit for commercial DUT security pillar |
+    | `IperfTrafficGenerator` | Deferred | `TrafficGenerator` template not yet implemented; required for QoS contention tests with commercial DUT |
+    | `KaliMaliciousHost` | Deferred | `MaliciousHost` template not yet implemented; required for security pillar tests with commercial DUT |
+    | `security_use_cases.py` | Deferred | Composite security scenarios deferred until MaliciousHost and DUT firewall are available |
+    | Triple WAN topology | Skipped | Dual WAN provides sufficient coverage for current validation goals; WAN3 expansion deferred indefinitely |
+
+7. **Project Phase 5: Commercial DUT Integration**
     * Swap Linux Router for Cisco/Fortinet/VMware virtual or physical appliances.
     * Develop vendor-specific `WANEdgeDevice` implementations (e.g. `CiscoC8000DUT`, `FortiGateDUT`).
     * Update Boardfarm inventory config to point to the physical/virtual DUT.

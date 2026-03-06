@@ -6,7 +6,7 @@ applied symmetrically to both ``wan1_tc`` and ``wan2_tc`` traffic controllers.
 
 These tests cross the full stack:
 
-    lan-client (PlaywrightQoEClient)
+    lan-qoe-client (PlaywrightQoEClient)
         → linx-sdwan-router (DUT)
             → WAN TC containers (impairment)
                 → productivity-server / streaming-server / conf-server
@@ -24,7 +24,7 @@ Prerequisites:
 - All testbed containers running (see ``raikou/docker-compose.yaml``)
 - Both ``wan1-tc`` / ``wan2-tc`` running with eth-north/eth-dut injected
 - ``linux-sdwan-router`` running with WAN1 and WAN2 active
-- ``lan-client`` running with eth-lan injected and default route via DUT LAN
+- ``lan-qoe-client`` running with eth-lan injected and default route via DUT LAN
 
 Phase 3 SLOs (from ``docs/WAN_Edge_Appliance_testing.md`` § 2.1)::
 
@@ -60,8 +60,9 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 _PRODUCTIVITY_URL = "http://172.16.0.10:8080/"
+_PRODUCTIVITY_HTTPS_URL = "https://172.16.0.10/"
 _STREAMING_URL = "http://172.16.0.11:8081/hls/default/index.m3u8"
-_CONF_SESSION_URL = "ws://172.16.0.12:8443/session"
+_CONF_SESSION_URL = "wss://172.16.0.12:8443/session"
 
 # ---------------------------------------------------------------------------
 # SLO thresholds (from WAN_Edge_Appliance_testing.md § 2.1)
@@ -184,12 +185,12 @@ class TestQoEUnderPristineProfile:
 
     def test_productivity_slo_pristine(
         self,
-        lan_client: QoEClient,
+        lan_qoe_client: QoEClient,
         apply_pristine: None,
     ) -> None:
         """TTFB < 200ms and load time < 4s for productivity under pristine conditions."""
         result = qoe_uc.measure_productivity(
-            lan_client, _PRODUCTIVITY_URL, scenario="pristine"
+            lan_qoe_client, _PRODUCTIVITY_URL, scenario="pristine"
         )
         qoe_uc.assert_productivity_slo(
             result,
@@ -202,13 +203,42 @@ class TestQoEUnderPristineProfile:
             f"load={result.load_time_ms:.1f}ms"
         )
 
+    def test_productivity_slo_pristine_https(
+        self,
+        lan_qoe_client: QoEClient,
+        apply_pristine: None,
+    ) -> None:
+        """Phase 3.5: TTFB < 200ms over HTTPS/QUIC; protocol field reports 'h3'.
+
+        Chromium is launched with ``--origin-to-force-quic-on`` so the very
+        first navigation uses QUIC/HTTP3 (Nginx serves ``Alt-Svc: h3``).
+        The testbed CA is trusted via the NSS database, which is required for
+        Chromium's BoringSSL QUIC stack to complete the handshake.
+        """
+        result = qoe_uc.measure_productivity(
+            lan_qoe_client, _PRODUCTIVITY_HTTPS_URL, scenario="pristine-https"
+        )
+        qoe_uc.assert_productivity_slo(
+            result,
+            max_ttfb_ms=_TTFB_MAX_MS,
+            max_load_time_ms=_LOAD_TIME_MAX_MS,
+            label="pristine-https",
+        )
+        assert result.protocol == "h3", (
+            f"Expected HTTP/3 protocol over HTTPS, got {result.protocol!r}"
+        )
+        print(
+            f"✓ Pristine HTTPS/H3 productivity: TTFB={result.ttfb_ms:.1f}ms, "
+            f"load={result.load_time_ms:.1f}ms, protocol={result.protocol!r}"
+        )
+
     def test_streaming_slo_pristine(
         self,
-        lan_client: QoEClient,
+        lan_qoe_client: QoEClient,
         apply_pristine: None,
     ) -> None:
         """Streaming startup < 3s and rebuffer ratio < 1% under pristine conditions."""
-        result = qoe_uc.measure_streaming(lan_client, _STREAMING_URL, duration_s=20)
+        result = qoe_uc.measure_streaming(lan_qoe_client, _STREAMING_URL, duration_s=20)
         qoe_uc.assert_streaming_slo(
             result,
             max_startup_time_ms=_STARTUP_PRISTINE_MAX_MS,
@@ -220,17 +250,9 @@ class TestQoEUnderPristineProfile:
             f"rebuffer={result.rebuffer_ratio:.4f}"
         )
 
-    @pytest.mark.xfail(
-        reason=(
-            "conf-server container not yet deployed in testbed. "
-            "Deploy raikou/components/conf-server and add it to the compose stack "
-            "to enable WebRTC conferencing tests (Phase 3.5+)."
-        ),
-        strict=False,
-    )
     def test_conferencing_slo_pristine(
         self,
-        lan_client: QoEClient,
+        lan_qoe_client: QoEClient,
         apply_pristine: None,
     ) -> None:
         """Conferencing MOS > 3.5 and one-way latency < 150ms under pristine conditions.
@@ -239,10 +261,10 @@ class TestQoEUnderPristineProfile:
         predicts R-factor > 90, corresponding to MOS ≈ 4.4.  The 3.5 SLO
         threshold provides ample margin for measurement variance.
 
-        Requires: conf-server container running at ``172.16.0.12:8443``.
+        Phase 3.5: conf-server deployed at ``wss://172.16.0.12:8443``.
         """
         result = qoe_uc.measure_conferencing(
-            lan_client, _CONF_SESSION_URL, duration_s=30
+            lan_qoe_client, _CONF_SESSION_URL, duration_s=30
         )
         qoe_uc.assert_conferencing_slo(
             result,
@@ -274,7 +296,7 @@ class TestQoEUnderCableTypicalProfile:
 
     def test_productivity_slo_cable_typical(
         self,
-        lan_client: QoEClient,
+        lan_qoe_client: QoEClient,
         apply_cable_typical: None,
     ) -> None:
         """TTFB < 200ms and load time < 4s for productivity under cable_typical conditions.
@@ -284,7 +306,7 @@ class TestQoEUnderCableTypicalProfile:
         under 200ms and page load well under 4s.
         """
         result = qoe_uc.measure_productivity(
-            lan_client, _PRODUCTIVITY_URL, scenario="cable_typical"
+            lan_qoe_client, _PRODUCTIVITY_URL, scenario="cable_typical"
         )
         qoe_uc.assert_productivity_slo(
             result,
@@ -299,7 +321,7 @@ class TestQoEUnderCableTypicalProfile:
 
     def test_streaming_slo_cable_typical(
         self,
-        lan_client: QoEClient,
+        lan_qoe_client: QoEClient,
         apply_cable_typical: None,
     ) -> None:
         """Streaming startup < 5s and rebuffer ratio < 1% under cable_typical conditions.
@@ -308,7 +330,7 @@ class TestQoEUnderCableTypicalProfile:
         (typical segment size < 10 MB).  A higher startup budget (5s vs 3s)
         accounts for segment fetch time under the bandwidth restriction.
         """
-        result = qoe_uc.measure_streaming(lan_client, _STREAMING_URL, duration_s=20)
+        result = qoe_uc.measure_streaming(lan_qoe_client, _STREAMING_URL, duration_s=20)
         qoe_uc.assert_streaming_slo(
             result,
             max_startup_time_ms=_STARTUP_CABLE_MAX_MS,
@@ -320,17 +342,9 @@ class TestQoEUnderCableTypicalProfile:
             f"rebuffer={result.rebuffer_ratio:.4f}"
         )
 
-    @pytest.mark.xfail(
-        reason=(
-            "conf-server container not yet deployed in testbed. "
-            "Deploy raikou/components/conf-server and add it to the compose stack "
-            "to enable WebRTC conferencing tests (Phase 3.5+)."
-        ),
-        strict=False,
-    )
     def test_conferencing_slo_cable_typical(
         self,
-        lan_client: QoEClient,
+        lan_qoe_client: QoEClient,
         apply_cable_typical: None,
     ) -> None:
         """Conferencing MOS > 3.5 under cable_typical conditions.
@@ -339,10 +353,10 @@ class TestQoEUnderCableTypicalProfile:
         predicts R-factor ≈ 88, corresponding to MOS ≈ 4.3.  The SLO
         threshold of 3.5 provides substantial margin over the predicted score.
 
-        Requires: conf-server container running at ``172.16.0.12:8443``.
+        Phase 3.5: conf-server deployed at ``wss://172.16.0.12:8443``.
         """
         result = qoe_uc.measure_conferencing(
-            lan_client, _CONF_SESSION_URL, duration_s=30
+            lan_qoe_client, _CONF_SESSION_URL, duration_s=30
         )
         qoe_uc.assert_conferencing_slo(
             result,

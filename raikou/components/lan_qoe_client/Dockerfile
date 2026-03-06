@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping \
     net-tools \
     python3-pip \
+    libnss3-tools \
     && rm -rf /var/lib/apt/lists/* \
     && pip3 install --no-cache-dir playwright==1.50.0 \
     && mkdir -p /run/sshd \

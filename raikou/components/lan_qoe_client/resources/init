@@ -54,5 +54,23 @@ EOF
 echo "Starting Dante SOCKS proxy (external: $EXTERNAL)..."
 service danted start
 
+# Phase 3.5: Register testbed CA root with both the system trust store and
+# Chromium's NSS database.  The system store covers curl/openssl; the NSS
+# database (/root/.pki/nssdb) is what Chromium/BoringSSL uses for TLS *and*
+# QUIC certificate verification.
+if [ -f /usr/local/share/ca-certificates/testbed-ca.crt ]; then
+    echo "Registering testbed CA in system trust store..."
+    update-ca-certificates 2>/dev/null
+
+    echo "Registering testbed CA in Chromium NSS database..."
+    mkdir -p /root/.pki/nssdb
+    echo > /tmp/nss_empty_pw.txt
+    certutil -d sql:/root/.pki/nssdb -N -f /tmp/nss_empty_pw.txt 2>/dev/null || true
+    certutil -d sql:/root/.pki/nssdb -A -t "CT,C,C" -n "Testbed CA" \
+        -i /usr/local/share/ca-certificates/testbed-ca.crt 2>/dev/null
+    rm -f /tmp/nss_empty_pw.txt
+    echo "Testbed CA registered (system + NSS)"
+fi
+
 echo "QoE Client ready. Starting SSH..."
 exec /usr/sbin/sshd -D

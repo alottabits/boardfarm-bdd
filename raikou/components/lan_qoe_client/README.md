@@ -22,7 +22,7 @@ Playwright-based QoE measurement container for the SD-WAN testbed. Simulates end
 
 ```bash
 cd raikou
-docker build -t lan-client:qoe_client_0.01 -f components/lan-client/Dockerfile components/lan-client
+docker build -t lan-qoe-client:qoe_client_0.01 -f components/lan_qoe_client/Dockerfile components/lan_qoe_client
 ```
 
 ## Usage

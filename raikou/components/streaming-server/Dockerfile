@@ -10,7 +10,7 @@ FROM nginx:alpine
 LABEL maintainer="rjvisser@alottabits.com"
 LABEL version="streaming_server_0.01"
 
-EXPOSE 22 8081
+EXPOSE 22 8081 8443
 
 WORKDIR /root
 

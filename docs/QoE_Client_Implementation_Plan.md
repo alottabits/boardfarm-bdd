@@ -225,7 +225,7 @@ Two complementary tools are provided for debugging QoE test failures, covering d
 
 #### SOCKS v5 Proxy (Dante) — Network & Service Debugging
 
-The `lan-client` container runs a **Dante SOCKS v5 proxy** on port 8080 (exposed to the host as port 18090 — see `SDWAN_Testbed_Configuration.md §5.1`). This proxy routes outbound traffic via `eth1`, the same interface Playwright uses, meaning the developer's browser traverses the identical network path — including any active `tc netem` impairment profiles on WAN1/WAN2.
+The `lan-qoe-client` container runs a **Dante SOCKS v5 proxy** on port 8080 (exposed to the host as port 18090 — see `SDWAN_Testbed_Configuration.md §5.1`). This proxy routes outbound traffic via `eth1`, the same interface Playwright uses, meaning the developer's browser traverses the identical network path — including any active `tc netem` impairment profiles on WAN1/WAN2.
 
 **What this enables:**
 - Browse directly to `http://172.16.0.10:8080/` (productivity server) and verify the page renders correctly under current impairment conditions.
@@ -243,7 +243,7 @@ Settings → Network Settings → Manual Proxy Configuration:
   ✓ Proxy DNS when using SOCKS v5
 ```
 
-**Testbed isolation:** The proxy only exposes the LAN-side network perspective of the `lan-client` container. Traffic still passes through the DUT and the WAN impairment containers — there is no backdoor into the simulated network. The north-side services (`172.16.0.x`) are reachable only by traversing the DUT, exactly as Playwright does.
+**Testbed isolation:** The proxy only exposes the LAN-side network perspective of the `lan-qoe-client` container. Traffic still passes through the DUT and the WAN impairment containers — there is no backdoor into the simulated network. The north-side services (`172.16.0.x`) are reachable only by traversing the DUT, exactly as Playwright does.
 
 #### Playwright Trace Viewer — Automated Session Debugging
 
@@ -301,9 +301,9 @@ The QoE Client needs targets (servers) to measure against. These "North-Side" co
     *   Run Boardfarm scenarios asserting SLOs.
 5.  **Phase 3.5: Testbed CA Trust & Protocol Verification** *(Project Phase 3.5 — Digital Twin, Optional)*
 
-    > **Prerequisite:** Testbed CA generated and `ca.crt` mounted into the `lan-client` container per **[`Testbed_CA_Setup.md §4–7`](Testbed_CA_Setup.md)**. The `update-ca-certificates` call described there registers the CA with both the system OpenSSL store and the NSS database used by Chromium.
+    > **Prerequisite:** Testbed CA generated and `ca.crt` mounted into the `lan-qoe-client` container per **[`Testbed_CA_Setup.md §4–7`](Testbed_CA_Setup.md)**. The `update-ca-certificates` call described there registers the CA with both the system OpenSSL store and the NSS database used by Chromium.
 
-    *   The `lan-client` init script calls `update-ca-certificates` at startup (see `Testbed_CA_Setup.md §7`), which makes the CA trusted by Playwright/Chromium automatically. No Playwright launch-flag override is needed.
+    *   The `lan-qoe-client` init script calls `update-ca-certificates` at startup (see `Testbed_CA_Setup.md §7`), which makes the CA trusted by Playwright/Chromium automatically. No Playwright launch-flag override is needed.
 
     *   **Exit criterion — trust store:** Verify from inside the container:
         ```bash

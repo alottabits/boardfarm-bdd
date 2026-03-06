@@ -1,7 +1,7 @@
 {
     "environment_def": {
         "sdwan": {},
-        "lan_client": {},
+        "lan_qoe_client": {},
         "wan1_tc": {
             "interfaces": {
                 "eth-north": {"latency_ms": 5, "jitter_ms": 1, "loss_percent": 0, "bandwidth_limit_mbps": 1000},

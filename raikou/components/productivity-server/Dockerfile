@@ -10,7 +10,7 @@ FROM nginx:alpine
 LABEL maintainer="rjvisser@alottabits.com"
 LABEL version="productivity_server_0.01"
 
-EXPOSE 22 8080
+EXPOSE 22 443 8080
 
 WORKDIR /root
 

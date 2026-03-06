@@ -50,7 +50,7 @@ The Raikou orchestrator container reads `config_sdwan.json` that declares the OV
 | **Linux SD-WAN Router** | DUT (`WANEdgeDevice`) | `linux-sdwan-router` | Device Under Test. FRR, Policy-Based Routing (pbr-map), dual WAN. |
 | **WAN1 Traffic Controller** | Impairment (`TrafficController`) | `wan1-tc` | Linux `tc netem` impairment emulator on the MPLS/Fiber path. |
 | **WAN2 Traffic Controller** | Impairment (`TrafficController`) | `wan2-tc` | Linux `tc netem` impairment emulator on the Internet/Cable path. |
-| **LAN Client** | Client (`QoEClient`) | `lan-client` | Playwright-based QoE measurement container (productivity, streaming, conferencing). |
+| **LAN Client** | Client (`QoEClient`) | `lan-qoe-client` | Playwright-based QoE measurement container (productivity, streaming, conferencing). |
 | **Productivity Server** | Server (North-side) | `productivity-server` | Nginx Mock SaaS (index.html, large_asset.js, /api/latency). Separate from `streaming-server` to enable independent L7 path steering. |
 | **Streaming Server** | Server (North-side) | `streaming-server` | Nginx HLS streaming edge (proxies to MinIO via `content-internal` bridge). Separate from `productivity-server` to enable independent L7 path steering. |
 | **MinIO Content Store** | Infrastructure | `minio` | S3-compatible object store. Holds HLS manifests and `.ts` segments. Connected to the `content-internal` Raikou OVS bridge — only `streaming-server` reaches it for proxy traffic. The management host accesses the MinIO S3 API via a Docker management-network port for content ingest. |
@@ -88,7 +88,7 @@ flowchart LR
     DUT_MGMT[DUT Container<br/>No Management Network<br/>docker exec only]
     TC1_MGMT[wan1-tc eth0<br/>192.168.55.x<br/>SSH:5001]
     TC2_MGMT[wan2-tc eth0<br/>192.168.55.x<br/>SSH:5002]
-    LAN_MGMT[lan-client eth0<br/>192.168.55.x<br/>SSH:5003 SOCKS:18090]
+    LAN_MGMT[lan-qoe-client eth0<br/>192.168.55.x<br/>SSH:5003 SOCKS:18090]
     PROD_MGMT[productivity-server eth0<br/>192.168.55.x<br/>SSH:5005 HTTP:18080]
     STREAM_MGMT[streaming-server eth0<br/>192.168.55.x<br/>SSH:5006 HTTP:18081]
     MINIO_MGMT[minio<br/>192.168.55.x<br/>S3-API:19000 Console:19001<br/>content ingest only]
@@ -115,7 +115,7 @@ This is the functional testbed network created by Raikou using OVS bridges. Test
 %%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '12px', 'fontFamily': 'arial' }}}%%
 graph LR
     %% --- LAN SIDE ---
-    LAN_CLIENT[lan-client<br/>QoEClient<br/>192.168.10.10]
+    LAN_CLIENT[lan-qoe-client<br/>QoEClient<br/>192.168.10.10]
     LAN_GEN[lan-traffic-gen<br/>TrafficGenerator<br/>192.168.10.20<br/>Phase 2+]
 
     %% --- OVS BRIDGES ---
@@ -195,7 +195,7 @@ graph LR
 | Container | Interface | IP Address | Role |
 | :--- | :--- | :--- | :--- |
 | `linux-sdwan-router` | `eth-lan` | `192.168.10.1/24` | LAN gateway |
-| `lan-client` | `eth1` | `192.168.10.10/24` | QoEClient — Playwright measurements |
+| `lan-qoe-client` | `eth1` | `192.168.10.10/24` | QoEClient — Playwright measurements |
 | `lan-traffic-gen` _(Phase 2+)_ | `eth1` | `192.168.10.20/24` | TrafficGenerator — iPerf3 client |
 
 ### 3.2 DUT–WAN1 Segment (`dut-wan1` bridge)
@@ -303,7 +303,7 @@ The Raikou orchestrator reads this file at startup and:
                 "ipaddress": "172.16.0.2/24"
             }
         ],
-        "lan-client": [
+        "lan-qoe-client": [
             {
                 "bridge":    "lan-segment",
                 "iface":     "eth1",
@@ -366,7 +366,7 @@ The latency-sensitive containers (`linux-sdwan-router`, `wan1-tc`, `wan2-tc`) ha
 | :--- | :---: | :---: | :---: | :--- |
 | `linux-sdwan-router` | 2.0 | 1.5 | 512M | BFD timer sensitivity — guaranteed cores |
 | `wan1-tc` / `wan2-tc` | 0.5 | 0.25 | 128M | `tc netem` is kernel-driven; container is near-idle |
-| `lan-client` | 3.0 | 1.5 | 3G | Chromium + WebRTC codec work; largest memory consumer |
+| `lan-qoe-client` | 3.0 | 1.5 | 3G | Chromium + WebRTC codec work; largest memory consumer |
 | `productivity-server` | 1.0 | 0.5 | 256M | Nginx serving static assets |
 | `streaming-server` | 2.0 | 1.0 | 512M | Nginx + MinIO proxy for HLS segments |
 | `minio` | 1.0 | — | 256M | Content origin; management-plane ingest only |
@@ -376,7 +376,7 @@ The latency-sensitive containers (`linux-sdwan-router`, `wan1-tc`, `wan2-tc`) ha
 | `conf-server` _(Phase 2+)_ | 0.5 | 0.25 | 256M | pion WebRTC echo — trivially light |
 | `malicious-host` _(Phase 4+)_ | 1.5 | 0.5 | 256M | Brief spikes during nmap scans / hping3 floods |
 
-> **CI environments:** On a 4–8 vCPU CI runner, reduce `lan-client` to `cpus: '1.0'` and `streaming-server` to `cpus: '1.0'`. Phase 2+ containers (`lan-traffic-gen`, `conf-server`) and Phase 4+ containers (`malicious-host`) are not in scope until their respective pillars are validated.
+> **CI environments:** On a 4–8 vCPU CI runner, reduce `lan-qoe-client` to `cpus: '1.0'` and `streaming-server` to `cpus: '1.0'`. Phase 2+ containers (`lan-traffic-gen`, `conf-server`) and Phase 4+ containers (`malicious-host`) are not in scope until their respective pillars are validated.
 
 ```yaml
 # SD-WAN Testbed — Phase 1
@@ -472,19 +472,19 @@ services:
 
     # ── QoE Client (Playwright) ─────────────────────────────────────────────────
     # Test traffic via Raikou OVS: eth1 (lan-segment). Docker eth0 for SSH/port mapping only.
-    lan-client:
-        container_name: lan-client
+    lan-qoe-client:
+        container_name: lan-qoe-client
         build:
-            context: ./components/lan-client
+            context: ./components/lan_qoe_client
             tags:
-                - lan-client:qoe_client_0.01
+                - lan-qoe-client:qoe_client_0.01
         ports:
             - "5003:22"
             - "18090:8080"   # Dante SOCKS v5 proxy — developer access to LAN-side services
         environment:
             - LEGACY=no
         privileged: true
-        hostname: lan-client
+        hostname: lan-qoe-client
         deploy:
             resources:
                 limits:
@@ -607,7 +607,7 @@ services:
         hostname: orchestrator
         depends_on:
             - linux-sdwan-router
-            - lan-client
+            - lan-qoe-client
             - wan1-tc
             - wan2-tc
             - productivity-server
@@ -648,7 +648,7 @@ volumes:
 | `linux-sdwan-router` | — | — | `docker exec -it linux-sdwan-router bash` | `network_mode: none`; no management network |
 | `wan1-tc` | 5001 | — | `ssh -p 5001 root@localhost` | |
 | `wan2-tc` | 5002 | — | `ssh -p 5002 root@localhost` | |
-| `lan-client` | 5003 | 18090 (SOCKS v5 proxy) | `ssh -p 5003 root@localhost` | SOCKS proxy for developer browser access to LAN-side services — see §5.2 |
+| `lan-qoe-client` | 5003 | 18090 (SOCKS v5 proxy) | `ssh -p 5003 root@localhost` | SOCKS proxy for developer browser access to LAN-side services — see §5.2 |
 | `productivity-server` | 5005 | 18080 (HTTP prod) | `ssh -p 5005 root@localhost` | Nginx productivity SaaS |
 | `streaming-server` | 5006 | 18081 (HLS edge) | `ssh -p 5006 root@localhost` | HLS proxy to MinIO via content-internal |
 | `minio` | — | 19000 (S3 API), 19001 (Console) | `mc alias set testbed http://localhost:19000 testbed testbed-secret` | Management network (ingest/debug only); eth1 on `content-internal` bridge carries proxy traffic |
@@ -661,11 +661,11 @@ volumes:
 
 ### 5.2 Developer Debugging Access
 
-The `lan-client` container provides two complementary tools for debugging QoE test failures. Neither tool compromises testbed isolation — all traffic still traverses the DUT and WAN impairment containers via the OVS bridges.
+The `lan-qoe-client` container provides two complementary tools for debugging QoE test failures. Neither tool compromises testbed isolation — all traffic still traverses the DUT and WAN impairment containers via the OVS bridges.
 
 #### SOCKS v5 Proxy (Dante) — Browse through the testbed LAN
 
-Dante is running inside `lan-client` and listening on port 8080, exposed to the host as **port 18090**. Configure your browser to use it as a SOCKS v5 proxy:
+Dante is running inside `lan-qoe-client` and listening on port 8080, exposed to the host as **port 18090**. Configure your browser to use it as a SOCKS v5 proxy:
 
 ```
 Firefox → Settings → Network Settings → Manual Proxy Configuration
@@ -675,7 +675,7 @@ Firefox → Settings → Network Settings → Manual Proxy Configuration
   ✓ Proxy DNS when using SOCKS v5
 ```
 
-With this configuration your browser routes traffic out via the `lan-client`'s `eth1` interface on the `lan-segment` bridge — through the DUT — through the active WAN impairment — to the north-side services. This is **the exact same path Playwright uses**.
+With this configuration your browser routes traffic out via the `lan-qoe-client`'s `eth1` interface on the `lan-segment` bridge — through the DUT — through the active WAN impairment — to the north-side services. This is **the exact same path Playwright uses**.
 
 | Service reachable via proxy | URL |
 | :--- | :--- |
@@ -702,7 +702,7 @@ See `QoE_Client_Implementation_Plan.md §3.4` for the full tracing setup and CI 
 | :--- | :--- | :--- |
 | `linux-sdwan-router` | `components/sdwan-router` | `frr`, `iproute2`, `iptables`, `strongswan` |
 | `wan1-tc`, `wan2-tc` | `components/traffic-controller` | `iproute2` (tc + netem), `openssh-server` |
-| `lan-client` | `components/lan-client` | `playwright`, `chromium`, `openssh-server` |
+| `lan-qoe-client` | `components/lan_qoe_client` | `playwright`, `chromium`, `openssh-server` |
 | `productivity-server` | `components/productivity-server` | `nginx`, `openssh-server` |
 | `streaming-server` | `components/streaming-server` | `nginx`, `openssh-server` |
 | `minio` | `components/minio` | Custom build on MinIO base |
@@ -795,7 +795,7 @@ tail -f logs/sdwan-testbed.log
 ```bash
 grep "linux-sdwan-router" logs/sdwan-testbed.log | tail -50   # DUT (FRR)
 grep "wan1-tc" logs/sdwan-testbed.log | tail -50              # WAN1 impairment
-grep "lan-client" logs/sdwan-testbed.log | tail -50           # Playwright / Dante
+grep "lan-qoe-client" logs/sdwan-testbed.log | tail -50           # Playwright / Dante
 ```
 
 **Correlate a time window across all containers** (the primary debugging use case):
@@ -808,7 +808,7 @@ awk '/2026-02-25T10:23:40/,/2026-02-25T10:23:46/' logs/sdwan-testbed.log
 ```bash
 docker logs linux-sdwan-router --timestamps --tail 100
 docker logs wan1-tc --since 5m
-docker logs lan-client --follow
+docker logs lan-qoe-client --follow
 ```
 
 #### Optional Extension — Loki + Grafana
@@ -903,7 +903,7 @@ Inventory holds device identity and connection details. Topology keys (`dut_ifac
             "north_iface": "eth-north"
         },
         {
-            "name": "lan_client",
+            "name": "lan_qoe_client",
             "type": "playwright_qoe_client",
             "connection_type": "ssh",
             "ipaddr": "localhost",
@@ -1012,7 +1012,7 @@ The environment config defines per-device defaults and behavior. Each TrafficCon
 ### 7.1 QoE Test Flow (LAN → North via DUT → TC → App Server)
 
 ```
-lan-client (192.168.10.10)
+lan-qoe-client (192.168.10.10)
   → [lan-segment bridge]
   → DUT eth-lan → DUT eth-wan1 (active WAN, PBR selects wan1)
   → [dut-wan1 bridge]
@@ -1028,7 +1028,7 @@ wan1-tc applies: ImpairmentProfile(latency_ms=600, loss_percent=50)  ← brownou
 DUT BFD/SLA probe on WAN1 detects breach
 DUT BFD echo detects WAN1 failure; FRR metric-based routing promotes WAN2 route
 Traffic re-routes:
-  lan-client → DUT eth-wan2 → [dut-wan2 bridge] → wan2-tc → [north-segment] → productivity-server
+  lan-qoe-client → DUT eth-wan2 → [dut-wan2 bridge] → wan2-tc → [north-segment] → productivity-server
 ```
 
 ### 7.3 QoS Contention Flow (Background load + Priority traffic)
@@ -1039,7 +1039,7 @@ lan-traffic-gen (192.168.10.20)
   → DUT → wan1-tc (100 Mbps WAN1 link creates queue pressure)
   → north-segment → lan-traffic-gen (Phase 2+) iPerf3 server
 
-lan-client (192.168.10.10)
+lan-qoe-client (192.168.10.10)
   → WebRTC DSCP=46 (EF — voice priority)
   → DUT QoS policy: EF traffic in high-priority queue → guaranteed forwarding
   → conf-server (172.16.0.12) :8443  ← Phase 2+
@@ -1049,7 +1049,7 @@ lan-client (192.168.10.10)
 
 ```
 malicious-host (172.16.0.20) starts nc listener on :4444
-lan-client (192.168.10.10) attempts outbound TCP → 172.16.0.20:4444
+lan-qoe-client (192.168.10.10) attempts outbound TCP → 172.16.0.20:4444
   → DUT Application Control policy → DROP (log entry written)
   → malicious-host check_connection_received() → False  ← assert passes
 ```
@@ -1157,8 +1157,8 @@ docker exec linux-sdwan-router ip route show
 docker exec linux-sdwan-router vtysh -c "show ip bgp summary"
 
 # Verify LAN connectivity through DUT
-docker exec lan-client ping -c 3 192.168.10.1         # DUT LAN gateway
-docker exec lan-client ping -c 3 172.16.0.10          # App server (via WAN)
+docker exec lan-qoe-client ping -c 3 192.168.10.1         # DUT LAN gateway
+docker exec lan-qoe-client ping -c 3 172.16.0.10          # App server (via WAN)
 
 # Verify Traffic Controller forwarding
 docker exec wan1-tc ip route show

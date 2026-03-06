@@ -235,7 +235,7 @@ class TestGetQoEClient:
         """Returns the sole QoEClient when exactly one device is registered and name=None."""
         mock_client = _make_mock_client()
         mock_gdm.return_value.get_devices_by_type.return_value = {
-            "lan_client": mock_client
+            "lan_qoe_client": mock_client
         }
         result = uc.get_qoe_client()
         assert result is mock_client
@@ -245,16 +245,16 @@ class TestGetQoEClient:
         """Returns the named device when name matches an available QoEClient."""
         mock_client = _make_mock_client()
         mock_gdm.return_value.get_devices_by_type.return_value = {
-            "lan_client": mock_client
+            "lan_qoe_client": mock_client
         }
-        result = uc.get_qoe_client("lan_client")
+        result = uc.get_qoe_client("lan_qoe_client")
         assert result is mock_client
 
     @patch("boardfarm3.use_cases.qoe.get_device_manager")
     def test_named_device_not_found_raises(self, mock_gdm: MagicMock) -> None:
         """Raises DeviceNotFound when a specified name is not registered."""
         mock_gdm.return_value.get_devices_by_type.return_value = {
-            "lan_client": _make_mock_client()
+            "lan_qoe_client": _make_mock_client()
         }
         with pytest.raises(DeviceNotFound, match="nonexistent"):
             uc.get_qoe_client("nonexistent")
@@ -270,8 +270,8 @@ class TestGetQoEClient:
     def test_multiple_devices_no_name_raises(self, mock_gdm: MagicMock) -> None:
         """Raises ValueError when multiple QoEClients exist and no name is specified."""
         mock_gdm.return_value.get_devices_by_type.return_value = {
-            "lan_client_1": _make_mock_client(),
-            "lan_client_2": _make_mock_client(),
+            "lan_qoe_client_1": _make_mock_client(),
+            "lan_qoe_client_2": _make_mock_client(),
         }
         with pytest.raises(ValueError, match="Multiple QoEClient"):
             uc.get_qoe_client()
@@ -282,11 +282,11 @@ class TestGetQoEClient:
         mock_c1 = _make_mock_client()
         mock_c2 = _make_mock_client()
         mock_gdm.return_value.get_devices_by_type.return_value = {
-            "lan_client_1": mock_c1,
-            "lan_client_2": mock_c2,
+            "lan_qoe_client_1": mock_c1,
+            "lan_qoe_client_2": mock_c2,
         }
-        assert uc.get_qoe_client("lan_client_1") is mock_c1
-        assert uc.get_qoe_client("lan_client_2") is mock_c2
+        assert uc.get_qoe_client("lan_qoe_client_1") is mock_c1
+        assert uc.get_qoe_client("lan_qoe_client_2") is mock_c2
 
 
 # ---------------------------------------------------------------------------

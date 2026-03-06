@@ -32,4 +32,4 @@ Requires Raikou to inject eth1 (north-segment). Use with `docker-compose-sdwan.y
 docker compose -p boardfarm-bdd-sdwan -f docker-compose-sdwan.yaml up -d
 ```
 
-**Productivity URL:** `http://172.16.0.10:8080/` (from lan-client via DUT)
+**Productivity URL:** `http://172.16.0.10:8080/` (from lan-qoe-client via DUT)

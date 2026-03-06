@@ -4,10 +4,10 @@ Validates all QoEClient template methods implemented by PlaywrightQoEClient.
 Uses boardfarm device_manager/devices fixtures — requires full boardfarm args.
 
 Tests exercise the device methods directly (NOT through the use-case layer) to
-validate that the Playwright scripts run correctly on the ``lan-client`` container,
+validate that the Playwright scripts run correctly on the ``lan-qoe-client`` container,
 parse JSON output, and populate :class:`~boardfarm3.lib.qoe.QoEResult` correctly.
 
-Run from boardfarm-bdd/ with venv activated and lan-client container running:
+Run from boardfarm-bdd/ with venv activated and lan-qoe-client container running:
 
     pytest tests/dc_methods/test_playwright_qoe_client.py -v \\
         --board-name sdwan \\
@@ -16,12 +16,12 @@ Run from boardfarm-bdd/ with venv activated and lan-client container running:
         --legacy --skip-boot --save-console-logs ""
 
 Prerequisites:
-- ``lan-client`` container running (``docker compose -p boardfarm-bdd-sdwan ... up``)
+- ``lan-qoe-client`` container running (``docker compose -p boardfarm-bdd-sdwan ... up``)
 - ``productivity-server`` container running (for productivity tests)
 - ``streaming-server`` container running (for streaming tests)
 - ``conf-server`` container running with pion (for conferencing tests — skip if absent)
-- Raikou has injected eth-lan into the lan-client container
-- Default route in lan-client via DUT LAN IP (192.168.10.1)
+- Raikou has injected eth-lan into the lan-qoe-client container
+- Default route in lan-qoe-client via DUT LAN IP (192.168.10.1)
 - Python venv with boardfarm3 and playwright installed
 
 Service URLs (aligned with raikou/config_sdwan.json north-segment: 172.16.0.0/24):
@@ -45,7 +45,7 @@ from boardfarm3.templates.qoe_client import QoEClient
 # Constants — adjust to match your testbed layout
 # ---------------------------------------------------------------------------
 
-_QOE_DEVICE_NAME: str = os.environ.get("QOE_DEVICE_NAME", "lan_client")
+_QOE_DEVICE_NAME: str = os.environ.get("QOE_DEVICE_NAME", "lan_qoe_client")
 
 # URLs of services reachable through the DUT
 # IPs match raikou/config_sdwan.json: north-segment is 172.16.0.0/24
@@ -80,7 +80,7 @@ def _require_qoe_client(devices: object, name: str) -> QoEClient:
     if dev is None:
         pytest.skip(
             f"QoEClient device {name!r} not in testbed "
-            "(use --board-name sdwan and ensure the lan-client container is running)"
+            "(use --board-name sdwan and ensure the lan-qoe-client container is running)"
         )
     return cast(QoEClient, dev)
 

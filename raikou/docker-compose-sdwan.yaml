@@ -1,28 +1,35 @@
-# SD-WAN Testbed — Phase 1
-# Dual-WAN router + Raikou OVS orchestrator.
+# SD-WAN Testbed — Phase 3.5 (Digital Twin Hardening)
+# Dual-WAN router + Raikou OVS orchestrator + TLS/IPsec infrastructure.
 #
 # NETWORKING: Containers are NOT connected via Docker networks for test traffic.
 # - Test traffic flows through Raikou OVS bridges (lan-segment, dut-wan1, dut-wan2,
 #   north-segment). Raikou injects interfaces per config_sdwan.json.
 # - The default network (192.168.55.0/24) is management-only: SSH access and host
-#   port mapping. DUT uses network_mode: none (all interfaces from Raikou).
+#   port mapping. LinuxSDWANRouter uses network_mode: none (all interfaces from Raikou).
+#
+# Phase 3.5 additions: testbed CA certificates (./testbed-ca/pki/) are volume-mounted
+# read-only into containers that need TLS: LinuxSDWANRouter (StrongSwan IKEv2),
+# productivity-server + streaming-server (Nginx HTTPS/HTTP3), conf-server (WSS),
+# lan-qoe-client (CA trust store for Playwright/Chromium).
 #
 # See: docs/SDWAN_Testbed_Configuration.md
+# See: docs/Testbed_CA_Setup.md
 # Usage: docker compose -p boardfarm-bdd-sdwan -f docker-compose-sdwan.yaml up -d
 
 name: boardfarm-bdd-sdwan
 ---
 services:
 
-    # ── Device Under Test ──────────────────────────────────────────────────────
+    # ── LinuxSDWANRouter ───────────────────────────────────────────────────────
     # All interfaces from Raikou OVS (eth-lan, eth-wan1, eth-wan2). No Docker network.
+    # Phase 3.5: StrongSwan IKEv2 certs mounted at /etc/strongswan/
     linux-sdwan-router:
         container_name: linux-sdwan-router
         restart: always
         build:
             context: ./components/sdwan-router
             tags:
-                - sdwan-router:sdwan_frr_0.01
+                - sdwan-router:sdwan_frr_0.02
         network_mode: none
         privileged: true
         hostname: sdwan-router
@@ -30,6 +37,10 @@ services:
             - LAN_IFACE=eth-lan
             - WAN1_IFACE=eth-wan1
             - WAN2_IFACE=eth-wan2
+        volumes:
+            - ./testbed-ca/pki/ca.crt:/etc/ipsec.d/cacerts/ca.crt:ro
+            - ./testbed-ca/pki/issued/dut-strongswan.crt:/etc/ipsec.d/certs/dut.crt:ro
+            - ./testbed-ca/pki/private/dut-strongswan.key:/etc/ipsec.d/private/dut.key:ro
         deploy:
             resources:
                 limits:
@@ -90,19 +101,22 @@ services:
 
     # ── QoE Client (Playwright) ─────────────────────────────────────────────────
     # Test traffic via Raikou OVS: eth1 (lan-segment). Docker eth0 for SSH/port mapping only.
-    lan-client:
-        container_name: lan-client
+    # Phase 3.5: testbed CA cert mounted for Playwright/Chromium HTTPS trust.
+    lan-qoe-client:
+        container_name: lan-qoe-client
         build:
-            context: ./components/lan-client
+            context: ./components/lan_qoe_client
             tags:
-                - lan-client:qoe_client_0.01
+                - lan-qoe-client:qoe_client_0.02
         ports:
             - "5003:22"
             - "18090:8080"   # Dante SOCKS v5 proxy — developer access to LAN-side services
         environment:
             - LEGACY=no
         privileged: true
-        hostname: lan-client
+        hostname: lan-qoe-client
+        volumes:
+            - ./testbed-ca/pki/ca.crt:/usr/local/share/ca-certificates/testbed-ca.crt:ro
         deploy:
             resources:
                 limits:
@@ -114,20 +128,27 @@ services:
 
     # ── North-Side Application Services ────────────────────────────────────────
     # Separate containers enable L7 path steering: productivity vs streaming via different WAN paths.
+    # Phase 3.5: TLS certs mounted at /certs/ for HTTPS/HTTP3.
     # See: docs/WAN_Edge_Appliance_testing.md §4.2
+    # See: docs/Application_Services_Implementation_Plan.md §6 Phase 3.5
     productivity-server:
         container_name: productivity-server
         build:
             context: ./components/productivity-server
             tags:
-                - productivity-server:productivity_server_0.01
+                - productivity-server:productivity_server_0.02
         ports:
             - "5005:22"
             - "18080:8080"       # Nginx productivity (HTTP)
+            - "18443:443"        # Nginx productivity (HTTPS + HTTP/3)
         environment:
             - LEGACY=no
         privileged: true
         hostname: productivity-server
+        volumes:
+            - ./testbed-ca/pki/ca.crt:/certs/ca.crt:ro
+            - ./testbed-ca/pki/issued/app-server.crt:/certs/server.crt:ro
+            - ./testbed-ca/pki/private/app-server.key:/certs/server.key:ro
         deploy:
             resources:
                 limits:
@@ -138,19 +159,25 @@ services:
                     memory: 128M
 
     # Test traffic via Raikou OVS: eth1 (north-segment), eth2 (content-internal → MinIO).
+    # Phase 3.5: TLS certs mounted at /certs/ for HTTPS.
     streaming-server:
         container_name: streaming-server
         build:
             context: ./components/streaming-server
             tags:
-                - streaming-server:streaming_server_0.01
+                - streaming-server:streaming_server_0.02
         ports:
             - "5006:22"
-            - "18081:8081"       # Nginx streaming (HLS proxy)
+            - "18081:8081"       # Nginx streaming (HLS proxy, HTTP)
+            - "18444:8443"       # Nginx streaming (HLS proxy, HTTPS)
         environment:
             - LEGACY=no
         privileged: true
         hostname: streaming-server
+        volumes:
+            - ./testbed-ca/pki/ca.crt:/certs/ca.crt:ro
+            - ./testbed-ca/pki/issued/streaming-server.crt:/certs/server.crt:ro
+            - ./testbed-ca/pki/private/streaming-server.key:/certs/server.key:ro
         deploy:
             resources:
                 limits:
@@ -159,6 +186,65 @@ services:
                 reservations:
                     cpus: '1.0'
                     memory: 256M
+
+    # ── Conferencing Server (pion WebRTC Echo) ────────────────────────────────
+    # Phase 3.5: Synthetic WebRTC endpoint for conferencing QoE measurement.
+    # Test traffic via Raikou OVS: eth1 (north-segment, 172.16.0.12).
+    # See: docs/Application_Services_Implementation_Plan.md §3.3
+    conf-server:
+        container_name: conf-server
+        build:
+            context: ./components/conf-server
+            tags:
+                - conf-server:conf_server_0.01
+        ports:
+            - "5007:22"
+            - "18445:8443"       # pion signalling (WSS)
+        environment:
+            - LEGACY=no
+            - PION_PUBLIC_IP=172.16.0.12
+            - PION_PORT=8443
+            - PION_CERT_FILE=/certs/server.crt
+            - PION_KEY_FILE=/certs/server.key
+        privileged: true
+        hostname: conf-server
+        volumes:
+            - ./testbed-ca/pki/ca.crt:/certs/ca.crt:ro
+            - ./testbed-ca/pki/issued/conf-server.crt:/certs/server.crt:ro
+            - ./testbed-ca/pki/private/conf-server.key:/certs/server.key:ro
+        deploy:
+            resources:
+                limits:
+                    cpus: '1.0'
+                    memory: 256M
+                reservations:
+                    cpus: '0.5'
+                    memory: 128M
+
+    # ── IPsec Hub (StrongSwan responder) ─────────────────────────────────────────
+    # Phase 3.5: IKEv2 responder peer for LinuxSDWANRouter tunnel.
+    # Test traffic via Raikou OVS: eth1 (north-segment, 172.16.0.20).
+    # See: docs/LinuxSDWANRouter_Implementation_Plan.md §3.4
+    ipsec-hub:
+        container_name: ipsec-hub
+        build:
+            context: ./components/ipsec-hub
+            tags:
+                - ipsec-hub:ipsec_hub_0.01
+        privileged: true
+        hostname: ipsec-hub
+        volumes:
+            - ./testbed-ca/pki/ca.crt:/etc/ipsec.d/cacerts/ca.crt:ro
+            - ./testbed-ca/pki/issued/hub-strongswan.crt:/etc/ipsec.d/certs/hub.crt:ro
+            - ./testbed-ca/pki/private/hub-strongswan.key:/etc/ipsec.d/private/hub.key:ro
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.5'
+                    memory: 128M
+                reservations:
+                    cpus: '0.25'
+                    memory: 64M
 
     # ── Content Origin (MinIO) ───────────────────────────────────────────────────
     # S3-compatible store for HLS content. Raikou OVS: eth1 on content-internal only.
@@ -227,11 +313,13 @@ services:
         hostname: orchestrator
         depends_on:
             - linux-sdwan-router
-            - lan-client
+            - lan-qoe-client
             - wan1-tc
             - wan2-tc
             - productivity-server
             - streaming-server
+            - conf-server
+            - ipsec-hub
             - minio
         deploy:
             resources:

@@ -1,5 +1,5 @@
-# SD-WAN Router — Dual WAN with FRR BFD failover
-# Extends the router pattern (FRR + SSH) for SD-WAN testbed DUT.
+# SD-WAN Router — Dual WAN with FRR BFD failover + StrongSwan IPsec (Phase 3.5)
+# Extends the router pattern (FRR + SSH) for SD-WAN testbed LinuxSDWANRouter.
 # Uses Raikou-injected interfaces: eth-lan, eth-wan1, eth-wan2 (network_mode: none).
 #
 # See: docs/LinuxSDWANRouter_Implementation_Plan.md
@@ -8,7 +8,7 @@
 FROM ssh:v1.2.0
 
 LABEL maintainer="rjvisser@alottabits.com"
-LABEL version="sdwan_frr_0.01"
+LABEL version="sdwan_frr_0.02"
 
 ENV LEGACY="no"
 ENV DEBIAN_FRONTEND=noninteractive
@@ -23,6 +23,8 @@ WORKDIR /root
 
 COPY ./resources/frr.conf .
 COPY ./resources/daemons .
+COPY ./resources/ipsec.conf .
+COPY ./resources/ipsec.secrets .
 COPY ./resources/init .
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -49,6 +51,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     net-tools \
     frr \
     frr-pythontools \
+    strongswan \
+    libcharon-extra-plugins \
     tcpdump \
     traceroute \
     procps \
@@ -60,13 +64,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && echo "net.ipv4.conf.default.forwarding = 1" >> /etc/sysctl.conf \
     && echo "net.ipv4.conf.all.rp_filter = 0" >> /etc/sysctl.conf \
     && \
-    apt-get purge -y curl ca-certificates gnupg lsb-release \
+    apt-get purge -y curl gnupg lsb-release \
     && apt-get -y autoremove \
     && rm -rf /var/lib/apt/lists/* \
     && \
     mv /root/frr.conf /etc/frr/frr.conf \
     && mv /root/daemons /etc/frr/daemons \
     && chown -R frr:frr /etc/frr \
+    && mv /root/ipsec.conf /etc/ipsec.conf \
+    && mv /root/ipsec.secrets /etc/ipsec.secrets \
+    && chmod 600 /etc/ipsec.secrets \
     && chmod +x init \
     && echo "root:boardfarm" | chpasswd
 

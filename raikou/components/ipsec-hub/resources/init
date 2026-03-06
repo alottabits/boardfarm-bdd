@@ -1,0 +1,33 @@
+#!/bin/bash -e
+#
+# IPsec Hub init — start StrongSwan as IKEv2 responder
+# Waits for Raikou-injected eth1 (north-segment), then starts ipsec.
+#
+
+# Wait for eth1 (north-segment)
+count=0
+while [ $count -lt 30 ]; do
+    if ip addr show eth1 2>/dev/null | grep -q "inet "; then
+        echo "eth1 has IP address"
+        break
+    fi
+    echo "Waiting for eth1 (north-segment)..."
+    sleep 1
+    count=$((count + 1))
+done
+
+# Add routes so the hub can reach the LAN segment through the TC/router path
+ip route add 192.168.10.0/24 via 172.16.0.1 dev eth1 2>/dev/null || true
+ip route add 10.10.1.0/30 via 172.16.0.1 dev eth1 2>/dev/null || true
+ip route add 10.10.2.0/30 via 172.16.0.1 dev eth1 2>/dev/null || true
+
+echo "Starting StrongSwan (IKEv2 responder)..."
+ipsec start
+sleep 2
+
+if ipsec statusall 2>/dev/null | grep -q "Security Associations"; then
+    echo "StrongSwan started — waiting for incoming IKEv2 connections"
+fi
+
+# Keep container alive
+exec tail -f /dev/null
