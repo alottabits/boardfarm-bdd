@@ -60,20 +60,10 @@ for i in $(seq 1 30); do
     sleep 1
 done
 
-# Install default routes with different kernel metrics so both WAN paths coexist
-# in the routing table simultaneously.  The kernel selects the lowest metric
-# (WAN1=10) for forwarding when both links are up.  When WAN1 goes down the
-# kernel automatically removes the metric-10 route and falls back to metric-200
-# (WAN2) with no FRR involvement.  This avoids the FRR staticd EEXIST race
-# condition that occurs when two static routes share the same kernel metric (20).
-#
-# Gateways must match wan_gateways in bf_config_sdwan.json:
-#   WAN1 gateway: 10.10.1.2  (eth-wan1, metric 10  — primary)
-#   WAN2 gateway: 10.10.2.2  (eth-wan2, metric 200 — backup)
-echo "Installing kernel default routes with differentiated metrics..."
-ip route replace default via 10.10.1.2 dev eth-wan1 metric 10  proto static 2>/dev/null || true
-ip route replace default via 10.10.2.2 dev eth-wan2 metric 200 proto static 2>/dev/null || true
-echo "Kernel routes installed: WAN1 metric=10 (primary), WAN2 metric=200 (backup)"
+# Default routes are installed by boardfarm during device boot
+# (LinuxSDWANRouter._install_default_routes) using wan_gateways and wan_metrics
+# from bf_config_sdwan.json.  This keeps route ownership with the test framework
+# rather than baking gateway IPs and metrics into the container image.
 
 # Use iptables-legacy if available (some images have nft as default)
 if update-alternatives --list iptables 2>/dev/null | grep -q iptables-legacy; then
