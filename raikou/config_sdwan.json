@@ -4,6 +4,8 @@
         "lan-segment": {},
         "dut-wan1": {},
         "dut-wan2": {},
+        "north-wan1": {},
+        "north-wan2": {},
         "north-segment": {},
         "content-internal": {}
     },
@@ -23,9 +25,9 @@
                 "ipaddress": "10.10.1.2/30"
             },
             {
-                "bridge": "north-segment",
+                "bridge": "north-wan1",
                 "iface": "eth-north",
-                "ipaddress": "172.16.0.1/24"
+                "ipaddress": "172.16.1.1/24"
             }
         ],
         "wan2-tc": [
@@ -35,9 +37,26 @@
                 "ipaddress": "10.10.2.2/30"
             },
             {
-                "bridge": "north-segment",
+                "bridge": "north-wan2",
                 "iface": "eth-north",
-                "ipaddress": "172.16.0.2/24"
+                "ipaddress": "172.16.2.1/24"
+            }
+        ],
+        "app-router": [
+            {
+                "bridge": "north-wan1",
+                "iface": "eth-wan1",
+                "ipaddress": "172.16.1.254/24"
+            },
+            {
+                "bridge": "north-wan2",
+                "iface": "eth-wan2",
+                "ipaddress": "172.16.2.254/24"
+            },
+            {
+                "bridge": "north-segment",
+                "iface": "eth-south",
+                "ipaddress": "172.16.0.254/24"
             }
         ],
         "productivity-server": [
@@ -45,7 +64,7 @@
                 "bridge": "north-segment",
                 "iface": "eth1",
                 "ipaddress": "172.16.0.10/24",
-                "gateway": "172.16.0.1"
+                "gateway": "172.16.0.254"
             }
         ],
         "streaming-server": [
@@ -53,7 +72,7 @@
                 "bridge": "north-segment",
                 "iface": "eth1",
                 "ipaddress": "172.16.0.11/24",
-                "gateway": "172.16.0.1"
+                "gateway": "172.16.0.254"
             },
             {
                 "bridge": "content-internal",
@@ -66,7 +85,7 @@
                 "bridge": "north-segment",
                 "iface": "eth1",
                 "ipaddress": "172.16.0.12/24",
-                "gateway": "172.16.0.1"
+                "gateway": "172.16.0.254"
             }
         ],
         "ipsec-hub": [
@@ -74,7 +93,7 @@
                 "bridge": "north-segment",
                 "iface": "eth1",
                 "ipaddress": "172.16.0.20/24",
-                "gateway": "172.16.0.1"
+                "gateway": "172.16.0.254"
             }
         ],
         "minio": [

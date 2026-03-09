@@ -63,11 +63,11 @@ This pillar uses the **FSM Three-Mode Architecture** (Functional, Navigation, Vi
 
 #### Service Categories & Metrics
 
-| Category | Description | Key Metrics (SLOs) |
-| :--- | :--- | :--- |
+| Category                | Description                                             | Key Metrics (SLOs)                                                                                                                 |
+| :---------------------- | :------------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------- |
 | **Productivity (SaaS)** | Interaction with cloud suites (Office 365, Salesforce). | **Page Load Time:** < 2.5s (Good), < 4s (Acceptable)<br>**Time to First Byte (TTFB):** < 200ms<br>**Transaction Success:** > 99.9% |
-| **Streaming** | Video on Demand (Netflix, YouTube, Training). | **Startup Time:** < 2s<br>**Rebuffer Ratio:** < 1%<br>**Resolution:** Sustained 1080p/4K |
-| **Conferencing** | Real-time audio/video (Teams, Zoom). | **MOS (Mean Opinion Score):** > 4.0 (Good), > 3.5 (Acceptable)<br>**One-Way Latency:** < 150ms<br>**Jitter:** < 30ms |
+| **Streaming**           | Video on Demand (Netflix, YouTube, Training).           | **Startup Time:** < 2s<br>**Rebuffer Ratio:** < 1%<br>**Resolution:** Sustained 1080p/4K                                           |
+| **Conferencing**        | Real-time audio/video (Teams, Zoom).                    | **MOS (Mean Opinion Score):** > 4.0 (Good), > 3.5 (Acceptable)<br>**One-Way Latency:** < 150ms<br>**Jitter:** < 30ms               |
 
 #### Canonical Impairment Profiles
 

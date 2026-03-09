@@ -1,6 +1,15 @@
 {
     "environment_def": {
-        "sdwan": {},
+        "sdwan": {
+            "sla_defaults": {
+                "max_latency_ms": 150,
+                "max_jitter_ms": 30,
+                "max_loss_percent": 10,
+                "probe_interval_ms": 100,
+                "failover_threshold": 3,
+                "recovery_threshold": 5
+            }
+        },
         "lan_qoe_client": {},
         "wan1_tc": {
             "interfaces": {

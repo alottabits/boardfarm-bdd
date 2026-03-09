@@ -1,8 +1,8 @@
 # SD-WAN Testbed Configuration
 
-**Date:** February 24, 2026
-**Status:** Design Document — Dual WAN (initial); Triple WAN (expansion noted)
-**Related:** `WAN_Edge_Appliance_testing.md`, `TrafficGenerator_Implementation_Plan.md`, `Traffic_Management_Components_Architecture.md`
+**Date:** March 8, 2026
+**Status:** Deployed — Phase 3.5 (Digital Twin Hardening)
+**Related:** `WAN_Edge_Appliance_testing.md`, `app-router-implementation.md`, `TrafficGenerator_Implementation_Plan.md`, `Traffic_Management_Components_Architecture.md`
 
 ---
 
@@ -35,7 +35,7 @@ pytest --inventory-config bf_config/bf_config_sdwan.json --env-config bf_config/
 The SD-WAN testbed is a fully Dockerised, Raikou-orchestrated environment that simulates a WAN Edge Appliance deployment with two independent WAN paths and a set of North-side application services. It operates on two distinct network layers:
 
 - **Docker Management Network** (`192.168.55.0/24`): Provides SSH access to all containers for Boardfarm orchestration (the DUT is the exception — see below).
-- **Simulated Network** (four OVS bridges): The functional testbed topology created by Raikou using Open vSwitch. This is the network through which test traffic actually flows.
+- **Simulated Network** (seven OVS bridges): The functional testbed topology created by Raikou using Open vSwitch. This is the network through which test traffic actually flows.
 
 The Raikou orchestrator container reads `config_sdwan.json` that declares the OVS bridge topology and the interface assignments for each container. Docker Compose (`docker-compose-sdwan.yaml`) starts the containers; Raikou then wires them together via OVS.
 
@@ -48,16 +48,18 @@ The Raikou orchestrator container reads `config_sdwan.json` that declares the OV
 | Component | Boardfarm Role | Container Name | Description |
 | :--- | :--- | :--- | :--- |
 | **Linux SD-WAN Router** | DUT (`WANEdgeDevice`) | `linux-sdwan-router` | Device Under Test. FRR, Policy-Based Routing (pbr-map), dual WAN. |
-| **WAN1 Traffic Controller** | Impairment (`TrafficController`) | `wan1-tc` | Linux `tc netem` impairment emulator on the MPLS/Fiber path. |
-| **WAN2 Traffic Controller** | Impairment (`TrafficController`) | `wan2-tc` | Linux `tc netem` impairment emulator on the Internet/Cable path. |
+| **WAN1 Traffic Controller** | Impairment (`TrafficController`) | `wan1-tc` | Pure `tc netem` impairment emulator on the MPLS/Fiber path. North-side on `north-wan1`. |
+| **WAN2 Traffic Controller** | Impairment (`TrafficController`) | `wan2-tc` | Pure `tc netem` impairment emulator on the Internet/Cable path. North-side on `north-wan2`. |
+| **App-Router** | Infrastructure | `app-router` | CONNMARK policy router. Connects per-WAN north-side networks to the shared app-services network. Ensures symmetric return routing. See `docs/app-router-implementation.md`. |
 | **LAN Client** | Client (`QoEClient`) | `lan-qoe-client` | Playwright-based QoE measurement container (productivity, streaming, conferencing). |
 | **Productivity Server** | Server (North-side) | `productivity-server` | Nginx Mock SaaS (index.html, large_asset.js, /api/latency). Separate from `streaming-server` to enable independent L7 path steering. |
 | **Streaming Server** | Server (North-side) | `streaming-server` | Nginx HLS streaming edge (proxies to MinIO via `content-internal` bridge). Separate from `productivity-server` to enable independent L7 path steering. |
 | **MinIO Content Store** | Infrastructure | `minio` | S3-compatible object store. Holds HLS manifests and `.ts` segments. Connected to the `content-internal` Raikou OVS bridge — only `streaming-server` reaches it for proxy traffic. The management host accesses the MinIO S3 API via a Docker management-network port for content ingest. |
 | **Log Collector** | Infrastructure | `log-collector` | Fluent Bit container on the management network. Reads all container stdout/stderr (including DUT) via the Docker socket and writes a unified, timestamped log to the host. No OVS interfaces — log traffic never enters the simulated network. |
 | **Raikou Orchestrator** | Infrastructure | `orchestrator` | OVS bridge manager. Creates and wires simulated network. No test traffic. |
+| **Conferencing Server** | Server (North-side) | `conf-server` | `pion`-based WebRTC Echo server (WSS :8443) for conferencing QoE measurement. Phase 3.5: TLS certificates mounted. |
+| **IPsec Hub** | Infrastructure | `ipsec-hub` | StrongSwan IKEv2 responder peer for `linux-sdwan-router` site-to-site VPN tunnel. Phase 3.5: IKEv2 certificates mounted. |
 | **LAN Traffic Generator** _(Phase 2+)_ | Load (`TrafficGenerator`) | `lan-traffic-gen` | iPerf3 client container for QoS contention background load. Added when QoS pillar validation begins. |
-| **Conferencing Server** _(Phase 2+)_ | Server (North-side) | `conf-server` | `pion`-based WebRTC Echo server for conferencing QoE measurement. Added when conferencing QoE tests begin. |
 | **Malicious Host** _(Phase 4+)_ | Threat (`MaliciousHost`) | `malicious-host` | Kali Linux container. Active inbound attacker + passive threat services (C2 listener, EICAR). Added when Security pillar validation begins. |
 
 ### 1.2 Network Segments
@@ -67,7 +69,9 @@ The Raikou orchestrator container reads `config_sdwan.json` that declares the OV
 | `lan-segment` | `192.168.10.0/24` | LAN side — clients and DUT LAN port |
 | `dut-wan1` | `10.10.1.0/30` | Point-to-point link: DUT WAN1 ↔ WAN1-TC south port |
 | `dut-wan2` | `10.10.2.0/30` | Point-to-point link: DUT WAN2 ↔ WAN2-TC south port |
-| `north-segment` | `172.16.0.0/24` | North side — application services and threat infrastructure |
+| `north-wan1` | `172.16.1.0/24` | Per-WAN north side: WAN1-TC ↔ app-router |
+| `north-wan2` | `172.16.2.0/24` | Per-WAN north side: WAN2-TC ↔ app-router |
+| `north-segment` | `172.16.0.0/24` | App-services network: app-router ↔ application servers and threat infrastructure |
 | `content-internal` | `10.100.0.0/30` | Internal only — `streaming-server` (HLS proxy) ↔ `minio` content origin |
 
 ---
@@ -89,8 +93,9 @@ flowchart LR
     TC1_MGMT[wan1-tc eth0<br/>192.168.55.x<br/>SSH:5001]
     TC2_MGMT[wan2-tc eth0<br/>192.168.55.x<br/>SSH:5002]
     LAN_MGMT[lan-qoe-client eth0<br/>192.168.55.x<br/>SSH:5003 SOCKS:18090]
-    PROD_MGMT[productivity-server eth0<br/>192.168.55.x<br/>SSH:5005 HTTP:18080]
-    STREAM_MGMT[streaming-server eth0<br/>192.168.55.x<br/>SSH:5006 HTTP:18081]
+    PROD_MGMT[productivity-server eth0<br/>192.168.55.x<br/>SSH:5005 HTTP:18080 HTTPS:18443]
+    STREAM_MGMT[streaming-server eth0<br/>192.168.55.x<br/>SSH:5006 HTTP:18081 HTTPS:18444]
+    CONF_MGMT[conf-server eth0<br/>192.168.55.x<br/>SSH:5007 WSS:18445]
     MINIO_MGMT[minio<br/>192.168.55.x<br/>S3-API:19000 Console:19001<br/>content ingest only]
 
     MGMT -.->|docker exec| DUT_MGMT
@@ -99,12 +104,13 @@ flowchart LR
     MGMT -.->|SSH/Management| LAN_MGMT
     MGMT -.->|SSH/Management| PROD_MGMT
     MGMT -.->|SSH/Management| STREAM_MGMT
+    MGMT -.->|SSH/Management| CONF_MGMT
     MGMT -.->|S3 API / mc CLI| MINIO_MGMT
 
     classDef mgmt stroke-width:3px
     classDef container stroke-width:2px
     class MGMT mgmt
-    class DUT_MGMT,TC1_MGMT,TC2_MGMT,LAN_MGMT,PROD_MGMT,STREAM_MGMT,MINIO_MGMT container
+    class DUT_MGMT,TC1_MGMT,TC2_MGMT,LAN_MGMT,PROD_MGMT,STREAM_MGMT,CONF_MGMT,MINIO_MGMT container
 ```
 
 ### 2.2 Simulated Network Topology (Dual WAN)
@@ -122,6 +128,8 @@ graph LR
     BR_LAN[lan-segment bridge<br/>192.168.10.0/24]
     BR_WAN1[dut-wan1 bridge<br/>10.10.1.0/30]
     BR_WAN2[dut-wan2 bridge<br/>10.10.2.0/30]
+    BR_NWAN1[north-wan1 bridge<br/>172.16.1.0/24]
+    BR_NWAN2[north-wan2 bridge<br/>172.16.2.0/24]
     BR_NORTH[north-segment bridge<br/>172.16.0.0/24]
     BR_CONTENT[content-internal bridge<br/>10.100.0.0/30]
 
@@ -129,14 +137,18 @@ graph LR
     DUT[linux-sdwan-router<br/>DUT — WANEdgeDevice<br/>LAN: 192.168.10.1<br/>WAN1: 10.10.1.1<br/>WAN2: 10.10.2.1]
 
     %% --- TRAFFIC CONTROLLERS ---
-    TC1[wan1-tc<br/>TrafficController<br/>MPLS/Fiber path<br/>south: 10.10.1.2<br/>north: 172.16.0.1]
-    TC2[wan2-tc<br/>TrafficController<br/>Internet/Cable path<br/>south: 10.10.2.2<br/>north: 172.16.0.2]
+    TC1[wan1-tc<br/>TrafficController<br/>MPLS/Fiber path<br/>south: 10.10.1.2<br/>north: 172.16.1.1]
+    TC2[wan2-tc<br/>TrafficController<br/>Internet/Cable path<br/>south: 10.10.2.2<br/>north: 172.16.2.1]
+
+    %% --- APP-ROUTER ---
+    APPROUTER[app-router<br/>CONNMARK Policy Router<br/>wan1: 172.16.1.254<br/>wan2: 172.16.2.254<br/>south: 172.16.0.254]
 
     %% --- NORTH SIDE SERVICES ---
     PROD[productivity-server<br/>Mock SaaS<br/>172.16.0.10]
     STREAM[streaming-server<br/>HLS proxy<br/>172.16.0.11]
-    CONF[conf-server<br/>WebRTC Echo<br/>172.16.0.12<br/>Phase 2+]
-    MAL[malicious-host<br/>Kali Linux<br/>MaliciousHost<br/>172.16.0.20<br/>Phase 4+]
+    CONF[conf-server<br/>WebRTC Echo<br/>172.16.0.12]
+    IPSEC[ipsec-hub<br/>StrongSwan IKEv2<br/>172.16.0.20]
+    MAL[malicious-host<br/>Kali Linux<br/>MaliciousHost<br/>172.16.0.30<br/>Phase 4+]
 
     %% --- CONTENT ORIGIN ---
     MINIO[minio<br/>MinIO Content Store<br/>10.100.0.2]
@@ -153,14 +165,20 @@ graph LR
     DUT <-->|eth-wan2| BR_WAN2
     TC2 <-->|eth-dut| BR_WAN2
 
-    %% --- TC-to-NORTH CONNECTIONS ---
-    TC1 <-->|eth-north| BR_NORTH
-    TC2 <-->|eth-north| BR_NORTH
+    %% --- TC-to-NORTH-WAN CONNECTIONS ---
+    TC1 <-->|eth-north| BR_NWAN1
+    TC2 <-->|eth-north| BR_NWAN2
+
+    %% --- APP-ROUTER CONNECTIONS ---
+    APPROUTER <-->|eth-wan1| BR_NWAN1
+    APPROUTER <-->|eth-wan2| BR_NWAN2
+    APPROUTER <-->|eth-south| BR_NORTH
 
     %% --- NORTH-SIDE CONNECTIONS ---
     PROD <-->|eth1| BR_NORTH
     STREAM <-->|eth1| BR_NORTH
-    CONF -. eth1 .-> BR_NORTH
+    CONF <-->|eth1| BR_NORTH
+    IPSEC <-->|eth1| BR_NORTH
     MAL -. eth1 .-> BR_NORTH
 
     %% --- CONTENT-INTERNAL CONNECTIONS ---
@@ -181,8 +199,11 @@ graph LR
     class LAN_CLIENT client
     class LAN_GEN planned
     class PROD,STREAM north
-    class CONF,MAL planned
-    class BR_LAN,BR_WAN1,BR_WAN2,BR_NORTH,BR_CONTENT bridge
+    class CONF north
+    class IPSEC infra
+    class MAL planned
+    class APPROUTER infra
+    class BR_LAN,BR_WAN1,BR_WAN2,BR_NWAN1,BR_NWAN2,BR_NORTH,BR_CONTENT bridge
     class MINIO infra
 ```
 
@@ -216,20 +237,38 @@ Point-to-point link between the DUT WAN2 interface and the WAN2 Traffic Controll
 | `linux-sdwan-router` | `eth-wan2` | `10.10.2.1/30` | DUT WAN2 interface (Internet/Cable) |
 | `wan2-tc` | `eth-dut` | `10.10.2.2/30` | TC south port — WAN2 gateway seen by DUT |
 
-### 3.4 North Segment (`north-segment` bridge)
+### 3.4 North-WAN1 Segment (`north-wan1` bridge)
 
-The simulated Internet/cloud services network. Both Traffic Controllers connect here on their north-facing ports. All application services and the threat infrastructure reside here.
+Per-WAN north-side link between WAN1 Traffic Controller and the app-router. Part of the split north-segment topology (see `docs/app-router-implementation.md`).
 
 | Container | Interface | IP Address | Role |
 | :--- | :--- | :--- | :--- |
-| `wan1-tc` | `eth-dut`, `eth-north` | `10.10.1.2/30`, `172.16.0.1/24` | Per-direction impairment: eth-north (forward), eth-dut (return) |
-| `wan2-tc` | `eth-dut`, `eth-north` | `10.10.2.2/30`, `172.16.0.2/24` | Per-direction impairment: eth-north (forward), eth-dut (return) |
-| `productivity-server` | `eth1` | `172.16.0.10/24` | Nginx Mock SaaS (productivity) |
-| `streaming-server` | `eth1`, `eth2` | `172.16.0.11/24`, `10.100.0.1/30` | Nginx HLS streaming edge (`eth1` north-segment, `eth2` content-internal to MinIO) |
-| `conf-server` _(Phase 2+)_ | `eth1` | `172.16.0.12/24` | `pion`-based WebRTC Echo server |
-| `malicious-host` _(Phase 4+)_ | `eth1` | `172.16.0.20/24` | Kali Linux — active attacks + passive C2/EICAR services |
+| `wan1-tc` | `eth-north` | `172.16.1.1/24` | WAN1 north-side egress — forward path to app-router |
+| `app-router` | `eth-wan1` | `172.16.1.254/24` | App-router WAN1 ingress — CONNMARK tags connections arriving from WAN1 |
 
-### 3.5 Content-Internal Segment (`content-internal` bridge)
+### 3.5 North-WAN2 Segment (`north-wan2` bridge)
+
+Per-WAN north-side link between WAN2 Traffic Controller and the app-router.
+
+| Container | Interface | IP Address | Role |
+| :--- | :--- | :--- | :--- |
+| `wan2-tc` | `eth-north` | `172.16.2.1/24` | WAN2 north-side egress — forward path to app-router |
+| `app-router` | `eth-wan2` | `172.16.2.254/24` | App-router WAN2 ingress — CONNMARK tags connections arriving from WAN2 |
+
+### 3.6 App-Services Segment (`north-segment` bridge)
+
+The simulated Internet/cloud services network. The app-router connects this segment to the per-WAN north bridges, providing symmetric return routing via CONNMARK + policy routing. All application services and the IPsec hub reside here with a common gateway of `172.16.0.254` (app-router).
+
+| Container | Interface | IP Address | Role |
+| :--- | :--- | :--- | :--- |
+| `app-router` | `eth-south` | `172.16.0.254/24` | Default gateway for all app services — symmetric return routing |
+| `productivity-server` | `eth1` | `172.16.0.10/24` | Nginx Mock SaaS (HTTP :8080, HTTPS :443) |
+| `streaming-server` | `eth1`, `eth2` | `172.16.0.11/24`, `10.100.0.1/30` | Nginx HLS streaming edge (`eth1` north-segment, `eth2` content-internal to MinIO; HTTPS :8443) |
+| `conf-server` | `eth1` | `172.16.0.12/24` | `pion`-based WebRTC Echo server (WSS :8443) |
+| `ipsec-hub` | `eth1` | `172.16.0.20/24` | StrongSwan IKEv2 responder — site-to-site VPN hub |
+| `malicious-host` _(Phase 4+)_ | `eth1` | `172.16.0.30/24` | Kali Linux — active attacks + passive C2/EICAR services |
+
+### 3.7 Content-Internal Segment (`content-internal` bridge)
 
 An isolated point-to-point link between `streaming-server` and `minio`. This bridge is invisible to all test traffic — LAN clients cannot reach MinIO directly. The streaming-server proxies all HLS requests to MinIO over this bridge using the Raikou-assigned IP address (`10.100.0.2:9000`), deliberately avoiding Docker's default DNS resolution (`minio:9000`) to enforce testbed isolation.
 
@@ -249,99 +288,58 @@ An isolated point-to-point link between `streaming-server` and `minio`. This bri
 **Location:** `raikou/config_sdwan.json`
 
 The Raikou orchestrator reads this file at startup and:
-1. Creates the four OVS bridges.
+1. Creates the seven OVS bridges.
 2. For each container entry, creates a veth pair, attaches one end to the named OVS bridge, and injects the other end into the container with the specified name and IP assignment.
 
 ```json
 {
     "bridge": {
-        "lan-segment":     {},
-        "dut-wan1":        {},
-        "dut-wan2":        {},
-        "north-segment":   {},
+        "lan-segment":      {},
+        "dut-wan1":         {},
+        "dut-wan2":         {},
+        "north-wan1":       {},
+        "north-wan2":       {},
+        "north-segment":    {},
         "content-internal": {}
     },
     "container": {
         "linux-sdwan-router": [
-            {
-                "bridge":    "lan-segment",
-                "iface":     "eth-lan",
-                "ipaddress": "192.168.10.1/24"
-            },
-            {
-                "bridge":    "dut-wan1",
-                "iface":     "eth-wan1",
-                "ipaddress": "10.10.1.1/30"
-            },
-            {
-                "bridge":    "dut-wan2",
-                "iface":     "eth-wan2",
-                "ipaddress": "10.10.2.1/30"
-            }
+            { "bridge": "lan-segment", "iface": "eth-lan",  "ipaddress": "192.168.10.1/24" },
+            { "bridge": "dut-wan1",    "iface": "eth-wan1", "ipaddress": "10.10.1.1/30" },
+            { "bridge": "dut-wan2",    "iface": "eth-wan2", "ipaddress": "10.10.2.1/30" }
         ],
         "wan1-tc": [
-            {
-                "bridge":    "dut-wan1",
-                "iface":     "eth-dut",
-                "ipaddress": "10.10.1.2/30"
-            },
-            {
-                "bridge":    "north-segment",
-                "iface":     "eth-north",
-                "ipaddress": "172.16.0.1/24"
-            }
+            { "bridge": "dut-wan1",   "iface": "eth-dut",   "ipaddress": "10.10.1.2/30" },
+            { "bridge": "north-wan1", "iface": "eth-north", "ipaddress": "172.16.1.1/24" }
         ],
         "wan2-tc": [
-            {
-                "bridge":    "dut-wan2",
-                "iface":     "eth-dut",
-                "ipaddress": "10.10.2.2/30"
-            },
-            {
-                "bridge":    "north-segment",
-                "iface":     "eth-north",
-                "ipaddress": "172.16.0.2/24"
-            }
+            { "bridge": "dut-wan2",   "iface": "eth-dut",   "ipaddress": "10.10.2.2/30" },
+            { "bridge": "north-wan2", "iface": "eth-north", "ipaddress": "172.16.2.1/24" }
+        ],
+        "app-router": [
+            { "bridge": "north-wan1",    "iface": "eth-wan1",  "ipaddress": "172.16.1.254/24" },
+            { "bridge": "north-wan2",    "iface": "eth-wan2",  "ipaddress": "172.16.2.254/24" },
+            { "bridge": "north-segment", "iface": "eth-south", "ipaddress": "172.16.0.254/24" }
         ],
         "lan-qoe-client": [
-            {
-                "bridge":    "lan-segment",
-                "iface":     "eth1",
-                "ipaddress": "192.168.10.10/24",
-                "gateway":   "192.168.10.1"
-            }
+            { "bridge": "lan-segment", "iface": "eth1", "ipaddress": "192.168.10.10/24", "gateway": "192.168.10.1" }
         ],
         "productivity-server": [
-            {
-                "bridge":    "north-segment",
-                "iface":     "eth1",
-                "ipaddress": "172.16.0.10/24",
-                "gateway":   "172.16.0.1"
-            }
+            { "bridge": "north-segment", "iface": "eth1", "ipaddress": "172.16.0.10/24", "gateway": "172.16.0.254" }
         ],
         "streaming-server": [
-            {
-                "bridge":    "north-segment",
-                "iface":     "eth1",
-                "ipaddress": "172.16.0.11/24",
-                "gateway":   "172.16.0.1"
-            },
-            {
-                "bridge":    "content-internal",
-                "iface":     "eth2",
-                "ipaddress": "10.100.0.1/30"
-            }
+            { "bridge": "north-segment",  "iface": "eth1", "ipaddress": "172.16.0.11/24", "gateway": "172.16.0.254" },
+            { "bridge": "content-internal", "iface": "eth2", "ipaddress": "10.100.0.1/30" }
+        ],
+        "conf-server": [
+            { "bridge": "north-segment", "iface": "eth1", "ipaddress": "172.16.0.12/24", "gateway": "172.16.0.254" }
+        ],
+        "ipsec-hub": [
+            { "bridge": "north-segment", "iface": "eth1", "ipaddress": "172.16.0.20/24", "gateway": "172.16.0.254" }
         ],
         "minio": [
-            {
-                "bridge":    "content-internal",
-                "iface":     "eth1",
-                "ipaddress": "10.100.0.2/30"
-            }
+            { "bridge": "content-internal", "iface": "eth1", "ipaddress": "10.100.0.2/30" }
         ]
-        // Phase 2+: add "lan-traffic-gen" (192.168.10.20/24, lan-segment)
-        //           and "conf-server" (172.16.0.12/24, north-segment)
-        // Phase 4+: add "malicious-host" (172.16.0.20/24, north-segment)
     },
     "vlan_translations": []
 }
@@ -366,277 +364,23 @@ The latency-sensitive containers (`linux-sdwan-router`, `wan1-tc`, `wan2-tc`) ha
 | :--- | :---: | :---: | :---: | :--- |
 | `linux-sdwan-router` | 2.0 | 1.5 | 512M | BFD timer sensitivity — guaranteed cores |
 | `wan1-tc` / `wan2-tc` | 0.5 | 0.25 | 128M | `tc netem` is kernel-driven; container is near-idle |
+| `app-router` | 0.25 | 0.1 | 64M | CONNMARK policy routing; minimal CPU |
 | `lan-qoe-client` | 3.0 | 1.5 | 3G | Chromium + WebRTC codec work; largest memory consumer |
-| `productivity-server` | 1.0 | 0.5 | 256M | Nginx serving static assets |
-| `streaming-server` | 2.0 | 1.0 | 512M | Nginx + MinIO proxy for HLS segments |
+| `productivity-server` | 1.0 | 0.5 | 256M | Nginx serving static assets + HTTPS/HTTP3 |
+| `streaming-server` | 2.0 | 1.0 | 512M | Nginx + MinIO proxy for HLS segments + HTTPS |
+| `conf-server` | 1.0 | 0.5 | 256M | pion WebRTC echo + WSS |
+| `ipsec-hub` | 0.5 | 0.25 | 128M | StrongSwan IKEv2 responder |
 | `minio` | 1.0 | — | 256M | Content origin; management-plane ingest only |
 | `log-collector` | 0.25 | 0.1 | 128M | Fluent Bit is extremely lightweight at this log volume |
 | `raikou-net` | 0.5 | 0.25 | 128M | Startup only; idle during tests |
 | `lan-traffic-gen` _(Phase 2+)_ | 1.0 | 0.5 | 256M | iPerf3 UDP at 85 Mbps is PPS-heavy in userspace |
-| `conf-server` _(Phase 2+)_ | 0.5 | 0.25 | 256M | pion WebRTC echo — trivially light |
 | `malicious-host` _(Phase 4+)_ | 1.5 | 0.5 | 256M | Brief spikes during nmap scans / hping3 floods |
 
-> **CI environments:** On a 4–8 vCPU CI runner, reduce `lan-qoe-client` to `cpus: '1.0'` and `streaming-server` to `cpus: '1.0'`. Phase 2+ containers (`lan-traffic-gen`, `conf-server`) and Phase 4+ containers (`malicious-host`) are not in scope until their respective pillars are validated.
+> **CI environments:** On a 4–8 vCPU CI runner, reduce `lan-qoe-client` to `cpus: '1.0'` and `streaming-server` to `cpus: '1.0'`. Phase 2+ container (`lan-traffic-gen`) and Phase 4+ containers (`malicious-host`) are not in scope until their respective pillars are validated.
 
-```yaml
-# SD-WAN Testbed — Phase 1
-# Dual-WAN router + Raikou OVS orchestrator.
-#
-# NETWORKING: Containers are NOT connected via Docker networks for test traffic.
-# - Test traffic flows through Raikou OVS bridges (lan-segment, dut-wan1, dut-wan2,
-#   north-segment). Raikou injects interfaces per config_sdwan.json.
-# - The default network (192.168.55.0/24) is management-only: SSH access and host
-#   port mapping. DUT uses network_mode: none (all interfaces from Raikou).
-#
-# See: docs/SDWAN_Testbed_Configuration.md
-# Usage: docker compose -p boardfarm-bdd-sdwan -f docker-compose-sdwan.yaml up -d
+The compose file is located at `raikou/docker-compose-sdwan.yaml`. It is the authoritative source — the YAML below is a reference copy. See the actual file for the latest version.
 
-name: boardfarm-bdd-sdwan
----
-services:
-
-    # ── Device Under Test ──────────────────────────────────────────────────────
-    # All interfaces from Raikou OVS (eth-lan, eth-wan1, eth-wan2). No Docker network.
-    # restart: always ensures power_cycle() (docker restart) is fully effective.
-    linux-sdwan-router:
-        container_name: linux-sdwan-router
-        restart: always
-        build:
-            context: ./components/sdwan-router
-            tags:
-                - sdwan-router:sdwan_frr_0.01
-        network_mode: none
-        privileged: true
-        hostname: sdwan-router
-        environment:
-            - LAN_IFACE=eth-lan
-            - WAN1_IFACE=eth-wan1
-            - WAN2_IFACE=eth-wan2
-        deploy:
-            resources:
-                limits:
-                    cpus: '2.0'
-                    memory: 512M
-                reservations:
-                    cpus: '1.5'
-                    memory: 256M
-
-    # ── Traffic Controllers (WAN Impairment) ───────────────────────────────────
-    # Test traffic via Raikou OVS: eth-dut (dut-wan1), eth-north (north-segment).
-    wan1-tc:
-        container_name: wan1-tc
-        build:
-            context: ./components/traffic-controller
-            tags:
-                - traffic-controller:traffic_controller_0.01
-        ports:
-            - "5001:22"
-        environment:
-            - TC_DUT_IFACE=eth-dut
-            - TC_NORTH_IFACE=eth-north
-            - LEGACY=no
-        privileged: true
-        hostname: wan1-tc
-        deploy:
-            resources:
-                limits:
-                    cpus: '0.5'
-                    memory: 128M
-                reservations:
-                    cpus: '0.25'
-                    memory: 64M
-
-    # Test traffic via Raikou OVS: eth-dut (dut-wan2), eth-north (north-segment).
-    wan2-tc:
-        container_name: wan2-tc
-        build:
-            context: ./components/traffic-controller
-            tags:
-                - traffic-controller:traffic_controller_0.01
-        ports:
-            - "5002:22"
-        environment:
-            - TC_DUT_IFACE=eth-dut
-            - TC_NORTH_IFACE=eth-north
-            - LEGACY=no
-        privileged: true
-        hostname: wan2-tc
-        deploy:
-            resources:
-                limits:
-                    cpus: '0.5'
-                    memory: 128M
-                reservations:
-                    cpus: '0.25'
-                    memory: 64M
-
-    # ── QoE Client (Playwright) ─────────────────────────────────────────────────
-    # Test traffic via Raikou OVS: eth1 (lan-segment). Docker eth0 for SSH/port mapping only.
-    lan-qoe-client:
-        container_name: lan-qoe-client
-        build:
-            context: ./components/lan_qoe_client
-            tags:
-                - lan-qoe-client:qoe_client_0.01
-        ports:
-            - "5003:22"
-            - "18090:8080"   # Dante SOCKS v5 proxy — developer access to LAN-side services
-        environment:
-            - LEGACY=no
-        privileged: true
-        hostname: lan-qoe-client
-        deploy:
-            resources:
-                limits:
-                    cpus: '3.0'
-                    memory: 3G
-                reservations:
-                    cpus: '1.5'
-                    memory: 1G
-
-    # ── North-Side Application Services ────────────────────────────────────────
-    # Separate containers enable L7 path steering: productivity vs streaming via different WAN paths.
-    productivity-server:
-        container_name: productivity-server
-        build:
-            context: ./components/productivity-server
-            tags:
-                - productivity-server:productivity_server_0.01
-        ports:
-            - "5005:22"
-            - "18080:8080"       # Nginx productivity (HTTP)
-        environment:
-            - LEGACY=no
-        privileged: true
-        hostname: productivity-server
-        deploy:
-            resources:
-                limits:
-                    cpus: '1.0'
-                    memory: 256M
-                reservations:
-                    cpus: '0.5'
-                    memory: 128M
-
-    # Test traffic via Raikou OVS: eth1 (north-segment), eth2 (content-internal → MinIO).
-    streaming-server:
-        container_name: streaming-server
-        build:
-            context: ./components/streaming-server
-            tags:
-                - streaming-server:streaming_server_0.01
-        ports:
-            - "5006:22"
-            - "18081:8081"       # Nginx streaming (HLS proxy)
-        environment:
-            - LEGACY=no
-        privileged: true
-        hostname: streaming-server
-        deploy:
-            resources:
-                limits:
-                    cpus: '2.0'
-                    memory: 512M
-                reservations:
-                    cpus: '1.0'
-                    memory: 256M
-
-    # ── Content Origin (MinIO) ───────────────────────────────────────────────────
-    # S3-compatible store for HLS content. Raikou OVS: eth1 on content-internal only.
-    # Management: host ports 19000 (S3 API), 19001 (console) via Docker.
-    minio:
-        container_name: minio
-        build:
-            context: ./components/minio
-            tags:
-                - minio:content_origin_0.01
-        ports:
-            - "19000:9000"       # S3 API (management ingest)
-            - "19001:9001"       # Web console
-        environment:
-            - MINIO_ROOT_USER=testbed
-            - MINIO_ROOT_PASSWORD=testbed-secret
-        volumes:
-            - minio-data:/data
-        privileged: true
-        hostname: minio
-        deploy:
-            resources:
-                limits:
-                    cpus: '1.0'
-                    memory: 256M
-
-    # ── Centralized Log Collector ──────────────────────────────────────────────
-    # Management network only. NOT in config_sdwan.json — no Raikou OVS interfaces.
-    # Tails Docker log files; unified output at ./logs/sdwan-testbed.log
-    log-collector:
-        container_name: log-collector
-        image: fluent/fluent-bit:3.2
-        volumes:
-            - /var/run/docker.sock:/var/run/docker.sock:ro
-            - /var/lib/docker/containers:/var/lib/docker/containers:ro
-            - ./components/log-collector/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
-            - ./components/log-collector/parsers.conf:/fluent-bit/etc/parsers.conf:ro
-            - ./components/log-collector/format.lua:/fluent-bit/etc/format.lua:ro
-            - ./logs:/logs
-            - fluent-bit-db:/fluent-bit/db
-        hostname: log-collector
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    cpus: '0.25'
-                    memory: 128M
-                reservations:
-                    cpus: '0.1'
-                    memory: 64M
-
-    # ── Raikou OVS Orchestrator ────────────────────────────────────────────────
-    raikou-net:
-        container_name: orchestrator
-        image: ghcr.io/ketantewari/raikou/orchestrator:v1
-        volumes:
-            - /lib/modules:/lib/modules
-            - /var/run/docker.sock:/var/run/docker.sock
-            - ./config_sdwan.json:/root/config.json
-        privileged: true
-        environment:
-            - USE_LINUX_BRIDGE=false
-        pid: host
-        network_mode: host
-        hostname: orchestrator
-        depends_on:
-            - linux-sdwan-router
-            - lan-qoe-client
-            - wan1-tc
-            - wan2-tc
-            - productivity-server
-            - streaming-server
-            - minio
-        deploy:
-            resources:
-                limits:
-                    cpus: '0.5'
-                    memory: 128M
-                reservations:
-                    cpus: '0.25'
-                    memory: 64M
-
-# Management network only — SSH and host port mapping. Test traffic uses Raikou OVS.
-networks:
-    default:
-        ipam:
-            config:
-                - subnet: 192.168.55.0/24
-                  gateway: 192.168.55.1
-
-volumes:
-    minio-data: {}
-    fluent-bit-db:
-        driver: local
-```
-
-> **Phase 2+ services** (`lan-traffic-gen`, `conf-server`) and **Phase 4+ services** (`malicious-host`) are added to the compose file and `config_sdwan.json` when their respective testing pillars begin implementation.
+> **Phase 2+ services** (`lan-traffic-gen`) and **Phase 4+ services** (`malicious-host`) are added to the compose file and `config_sdwan.json` when their respective testing pillars begin implementation.
 ---
 
 ## 5. Container Specifications
@@ -648,12 +392,14 @@ volumes:
 | `linux-sdwan-router` | — | — | `docker exec -it linux-sdwan-router bash` | `network_mode: none`; no management network |
 | `wan1-tc` | 5001 | — | `ssh -p 5001 root@localhost` | |
 | `wan2-tc` | 5002 | — | `ssh -p 5002 root@localhost` | |
+| `app-router` | — | — | `docker exec -it app-router sh` | Infrastructure only; no SSH |
 | `lan-qoe-client` | 5003 | 18090 (SOCKS v5 proxy) | `ssh -p 5003 root@localhost` | SOCKS proxy for developer browser access to LAN-side services — see §5.2 |
-| `productivity-server` | 5005 | 18080 (HTTP prod) | `ssh -p 5005 root@localhost` | Nginx productivity SaaS |
-| `streaming-server` | 5006 | 18081 (HLS edge) | `ssh -p 5006 root@localhost` | HLS proxy to MinIO via content-internal |
+| `productivity-server` | 5005 | 18080 (HTTP), 18443 (HTTPS/H3) | `ssh -p 5005 root@localhost` | Nginx productivity SaaS; Phase 3.5: TLS certs mounted |
+| `streaming-server` | 5006 | 18081 (HTTP), 18444 (HTTPS) | `ssh -p 5006 root@localhost` | HLS proxy to MinIO via content-internal; Phase 3.5: TLS certs mounted |
+| `conf-server` | 5007 | 18445 (WSS) | `ssh -p 5007 root@localhost` | pion WebRTC Echo; Phase 3.5: TLS certs mounted |
+| `ipsec-hub` | — | — | `docker exec -it ipsec-hub bash` | StrongSwan IKEv2 responder; Phase 3.5: IKEv2 certs mounted |
 | `minio` | — | 19000 (S3 API), 19001 (Console) | `mc alias set testbed http://localhost:19000 testbed testbed-secret` | Management network (ingest/debug only); eth1 on `content-internal` bridge carries proxy traffic |
 | `lan-traffic-gen` _(Phase 2+)_ | 5004 | — | `ssh -p 5004 root@localhost` | |
-| `conf-server` _(Phase 2+)_ | 5007 | 18443 (WSS) | `ssh -p 5007 root@localhost` | |
 | `malicious-host` _(Phase 4+)_ | 5008 | — | `ssh -p 5008 root@localhost` | |
 | `log-collector` | — | — | `tail -f logs/sdwan-testbed.log` | Management network only; no OVS interfaces — see §5.4 |
 
@@ -679,9 +425,11 @@ With this configuration your browser routes traffic out via the `lan-qoe-client`
 
 | Service reachable via proxy | URL |
 | :--- | :--- |
-| Productivity server | `http://172.16.0.10:8080/` |
-| HLS streaming edge | `http://172.16.0.11:8081/hls/default/index.m3u8` |
-| WebRTC conferencing _(Phase 2+)_ | `wss://172.16.0.12:8443/session1` |
+| Productivity server (HTTP) | `http://172.16.0.10:8080/` |
+| Productivity server (HTTPS) | `https://172.16.0.10:443/` |
+| HLS streaming edge (HTTP) | `http://172.16.0.11:8081/hls/default/index.m3u8` |
+| HLS streaming edge (HTTPS) | `https://172.16.0.11:8443/hls/default/index.m3u8` |
+| WebRTC conferencing | `wss://172.16.0.12:8443/session1` |
 
 This is the primary tool for verifying that north-side services are reachable and rendering correctly, and for experiencing impairment profiles firsthand when calibrating QoE SLOs.
 
@@ -702,13 +450,15 @@ See `QoE_Client_Implementation_Plan.md §3.4` for the full tracing setup and CI 
 | :--- | :--- | :--- |
 | `linux-sdwan-router` | `components/sdwan-router` | `frr`, `iproute2`, `iptables`, `strongswan` |
 | `wan1-tc`, `wan2-tc` | `components/traffic-controller` | `iproute2` (tc + netem), `openssh-server` |
+| `app-router` | `components/app-router` | `iproute2`, `iptables` (Alpine) |
 | `lan-qoe-client` | `components/lan_qoe_client` | `playwright`, `chromium`, `openssh-server` |
 | `productivity-server` | `components/productivity-server` | `nginx`, `openssh-server` |
 | `streaming-server` | `components/streaming-server` | `nginx`, `openssh-server` |
+| `conf-server` | `components/conf-server` | `pion` WebRTC Echo binary, `openssh-server` |
+| `ipsec-hub` | `components/ipsec-hub` | `strongswan`, `iproute2` |
 | `minio` | `components/minio` | Custom build on MinIO base |
 | `log-collector` | `fluent/fluent-bit:3.2` (official image, no custom build) | — |
 | `lan-traffic-gen` _(Phase 2+)_ | `components/traffic-generator` | `iperf3`, `openssh-server`, `iproute2` |
-| `conf-server` _(Phase 2+)_ | `components/conf-server` | `pion` WebRTC Echo binary, `openssh-server` |
 | `malicious-host` _(Phase 4+)_ | `components/malicious-host` | `kali-linux-core`, `nmap`, `hping3`, `netcat`, `openssh-server` |
 
 ---
@@ -864,82 +614,61 @@ Access Grafana at `http://localhost:3001` (credentials: `admin` / `testbed`). Ad
 
 **Location:** `bf_config/bf_config_sdwan.json` (or `--inventory-config` path)
 
-Inventory holds device identity and connection details. Topology keys (`dut_iface`, `north_iface`) describe the TC container's interfaces for reference; the interface to apply impairment on is defined in env config (§6.2).
+Inventory holds device identity and connection details. The DUT uses `local_cmd` (docker exec) for access; all other testbed-managed devices use `authenticated_ssh`. Infrastructure-only containers (`app-router`, `ipsec-hub`, `minio`, `log-collector`) are not Boardfarm-managed devices and do not appear in the inventory.
 
 ```json
 {
-    "devices": [
-        {
-            "name": "sdwan",
-            "type": "linux_sdwan_router",
-            "connection_type": "docker_exec",
-            "container_name": "linux-sdwan-router",
-            "wan_interfaces": {
-                "wan1": "eth-wan1",
-                "wan2": "eth-wan2"
+    "sdwan": {
+        "devices": [
+            {
+                "name": "sdwan",
+                "type": "linux_sdwan_router",
+                "connection_type": "local_cmd",
+                "conn_cmd": ["docker exec -i linux-sdwan-router bash -i"],
+                "wan_interfaces": {
+                    "wan1": "eth-wan1",
+                    "wan2": "eth-wan2"
+                },
+                "wan_gateways": {
+                    "wan1": "10.10.1.2",
+                    "wan2": "10.10.2.2"
+                },
+                "wan_metrics": {
+                    "wan1": 10,
+                    "wan2": 200
+                },
+                "lan_interface": "eth-lan"
             },
-            "lan_interface": "eth-lan"
-        },
-        {
-            "name": "wan1_impairment",
-            "type": "linux_traffic_controller",
-            "connection_type": "ssh",
-            "ipaddr": "localhost",
-            "port": 5001,
-            "username": "root",
-            "password": "boardfarm",
-            "dut_iface": "eth-dut",
-            "north_iface": "eth-north"
-        },
-        {
-            "name": "wan2_impairment",
-            "type": "linux_traffic_controller",
-            "connection_type": "ssh",
-            "ipaddr": "localhost",
-            "port": 5002,
-            "username": "root",
-            "password": "boardfarm",
-            "dut_iface": "eth-dut",
-            "north_iface": "eth-north"
-        },
-        {
-            "name": "lan_qoe_client",
-            "type": "playwright_qoe_client",
-            "connection_type": "ssh",
-            "ipaddr": "localhost",
-            "port": 5003,
-            "username": "root",
-            "password": "boardfarm"
-        },
-        {
-            "name": "productivity_server",
-            "type": "nginx_productivity_server",
-            "connection_type": "ssh",
-            "ipaddr": "localhost",
-            "port": 5005,
-            "username": "root",
-            "password": "boardfarm",
-            "simulated_ip": "172.16.0.10"
-        },
-        {
-            "name": "streaming_server",
-            "type": "nginx_streaming_server",
-            "connection_type": "ssh",
-            "ipaddr": "localhost",
-            "port": 5006,
-            "username": "root",
-            "password": "boardfarm",
-            "simulated_ip": "172.16.0.11",
-            "hls_base_url": "http://172.16.0.11:8081/hls",
-            "s3_endpoint": "http://10.100.0.2:9000",
-            "s3_bucket": "streaming-content",
-            "s3_access_key": "testbed",
-            "s3_secret_key": "testbed-secret"
-        }
-        // Phase 2+: add "lan_traffic_gen" (port: 5004, type: iperf_traffic_generator)
-        //           and "conf_server"     (port: 5007, simulated_ip: "172.16.0.12")
-        // Phase 4+: add "malicious_host"  (port: 5008, simulated_ip: "172.16.0.20")
-    ]
+            {
+                "name": "wan1_tc",
+                "type": "linux_traffic_controller",
+                "connection_type": "authenticated_ssh",
+                "ipaddr": "localhost",
+                "port": 5001,
+                "username": "root",
+                "password": "boardfarm"
+            },
+            {
+                "name": "wan2_tc",
+                "type": "linux_traffic_controller",
+                "connection_type": "authenticated_ssh",
+                "ipaddr": "localhost",
+                "port": 5002,
+                "username": "root",
+                "password": "boardfarm"
+            },
+            {
+                "name": "lan_qoe_client",
+                "type": "playwright_qoe_client",
+                "connection_type": "authenticated_ssh",
+                "ipaddr": "localhost",
+                "port": 5003,
+                "username": "root",
+                "password": "boardfarm",
+                "simulated_ip": "192.168.10.10"
+            }
+        ]
+    }
 }
 ```
 
@@ -947,49 +676,54 @@ Inventory holds device identity and connection details. Topology keys (`dut_ifac
 
 **Location:** `bf_config/bf_env_sdwan.json` (or `--env-config` path)
 
-The environment config defines per-device defaults and behavior. Each TrafficController **must** have impairment interface(s) in `environment_def`. For the SD-WAN dual-homed TC, use **per-direction interfaces**: `impairment_interface_north` (forward: client→server) and `impairment_interface_dut` (return: server→client). See `Traffic_Management_Components_Architecture.md §4.2, §4.4`.
+The environment config defines per-device defaults and behavior. The DUT has SLA probe configuration (`sla_defaults`). Each TrafficController has per-interface impairment defaults. Named impairment presets are defined at the top level for use by `tc_use_cases.apply_preset()`.
 
 ```json
 {
-  "environment_def": {
-    "wan1_impairment": {
-      "impairment_interface_north": "eth-north",
-      "impairment_interface_dut": "eth-dut",
-      "impairment_profile": {
-        "latency_ms": 5,
-        "jitter_ms": 1,
-        "loss_percent": 0,
-        "bandwidth_limit_mbps": 1000
-      }
-    },
-    "wan2_impairment": {
-      "impairment_interface_north": "eth-north",
-      "impairment_interface_dut": "eth-dut",
-      "impairment_profile": {
-        "latency_ms": 5,
-        "jitter_ms": 1,
-        "loss_percent": 0,
-        "bandwidth_limit_mbps": 1000
-      }
-    },
-    "impairment_presets": {
-      "pristine":      { "latency_ms": 5,   "jitter_ms": 1,  "loss_percent": 0,   "bandwidth_limit_mbps": 1000 },
-      "cable_typical": { "latency_ms": 15,  "jitter_ms": 5,  "loss_percent": 0.1, "bandwidth_limit_mbps": 100  },
-      "4g_mobile":     { "latency_ms": 80,  "jitter_ms": 30, "loss_percent": 1,   "bandwidth_limit_mbps": 20   },
-      "satellite":     { "latency_ms": 600, "jitter_ms": 50, "loss_percent": 2,   "bandwidth_limit_mbps": 10   },
-      "congested":     { "latency_ms": 25,  "jitter_ms": 40, "loss_percent": 3,   "bandwidth_limit_mbps": null }
+    "environment_def": {
+        "sdwan": {
+            "sla_defaults": {
+                "max_latency_ms": 150,
+                "max_jitter_ms": 30,
+                "max_loss_percent": 10,
+                "probe_interval_ms": 100,
+                "failover_threshold": 3,
+                "recovery_threshold": 5
+            }
+        },
+        "lan_qoe_client": {},
+        "wan1_tc": {
+            "interfaces": {
+                "eth-north": { "latency_ms": 5, "jitter_ms": 1, "loss_percent": 0, "bandwidth_limit_mbps": 1000 },
+                "eth-dut":   { "latency_ms": 5, "jitter_ms": 1, "loss_percent": 0, "bandwidth_limit_mbps": 1000 }
+            }
+        },
+        "wan2_tc": {
+            "interfaces": {
+                "eth-north": { "latency_ms": 5, "jitter_ms": 1, "loss_percent": 0, "bandwidth_limit_mbps": 1000 },
+                "eth-dut":   { "latency_ms": 5, "jitter_ms": 1, "loss_percent": 0, "bandwidth_limit_mbps": 1000 }
+            }
+        },
+        "impairment_presets": {
+            "pristine":      { "latency_ms": 5,   "jitter_ms": 1,  "loss_percent": 0,   "bandwidth_limit_mbps": 1000 },
+            "cable_typical": { "latency_ms": 15,  "jitter_ms": 5,  "loss_percent": 0.1, "bandwidth_limit_mbps": 100  },
+            "4g_mobile":     { "latency_ms": 80,  "jitter_ms": 30, "loss_percent": 1,   "bandwidth_limit_mbps": 20   },
+            "satellite":     { "latency_ms": 600, "jitter_ms": 50, "loss_percent": 2,   "bandwidth_limit_mbps": 10   },
+            "congested":     { "latency_ms": 25,  "jitter_ms": 40, "loss_percent": 3,   "bandwidth_limit_mbps": null }
+        }
     }
-  }
 }
 ```
 
 ### 6.3 Startup Sequence
 
 1. **`docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml up -d`** — starts all containers. Raikou starts last (`depends_on`). The `streaming-server` may start before MinIO is ready — content ingest is handled by the Boardfarm session fixture, not at startup.
-2. **Raikou** reads `config_sdwan.json`, creates OVS bridges, and injects veth pairs into each container with the configured IP and interface names.
-3. **Device startup** — The `linux-sdwan-router` container has `restart: always` so it restarts after `boardfarm_device_boot` power cycles it. FRR initialises BGP/OSPF adjacencies and policy-based routing. WAN1 and WAN2 interfaces receive their IPs from Raikou.
-4. **TC startup** — each Traffic Controller enables IP forwarding between `eth-dut` and `eth-north`. No impairment is applied by default (`pristine` state).
-5. **Content ingest (handled automatically by Boardfarm)** — The `sdwan_testbed_setup` session-scoped autouse fixture in `tests/conftest.py` calls `streaming_server.ensure_content_available()` through the typed `StreamingServer` template reference before the first test runs. The method is idempotent: it checks whether the asset is already present in MinIO and returns immediately if so; otherwise it runs FFmpeg content generation and `mc cp` ingest automatically.
+2. **Raikou** reads `config_sdwan.json`, creates all seven OVS bridges, and injects veth pairs into each container with the configured IP and interface names.
+3. **Device startup** — The `linux-sdwan-router` container has `restart: always` so it restarts after `boardfarm_device_boot` power cycles it. FRR initialises policy-based routing. WAN1 and WAN2 interfaces receive their IPs from Raikou. StrongSwan starts automatically if IKEv2 certificates are mounted (Phase 3.5).
+4. **App-router startup** — The `app-router` container enables IP forwarding, creates `wan1`/`wan2` routing tables, installs CONNMARK rules for ingress WAN tagging, and adds `ip rule fwmark` entries for symmetric return routing. See `docs/app-router-implementation.md`.
+5. **TC startup** — each Traffic Controller enables IP forwarding between `eth-dut` and `eth-north`. No impairment is applied by default (`pristine` state). MASQUERADE is **not** used — symmetric return routing is handled by the app-router.
+6. **IPsec hub startup** — The `ipsec-hub` container starts StrongSwan as an IKEv2 responder, awaiting tunnel initiation from the DUT.
+7. **Content ingest (handled automatically by Boardfarm)** — The `sdwan_testbed_setup` session-scoped autouse fixture in `tests/conftest.py` calls `streaming_server.ensure_content_available()` through the typed `StreamingServer` template reference before the first test runs. The method is idempotent: it checks whether the asset is already present in MinIO and returns immediately if so; otherwise it runs FFmpeg content generation and `mc cp` ingest automatically.
 
     > **Manual fallback (debugging only):** If needed outside of a Boardfarm session, the ingest can be triggered manually. The shell script below mirrors what `ensure_content_available()` does internally via SSH into `streaming-server`:
     ```bash
@@ -1003,7 +737,7 @@ The environment config defines per-device defaults and behavior. Each TrafficCon
     ```
     At runtime, `streaming-server` proxies to MinIO at `http://10.100.0.2:9000` over the `content-internal` Raikou bridge — not via Docker hostname resolution.
     See `Application_Services_Implementation_Plan.md §3.2` for the full FFmpeg command and bitrate ladder.
-6. **Boardfarm** connects to all containers via SSH (or `docker exec` for DUT), parses `bf_config_sdwan.json` and `bf_env_sdwan.json`, instantiates devices with merged config (including `impairment_interface_north` and `impairment_interface_dut` from env for each TC), and the testbed is ready.
+8. **Boardfarm** connects to all containers via SSH (or `docker exec` for DUT), parses `bf_config_sdwan.json` and `bf_env_sdwan.json`, instantiates devices with merged config, and the testbed is ready.
 
 ---
 
@@ -1017,6 +751,8 @@ lan-qoe-client (192.168.10.10)
   → DUT eth-lan → DUT eth-wan1 (active WAN, PBR selects wan1)
   → [dut-wan1 bridge]
   → wan1-tc eth-dut → [netem impairment applied] → wan1-tc eth-north
+  → [north-wan1 bridge]
+  → app-router eth-wan1 → [CONNMARK tags connection as wan1] → app-router eth-south
   → [north-segment bridge]
   → productivity-server (172.16.0.10) :8080
 ```
@@ -1025,10 +761,10 @@ lan-qoe-client (192.168.10.10)
 
 ```
 wan1-tc applies: ImpairmentProfile(latency_ms=600, loss_percent=50)  ← brownout / blackout
-DUT BFD/SLA probe on WAN1 detects breach
-DUT BFD echo detects WAN1 failure; FRR metric-based routing promotes WAN2 route
+DUT SLA probe on WAN1 detects breach; FRR metric-based routing promotes WAN2 route
 Traffic re-routes:
-  lan-qoe-client → DUT eth-wan2 → [dut-wan2 bridge] → wan2-tc → [north-segment] → productivity-server
+  lan-qoe-client → DUT eth-wan2 → [dut-wan2] → wan2-tc → [north-wan2] → app-router → [north-segment] → productivity-server
+Return path: app-router CONNMARK restores fwmark 2 → routes reply via north-wan2 → wan2-tc → DUT
 ```
 
 ### 7.3 QoS Contention Flow (Background load + Priority traffic)
@@ -1042,14 +778,14 @@ lan-traffic-gen (192.168.10.20)
 lan-qoe-client (192.168.10.10)
   → WebRTC DSCP=46 (EF — voice priority)
   → DUT QoS policy: EF traffic in high-priority queue → guaranteed forwarding
-  → conf-server (172.16.0.12) :8443  ← Phase 2+
+  → conf-server (172.16.0.12) :8443
 ```
 
 ### 7.4 Security Flow (C2 Callback Block Test)
 
 ```
-malicious-host (172.16.0.20) starts nc listener on :4444
-lan-qoe-client (192.168.10.10) attempts outbound TCP → 172.16.0.20:4444
+malicious-host (172.16.0.30) starts nc listener on :4444
+lan-qoe-client (192.168.10.10) attempts outbound TCP → 172.16.0.30:4444
   → DUT Application Control policy → DROP (log entry written)
   → malicious-host check_connection_received() → False  ← assert passes
 ```
@@ -1066,26 +802,32 @@ lan-qoe-client (192.168.10.10) attempts outbound TCP → 172.16.0.20:4444
 | LAN Segment | `192.168.10.0/24` | LAN clients and DUT LAN port |
 | DUT–WAN1 (p2p) | `10.10.1.0/30` | DUT WAN1 ↔ WAN1-TC south |
 | DUT–WAN2 (p2p) | `10.10.2.0/30` | DUT WAN2 ↔ WAN2-TC south |
-| North Segment | `172.16.0.0/24` | Application services and threat infrastructure |
+| North-WAN1 | `172.16.1.0/24` | WAN1-TC north ↔ app-router wan1 |
+| North-WAN2 | `172.16.2.0/24` | WAN2-TC north ↔ app-router wan2 |
+| North Segment (app-services) | `172.16.0.0/24` | App-router south ↔ application services and infrastructure |
 | Content-Internal (p2p) | `10.100.0.0/30` | streaming-server (HLS proxy) ↔ MinIO origin — invisible to test traffic |
 
 ### 8.2 Service IP Quick Reference
 
 | Service | Simulated IP | Ports (simulated net) | Boardfarm Device |
 | :--- | :--- | :--- | :--- |
-| DUT LAN gateway | `192.168.10.1` | — | `dut` |
-| DUT WAN1 | `10.10.1.1` | — | `dut` |
-| DUT WAN2 | `10.10.2.1` | — | `dut` |
-| WAN1-TC south | `10.10.1.2` | — | `wan1_impairment` |
-| WAN2-TC south | `10.10.2.2` | — | `wan2_impairment` |
-| WAN1-TC north | `172.16.0.1` | — | `wan1_impairment` |
-| WAN2-TC north | `172.16.0.2` | — | `wan2_impairment` |
-| Productivity server | `172.16.0.10` | 8080 (HTTP prod) | `productivity_server` |
-| Streaming server (HLS edge) | `172.16.0.11` | 8081 (HLS proxy) | `streaming_server` |
-| Streaming server → MinIO egress | `10.100.0.1` | — (content-internal) | `streaming_server` |
+| DUT LAN gateway | `192.168.10.1` | — | `sdwan` |
+| DUT WAN1 | `10.10.1.1` | — | `sdwan` |
+| DUT WAN2 | `10.10.2.1` | — | `sdwan` |
+| WAN1-TC south | `10.10.1.2` | — | `wan1_tc` |
+| WAN2-TC south | `10.10.2.2` | — | `wan2_tc` |
+| WAN1-TC north | `172.16.1.1` | — | `wan1_tc` |
+| WAN2-TC north | `172.16.2.1` | — | `wan2_tc` |
+| App-router wan1 | `172.16.1.254` | — | — (infrastructure) |
+| App-router wan2 | `172.16.2.254` | — | — (infrastructure) |
+| App-router south | `172.16.0.254` | — | — (infrastructure) |
+| Productivity server | `172.16.0.10` | 8080 (HTTP), 443 (HTTPS/H3) | — |
+| Streaming server (HLS edge) | `172.16.0.11` | 8081 (HTTP), 8443 (HTTPS) | — |
+| Streaming server → MinIO egress | `10.100.0.1` | — (content-internal) | — |
 | MinIO content origin | `10.100.0.2` | 9000 (S3 API via content-internal) | — |
-| Conferencing server _(Phase 2+)_ | `172.16.0.12` | 8443 (WSS) | `conf_server` |
-| Malicious host _(Phase 4+)_ | `172.16.0.20` | 4444 (C2), 80 (EICAR HTTP) | `malicious_host` |
+| Conferencing server | `172.16.0.12` | 8443 (WSS) | — |
+| IPsec hub | `172.16.0.20` | IKEv2 (500/4500 UDP) | — (infrastructure) |
+| Malicious host _(Phase 4+)_ | `172.16.0.30` | 4444 (C2), 80 (EICAR HTTP) | `malicious_host` |
 
 ---
 
@@ -1106,15 +848,22 @@ When expanding to Triple WAN (Project Phase 4), add the following to `config_sdw
 }
 ```
 
+**Additional OVS bridge:** `north-wan3` (`172.16.3.0/24`)
+
 **`wan3-tc` config_sdwan.json entry:**
 ```json
 "wan3-tc": [
-    { "bridge": "dut-wan3",    "iface": "eth-dut",   "ipaddress": "10.10.3.2/30" },
-    { "bridge": "north-segment","iface": "eth-north", "ipaddress": "172.16.0.3/24" }
+    { "bridge": "dut-wan3",   "iface": "eth-dut",   "ipaddress": "10.10.3.2/30" },
+    { "bridge": "north-wan3", "iface": "eth-north", "ipaddress": "172.16.3.1/24" }
 ]
 ```
 
-No changes are required to the North segment or application services — WAN3 simply adds a third path to the same `north-segment` bridge. The `LinuxSDWANRouter` driver's `wan_interfaces` config gains a `"wan3": "eth-wan3"` entry.
+**`app-router` additional interface:**
+```json
+{ "bridge": "north-wan3", "iface": "eth-wan3", "ipaddress": "172.16.3.254/24" }
+```
+
+The app-router gains a third WAN interface and corresponding CONNMARK rule / routing table. No changes are required to the North segment or application services — WAN3 adds a third path through the app-router to the same `north-segment` bridge. The `LinuxSDWANRouter` driver's `wan_interfaces` config gains a `"wan3": "eth-wan3"` entry.
 
 ---
 
@@ -1148,28 +897,139 @@ All commands assume the SD-WAN testbed is running under project name `boardfarm-
 # Verify all containers are running
 docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml ps
 
-# Check OVS bridge topology (run on host)
+# Check OVS bridge topology — expect 7 bridges (run on host)
 docker exec orchestrator ovs-vsctl show
 
 # Verify DUT interface configuration
 docker exec linux-sdwan-router ip addr show
 docker exec linux-sdwan-router ip route show
-docker exec linux-sdwan-router vtysh -c "show ip bgp summary"
+docker exec linux-sdwan-router vtysh -c "show ip route"
 
-# Verify LAN connectivity through DUT
+# Verify app-router policy routing
+docker exec app-router ip rule show
+docker exec app-router iptables -t mangle -L PREROUTING -n -v
+
+# Verify LAN connectivity through DUT → app-router → app server
 docker exec lan-qoe-client ping -c 3 192.168.10.1         # DUT LAN gateway
-docker exec lan-qoe-client ping -c 3 172.16.0.10          # App server (via WAN)
+docker exec lan-qoe-client ping -c 3 172.16.0.10          # Productivity server (via WAN)
 
-# Verify Traffic Controller forwarding
+# Verify Traffic Controller forwarding (no MASQUERADE)
 docker exec wan1-tc ip route show
 docker exec wan1-tc tc qdisc show dev eth-north        # Confirm netem is clean
+docker exec wan1-tc iptables -t nat -L -n               # Should show empty nat table
 
-# Verify application server services
-curl http://localhost:18080/health                     # From host (productivity-server via port mapping)
-curl http://localhost:18081/hls/default/index.m3u8    # From host (streaming-server HLS playlist)
+# Verify application server services (HTTP)
+curl http://localhost:18080/health                     # Productivity (HTTP)
+curl http://localhost:18081/hls/default/index.m3u8    # Streaming (HLS playlist)
 
-# Check SSH access to Phase 1 containers
-for port in 5001 5002 5003 5005 5006; do
+# Verify application server services (HTTPS — Phase 3.5)
+curl -k https://localhost:18443/health                 # Productivity (HTTPS)
+curl -k https://localhost:18444/hls/default/index.m3u8 # Streaming (HTTPS)
+
+# Verify IPsec hub
+docker exec ipsec-hub ipsec statusall
+
+# Check SSH access to all SSH-enabled containers
+for port in 5001 5002 5003 5005 5006 5007; do
     ssh -p $port -o ConnectTimeout=3 root@localhost "hostname" && echo "Port $port OK"
 done
 ```
+
+---
+
+## 12. Future Enhancements
+
+The testbed is currently deployed at **Phase 3.5 (Digital Twin Hardening)**. The remaining phases from the project roadmap (see `WAN_Edge_Appliance_testing.md §5`) describe additional capabilities that build on the existing infrastructure without requiring changes to the deployed topology or existing test scenarios.
+
+### 12.1 Phase 4 — Linux Router Expansion
+
+Phase 4 extends the Linux Router digital twin with capabilities needed for QoS and Security pillar validation. StrongSwan (VPN/Overlay) was already completed in Phase 3.5 and is not repeated here. All items are **deferred** until a commercial DUT drives the requirement.
+
+| Deliverable | Pillar | Testbed Impact | New Boardfarm Components |
+| :--- | :--- | :--- | :--- |
+| **DUT QoS shaping** (`tc htb`, `fq_codel`) | QoS | `linux-sdwan-router` gains LLQ/WFQ traffic classes on WAN egress interfaces; DUT `apply_policy()` extended with QoS dict | — |
+| **DUT firewall** (`iptables`/`nftables`) | Security | `linux-sdwan-router` gains zone-based stateful firewall rules (LAN/WAN/DMZ zones) | — |
+| **Traffic Generator** (`iPerf3`/`TRex`) | QoS | New `lan-traffic-gen` container on `lan-segment` (192.168.10.20); generates background UDP/TCP load at configurable rates to create queue contention | `TrafficGenerator` template, `IperfTrafficGenerator` device class |
+| **Malicious Host** (Kali Linux) | Security | New `malicious-host` container on `north-segment` (172.16.0.30); provides port scanning (Nmap), SYN flood (hping3), C2 listener, and EICAR file server | `MaliciousHost` template, `KaliMaliciousHost` device class |
+| **Security use cases** | Security | — | `security_use_cases.py`: `assert_port_scan_detected()`, `assert_syn_flood_mitigated()`, `assert_c2_callback_blocked()`, `assert_eicar_download_blocked()` |
+| **Triple WAN** | Path Steering | Third WAN path — see [Section 9](#9-triple-wan-expansion) for topology details (`dut-wan3`, `north-wan3` bridges, `wan3-tc` container) | `wan_interfaces` gains `"wan3": "eth-wan3"` |
+
+**Exit criteria (from `WAN_Edge_Appliance_testing.md`):**
+
+- QoS: LLQ test confirms voice traffic (DSCP EF) maintains MOS > 4.0 under link saturation.
+- Security: port scan detected and logged; C2 callback blocked (100%); EICAR blocked on first attempt.
+- Triple WAN: `dut.get_active_wan_interface()` correctly identifies WAN3 as failover target when both WAN1 and WAN2 are degraded.
+
+**QoS SLOs:**
+
+| Category | SLO |
+| :--- | :--- |
+| Throughput degradation (IPS + SSL) | < 20% reduction vs. raw throughput |
+| Added latency (DPI) | < 5 ms one-way |
+| DUT CPU under max inspection load | < 80% utilisation |
+
+**Security SLOs:**
+
+| Category | SLO |
+| :--- | :--- |
+| Zone-based firewalling | 100% deny-rule traffic blocked; session tracking; 100% deny events logged within 5 s |
+| Application control (L7) | 100% C2 blocked; EICAR blocked on first attempt; < 0.1% false positive rate |
+| Inbound threat mitigation | Port scan logged within 5 s; LAN < 1% loss during SYN flood ≥ 1 000 SYN/s |
+| VPN/Overlay integrity | IKEv2 SA < 3 s *(already met)*; Phase 2 re-key < 1 s; zero plaintext on WAN *(already met)* |
+
+### 12.2 Phase 5 — Commercial DUT Integration
+
+Phase 5 swaps the Linux Router digital twin for a commercial SD-WAN appliance (e.g. Cisco C8000, FortiGate, VMware VeloCloud). The testbed infrastructure, OVS topology, application services, and test scenarios remain unchanged — only the DUT and its Boardfarm driver change.
+
+**What changes:**
+
+| Item | Phase 3.5 (current) | Phase 5 |
+| :--- | :--- | :--- |
+| DUT container / appliance | `linux-sdwan-router` (FRR + StrongSwan) | Vendor virtual/physical appliance |
+| Boardfarm device class | `LinuxSDWANRouter` | Vendor-specific (e.g. `CiscoC8000DUT`, `FortiGateDUT`) |
+| `WANEdgeDevice` implementation | SSH + `vtysh` + `ip route get` | Vendor REST / NETCONF API |
+| `bf_config_sdwan.json` | `connection_type: "local_cmd"` | `connection_type: "ssh"` or `"rest_api"` with vendor credentials |
+| `bf_env_sdwan.json` | `apply_policy()` FRR PBR format | Vendor-specific policy dict |
+| Test scenarios | `.feature` files | **No changes** |
+
+**What stays the same:**
+
+- All OVS bridges, IP addressing, and network segments
+- All application service containers (productivity, streaming, conferencing)
+- Traffic controllers (wan1-tc, wan2-tc)
+- App-router and CONNMARK policy routing
+- IPsec hub (peer for vendor DUT VPN tunnels)
+- QoE client and measurement infrastructure
+- All BDD scenarios and step definitions
+- All `use_cases/` modules (qoe, wan_edge, traffic_control)
+
+**New capabilities enabled by commercial DUT:**
+
+| Capability | Why Linux Router cannot validate it |
+| :--- | :--- |
+| DPI-based application classification | Requires commercial deep-packet inspection engine to identify applications (e.g. "Zoom" vs "Salesforce") from packet content |
+| SSL Inspection / TLS MITM | Requires commercial DUT to intercept, decrypt, inspect, and re-encrypt TLS flows inline |
+| QUIC blocking / downgrade-to-HTTP/2 policies | Requires vendor Application Control policy engine for protocol-level enforcement |
+| Hardware-accelerated IPsec | Linux StrongSwan validates the protocol; commercial DUT validates hardware offload throughput |
+| Vendor cloud orchestration | REST/NETCONF management plane integration with vendor cloud controller |
+
+**Transition checklist:**
+
+1. Provision vendor DUT (virtual or physical) with WAN1, WAN2, and LAN interfaces on the existing OVS bridges.
+2. Implement vendor `WANEdgeDevice` device class wrapping vendor CLI/API.
+3. Update `bf_config_sdwan.json`: device type, IP, credentials, connection method.
+4. Update `bf_env_sdwan.json`: vendor-specific `apply_policy()` dict format (if applicable).
+5. Run all Phase 3 / 3.5 scenarios — expect pass with no test code changes.
+6. Enable Phase 4 pillars (QoS, Security) once `TrafficGenerator` and `MaliciousHost` are implemented.
+
+### 12.3 Component Readiness Map
+
+The table below summarises which component phases must be complete before each project phase gate. Component implementation plans (linked) are the authoritative source.
+
+| Component | Ph 3.5 *(current)* | Ph 4 — Expansion | Ph 5 — Commercial DUT |
+| :--- | :--- | :--- | :--- |
+| [LinuxSDWANRouter](LinuxSDWANRouter_Implementation_Plan.md) | StrongSwan + CA ✅ | FRR QoS (`tc`), iptables firewall | Replaced by vendor device class |
+| [QoEClient](QoE_Client_Implementation_Plan.md) | CA trust + `protocol` field ✅ | — | — |
+| [Application Services](Application_Services_Implementation_Plan.md) | HTTPS + HTTP/3 ✅ | Malicious Host container | — |
+| [Traffic Management](Traffic_Management_Components_Architecture.md) | `LinuxTrafficController` ✅ | — | `SpirentTrafficController` *(optional)* |
+| [TrafficGenerator](TrafficGenerator_Implementation_Plan.md) | — | Container + Driver + Integration | — |

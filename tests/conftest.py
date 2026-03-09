@@ -317,6 +317,19 @@ def sdwan(devices):
     return getattr(devices, "sdwan", None)
 
 
+@pytest.fixture
+def boardfarm_config(request):
+    """Boardfarm config object for accessing env config (presets, etc.).
+
+    Uses the boardfarm plugin's config when available; falls back to None
+    for unit tests.
+    """
+    plugin = request.config.pluginmanager.get_plugin("_boardfarm")
+    if plugin is not None:
+        return plugin.boardfarm_config
+    return None
+
+
 @pytest.fixture(scope="function", autouse=True)
 def cleanup_cpe_config_after_scenario(
     acs: AcsTemplate, cpe: CpeTemplate, bf_context: Any
@@ -554,4 +567,25 @@ def cleanup_sip_phones_after_scenario(devices, bf_context: Any):
             print(f"  - {error}")
     else:
         print(f"✓ SIP phone cleanup completed successfully ({phones_cleaned} phone(s) cleaned)")
+
+
+@pytest.fixture(scope="function", autouse=True)
+def cleanup_sdwan_impairments_after_scenario(bf_context: Any):
+    """Clear WAN impairments after each SDWAN scenario.
+
+    Only activates when the scenario used traffic controllers (stored in
+    bf_context by the 'SD-WAN appliance is operational' step).
+    """
+    yield
+
+    from boardfarm3.use_cases import traffic_control as tc_uc
+
+    for attr in ("wan1_tc", "wan2_tc"):
+        tc = getattr(bf_context, attr, None)
+        if tc is None:
+            continue
+        try:
+            tc_uc.clear_impairment(tc)
+        except Exception as e:  # noqa: BLE001
+            print(f"⚠ Could not clear impairment on {attr}: {e}")
 

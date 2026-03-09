@@ -349,6 +349,92 @@ class MockACS:
         return 0  # Success
 
 
+class MockWANEdgeDevice:
+    """Lightweight mock of WANEdgeDevice for unit testing SD-WAN steps."""
+
+    def __init__(self):
+        self.name = "mock_sdwan"
+        self._active_wan = "wan1"
+        self._interface_status = {
+            "wan1": MockLinkStatus("up", "10.10.1.1"),
+            "wan2": MockLinkStatus("up", "10.10.2.1"),
+        }
+
+    def get_active_wan_interface(self, flow_dst=None):
+        return self._active_wan
+
+    def get_wan_interface_status(self):
+        return self._interface_status
+
+    def get_wan_path_metrics(self):
+        return {}
+
+    def apply_policy(self, policy):
+        pass
+
+
+class MockLinkStatus:
+    """Lightweight mock of LinkStatus dataclass."""
+
+    def __init__(self, state: str = "up", ip_address: str = "0.0.0.0"):
+        self.state = state
+        self.ip_address = ip_address
+
+
+class MockTrafficController:
+    """Lightweight mock of TrafficController for unit testing."""
+
+    def __init__(self, name: str = "mock_tc"):
+        self.name = name
+        self._profile = None
+        self._cleared = False
+
+    def set_impairment_profile(self, profile):
+        self._profile = profile
+        self._cleared = False
+
+    def clear(self):
+        self._profile = None
+        self._cleared = True
+
+    def inject_transient(self, event, duration_ms, **kwargs):
+        pass
+
+    def get_interface_profile(self, interface):
+        return self._profile
+
+    def get_interface_profiles(self):
+        return {}
+
+
+class MockQoEClient:
+    """Lightweight mock of QoEClient for unit testing."""
+
+    def __init__(self, name: str = "mock_qoe_client"):
+        self.name = name
+        self._productivity_result = None
+        self._should_succeed = True
+
+    def measure_productivity(self, url, *, scenario="page_load"):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            success=self._should_succeed,
+            ttfb_ms=50.0 if self._should_succeed else None,
+            load_time_ms=800.0 if self._should_succeed else None,
+        )
+
+    def measure_streaming(self, stream_url, *, duration_s=30):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            success=True, startup_time_ms=500.0, rebuffer_ratio=0.001
+        )
+
+    def attempt_outbound_connection(self, host, port, *, timeout_s=5.0):
+        return True
+
+
 class MockDevices:
     """Mock devices namespace (like boardfarm devices fixture)."""
     
@@ -360,3 +446,8 @@ class MockDevices:
         self.sipcenter = MockSIPServer()
         self.cpe = MockCPE()
         self.acs = MockACS()
+        # SDWAN devices
+        self.sdwan = MockWANEdgeDevice()
+        self.wan1_tc = MockTrafficController("wan1_tc")
+        self.wan2_tc = MockTrafficController("wan2_tc")
+        self.lan_qoe_client = MockQoEClient("lan_qoe_client")

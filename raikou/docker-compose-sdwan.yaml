@@ -24,12 +24,9 @@ services:
     # All interfaces from Raikou OVS (eth-lan, eth-wan1, eth-wan2). No Docker network.
     # Phase 3.5: StrongSwan IKEv2 certs mounted at /etc/strongswan/
     linux-sdwan-router:
+        image: ghcr.io/alottabits/boardfarm-bdd/sdwan-router:0.03
         container_name: linux-sdwan-router
         restart: always
-        build:
-            context: ./components/sdwan-router
-            tags:
-                - sdwan-router:sdwan_frr_0.02
         network_mode: none
         privileged: true
         hostname: sdwan-router
@@ -51,13 +48,11 @@ services:
                     memory: 256M
 
     # ── Traffic Controllers (WAN Impairment) ───────────────────────────────────
-    # Test traffic via Raikou OVS: eth-dut (dut-wan1), eth-north (north-segment).
+    # Pure tc netem impairment. Test traffic via Raikou OVS:
+    #   eth-dut (dut-wan1/dut-wan2), eth-north (north-wan1/north-wan2).
     wan1-tc:
+        image: ghcr.io/alottabits/boardfarm-bdd/traffic-controller:0.03
         container_name: wan1-tc
-        build:
-            context: ./components/traffic-controller
-            tags:
-                - traffic-controller:traffic_controller_0.01
         ports:
             - "5001:22"
         environment:
@@ -75,13 +70,9 @@ services:
                     cpus: '0.25'
                     memory: 64M
 
-    # Test traffic via Raikou OVS: eth-dut (dut-wan2), eth-north (north-segment).
     wan2-tc:
+        image: ghcr.io/alottabits/boardfarm-bdd/traffic-controller:0.03
         container_name: wan2-tc
-        build:
-            context: ./components/traffic-controller
-            tags:
-                - traffic-controller:traffic_controller_0.01
         ports:
             - "5002:22"
         environment:
@@ -99,15 +90,32 @@ services:
                     cpus: '0.25'
                     memory: 64M
 
+    # ── App-Router (Symmetric Return Routing) ────────────────────────────────
+    # Connects per-WAN north-side networks to the shared app-services network.
+    # CONNMARK + policy routing ensures replies return through the correct WAN path.
+    # Test traffic via Raikou OVS: eth-wan1 (north-wan1), eth-wan2 (north-wan2),
+    #   eth-south (north-segment).
+    # See: docs/app-router-implementation.md
+    app-router:
+        image: ghcr.io/alottabits/boardfarm-bdd/app-router:0.01
+        container_name: app-router
+        privileged: true
+        hostname: app-router
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.25'
+                    memory: 64M
+                reservations:
+                    cpus: '0.1'
+                    memory: 32M
+
     # ── QoE Client (Playwright) ─────────────────────────────────────────────────
     # Test traffic via Raikou OVS: eth1 (lan-segment). Docker eth0 for SSH/port mapping only.
     # Phase 3.5: testbed CA cert mounted for Playwright/Chromium HTTPS trust.
     lan-qoe-client:
+        image: ghcr.io/alottabits/boardfarm-bdd/lan-qoe-client:0.02
         container_name: lan-qoe-client
-        build:
-            context: ./components/lan_qoe_client
-            tags:
-                - lan-qoe-client:qoe_client_0.02
         ports:
             - "5003:22"
             - "18090:8080"   # Dante SOCKS v5 proxy — developer access to LAN-side services
@@ -132,11 +140,8 @@ services:
     # See: docs/WAN_Edge_Appliance_testing.md §4.2
     # See: docs/Application_Services_Implementation_Plan.md §6 Phase 3.5
     productivity-server:
+        image: ghcr.io/alottabits/boardfarm-bdd/productivity-server:0.02
         container_name: productivity-server
-        build:
-            context: ./components/productivity-server
-            tags:
-                - productivity-server:productivity_server_0.02
         ports:
             - "5005:22"
             - "18080:8080"       # Nginx productivity (HTTP)
@@ -161,11 +166,8 @@ services:
     # Test traffic via Raikou OVS: eth1 (north-segment), eth2 (content-internal → MinIO).
     # Phase 3.5: TLS certs mounted at /certs/ for HTTPS.
     streaming-server:
+        image: ghcr.io/alottabits/boardfarm-bdd/streaming-server:0.02
         container_name: streaming-server
-        build:
-            context: ./components/streaming-server
-            tags:
-                - streaming-server:streaming_server_0.02
         ports:
             - "5006:22"
             - "18081:8081"       # Nginx streaming (HLS proxy, HTTP)
@@ -192,11 +194,8 @@ services:
     # Test traffic via Raikou OVS: eth1 (north-segment, 172.16.0.12).
     # See: docs/Application_Services_Implementation_Plan.md §3.3
     conf-server:
+        image: ghcr.io/alottabits/boardfarm-bdd/conf-server:0.02
         container_name: conf-server
-        build:
-            context: ./components/conf-server
-            tags:
-                - conf-server:conf_server_0.01
         ports:
             - "5007:22"
             - "18445:8443"       # pion signalling (WSS)
@@ -226,11 +225,8 @@ services:
     # Test traffic via Raikou OVS: eth1 (north-segment, 172.16.0.20).
     # See: docs/LinuxSDWANRouter_Implementation_Plan.md §3.4
     ipsec-hub:
+        image: ghcr.io/alottabits/boardfarm-bdd/ipsec-hub:0.01
         container_name: ipsec-hub
-        build:
-            context: ./components/ipsec-hub
-            tags:
-                - ipsec-hub:ipsec_hub_0.01
         privileged: true
         hostname: ipsec-hub
         volumes:
@@ -250,11 +246,8 @@ services:
     # S3-compatible store for HLS content. Raikou OVS: eth1 on content-internal only.
     # Management: host ports 19000 (S3 API), 19001 (console) via Docker.
     minio:
+        image: ghcr.io/alottabits/boardfarm-bdd/minio:0.01
         container_name: minio
-        build:
-            context: ./components/minio
-            tags:
-                - minio:content_origin_0.01
         ports:
             - "19000:9000"       # S3 API (management ingest)
             - "19001:9001"       # Web console
@@ -316,6 +309,7 @@ services:
             - lan-qoe-client
             - wan1-tc
             - wan2-tc
+            - app-router
             - productivity-server
             - streaming-server
             - conf-server
