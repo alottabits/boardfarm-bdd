@@ -20,7 +20,7 @@ The development and test workflow follows three steps:
 2. **Standardize the test interface API** to all testbed components (`boardfarm3.use_cases`)
 3. **Utilize AI** to generate BDD scenarios, automated test scripts, test unit tests, and execute the test suite
 
-![Process Flow](./Excalidraw/process_template.svg)
+![Process Flow](./Excalidraw/development_and_release_process.svg)
 
 Many thanks to Mike Vogel who inspired me to pursue this requirements
 structure. Please see details of his approach here:
@@ -38,37 +38,6 @@ architectural pattern:
 
 ![Software Architecture](./Excalidraw/software_architecture.svg)
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Layer 0: System Use Cases                                   │
-│  - Markdown requirements in requirements/                    │
-│  - Define system behavior, success/failure guarantees        │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-┌───────────────────────────▼─────────────────────────────────┐
-│  Layer 1: Test Definitions                                   │
-│  - pytest-bdd: .feature files + step definitions             │
-│  - Robot Framework: .robot test files + keyword libraries    │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-┌───────────────────────────▼─────────────────────────────────┐
-│  Layer 2: Framework Integration (Thin Wrappers)              │
-│  - tests/step_defs/*.py  |  robot/libraries/*.py             │
-│  - Delegate to use_cases — no business logic here            │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-┌───────────────────────────▼─────────────────────────────────┐
-│  Layer 3: Boardfarm use_cases (SINGLE SOURCE OF TRUTH)       │
-│  - boardfarm3/use_cases/acs.py, cpe.py, voice.py, etc.      │
-│  - Reusable test operations independent of framework         │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-┌───────────────────────────▼─────────────────────────────────┐
-│  Layer 4: Device Templates                                   │
-│  - Abstract interfaces / device contracts                    │
-│  - Provided by boardfarm — swap implementations per testbed  │
-└─────────────────────────────────────────────────────────────┘
-```
 
 For the full architecture reference, see
 [Boardfarm Five-Layer Model](docs/architecture/boardfarm-five-layer-model.md).
