@@ -2,7 +2,7 @@
 
 **Date:** March 8, 2026
 **Status:** Deployed — Phase 3.5 (Digital Twin Hardening)
-**Related:** `WAN_Edge_Appliance_testing.md`, `app-router-implementation.md`, `TrafficGenerator_Implementation_Plan.md`, `Traffic_Management_Components_Architecture.md`
+**Related:** `architecture.md`, `app-router.md`, `future/traffic-generator.md`, `traffic-management.md`
 
 ---
 
@@ -50,7 +50,7 @@ The Raikou orchestrator container reads `config_sdwan.json` that declares the OV
 | **Linux SD-WAN Router** | DUT (`WANEdgeDevice`) | `linux-sdwan-router` | Device Under Test. FRR, Policy-Based Routing (pbr-map), dual WAN. |
 | **WAN1 Traffic Controller** | Impairment (`TrafficController`) | `wan1-tc` | Pure `tc netem` impairment emulator on the MPLS/Fiber path. North-side on `north-wan1`. |
 | **WAN2 Traffic Controller** | Impairment (`TrafficController`) | `wan2-tc` | Pure `tc netem` impairment emulator on the Internet/Cable path. North-side on `north-wan2`. |
-| **App-Router** | Infrastructure | `app-router` | CONNMARK policy router. Connects per-WAN north-side networks to the shared app-services network. Ensures symmetric return routing. See `docs/app-router-implementation.md`. |
+| **App-Router** | Infrastructure | `app-router` | CONNMARK policy router. Connects per-WAN north-side networks to the shared app-services network. Ensures symmetric return routing. See `app-router.md`. |
 | **LAN Client** | Client (`QoEClient`) | `lan-qoe-client` | Playwright-based QoE measurement container (productivity, streaming, conferencing). |
 | **Productivity Server** | Server (North-side) | `productivity-server` | Nginx Mock SaaS (index.html, large_asset.js, /api/latency). Separate from `streaming-server` to enable independent L7 path steering. |
 | **Streaming Server** | Server (North-side) | `streaming-server` | Nginx HLS streaming edge (proxies to MinIO via `content-internal` bridge). Separate from `productivity-server` to enable independent L7 path steering. |
@@ -239,7 +239,7 @@ Point-to-point link between the DUT WAN2 interface and the WAN2 Traffic Controll
 
 ### 3.4 North-WAN1 Segment (`north-wan1` bridge)
 
-Per-WAN north-side link between WAN1 Traffic Controller and the app-router. Part of the split north-segment topology (see `docs/app-router-implementation.md`).
+Per-WAN north-side link between WAN1 Traffic Controller and the app-router. Part of the split north-segment topology (see `app-router.md`).
 
 | Container | Interface | IP Address | Role |
 | :--- | :--- | :--- | :--- |
@@ -442,7 +442,7 @@ For failures specific to Playwright's automated session (element selection, navi
 playwright show-trace trace.zip
 ```
 
-See `QoE_Client_Implementation_Plan.md §3.4` for the full tracing setup and CI artifact integration.
+See `qoe-client.md §3.4` for the full tracing setup and CI artifact integration.
 
 ### 5.3 Component Image Sources
 
@@ -720,7 +720,7 @@ The environment config defines per-device defaults and behavior. The DUT has SLA
 1. **`docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml up -d`** — starts all containers. Raikou starts last (`depends_on`). The `streaming-server` may start before MinIO is ready — content ingest is handled by the Boardfarm session fixture, not at startup.
 2. **Raikou** reads `config_sdwan.json`, creates all seven OVS bridges, and injects veth pairs into each container with the configured IP and interface names.
 3. **Device startup** — The `linux-sdwan-router` container has `restart: always` so it restarts after `boardfarm_device_boot` power cycles it. FRR initialises policy-based routing. WAN1 and WAN2 interfaces receive their IPs from Raikou. StrongSwan starts automatically if IKEv2 certificates are mounted (Phase 3.5).
-4. **App-router startup** — The `app-router` container enables IP forwarding, creates `wan1`/`wan2` routing tables, installs CONNMARK rules for ingress WAN tagging, and adds `ip rule fwmark` entries for symmetric return routing. See `docs/app-router-implementation.md`.
+4. **App-router startup** — The `app-router` container enables IP forwarding, creates `wan1`/`wan2` routing tables, installs CONNMARK rules for ingress WAN tagging, and adds `ip rule fwmark` entries for symmetric return routing. See `app-router.md`.
 5. **TC startup** — each Traffic Controller enables IP forwarding between `eth-dut` and `eth-north`. No impairment is applied by default (`pristine` state). MASQUERADE is **not** used — symmetric return routing is handled by the app-router.
 6. **IPsec hub startup** — The `ipsec-hub` container starts StrongSwan as an IKEv2 responder, awaiting tunnel initiation from the DUT.
 7. **Content ingest (handled automatically by Boardfarm)** — The `sdwan_testbed_setup` session-scoped autouse fixture in `tests/conftest.py` calls `streaming_server.ensure_content_available()` through the typed `StreamingServer` template reference before the first test runs. The method is idempotent: it checks whether the asset is already present in MinIO and returns immediately if so; otherwise it runs FFmpeg content generation and `mc cp` ingest automatically.
@@ -736,7 +736,7 @@ The environment config defines per-device defaults and behavior. The DUT has SLA
     mc cp --recursive /tmp/streaming/ testbed/streaming-content/
     ```
     At runtime, `streaming-server` proxies to MinIO at `http://10.100.0.2:9000` over the `content-internal` Raikou bridge — not via Docker hostname resolution.
-    See `Application_Services_Implementation_Plan.md §3.2` for the full FFmpeg command and bitrate ladder.
+    See `application-services.md §3.2` for the full FFmpeg command and bitrate ladder.
 8. **Boardfarm** connects to all containers via SSH (or `docker exec` for DUT), parses `bf_config_sdwan.json` and `bf_env_sdwan.json`, instantiates devices with merged config, and the testbed is ready.
 
 ---
@@ -939,7 +939,7 @@ done
 
 ## 12. Future Enhancements
 
-The testbed is currently deployed at **Phase 3.5 (Digital Twin Hardening)**. The remaining phases from the project roadmap (see `WAN_Edge_Appliance_testing.md §5`) describe additional capabilities that build on the existing infrastructure without requiring changes to the deployed topology or existing test scenarios.
+The testbed is currently deployed at **Phase 3.5 (Digital Twin Hardening)**. The remaining phases from the project roadmap (see `architecture.md §5`) describe additional capabilities that build on the existing infrastructure without requiring changes to the deployed topology or existing test scenarios.
 
 ### 12.1 Phase 4 — Linux Router Expansion
 
@@ -954,7 +954,7 @@ Phase 4 extends the Linux Router digital twin with capabilities needed for QoS a
 | **Security use cases** | Security | — | `security_use_cases.py`: `assert_port_scan_detected()`, `assert_syn_flood_mitigated()`, `assert_c2_callback_blocked()`, `assert_eicar_download_blocked()` |
 | **Triple WAN** | Path Steering | Third WAN path — see [Section 9](#9-triple-wan-expansion) for topology details (`dut-wan3`, `north-wan3` bridges, `wan3-tc` container) | `wan_interfaces` gains `"wan3": "eth-wan3"` |
 
-**Exit criteria (from `WAN_Edge_Appliance_testing.md`):**
+**Exit criteria (from `architecture.md`):**
 
 - QoS: LLQ test confirms voice traffic (DSCP EF) maintains MOS > 4.0 under link saturation.
 - Security: port scan detected and logged; C2 callback blocked (100%); EICAR blocked on first attempt.
@@ -1028,8 +1028,8 @@ The table below summarises which component phases must be complete before each p
 
 | Component | Ph 3.5 *(current)* | Ph 4 — Expansion | Ph 5 — Commercial DUT |
 | :--- | :--- | :--- | :--- |
-| [LinuxSDWANRouter](LinuxSDWANRouter_Implementation_Plan.md) | StrongSwan + CA ✅ | FRR QoS (`tc`), iptables firewall | Replaced by vendor device class |
-| [QoEClient](QoE_Client_Implementation_Plan.md) | CA trust + `protocol` field ✅ | — | — |
-| [Application Services](Application_Services_Implementation_Plan.md) | HTTPS + HTTP/3 ✅ | Malicious Host container | — |
-| [Traffic Management](Traffic_Management_Components_Architecture.md) | `LinuxTrafficController` ✅ | — | `SpirentTrafficController` *(optional)* |
-| [TrafficGenerator](TrafficGenerator_Implementation_Plan.md) | — | Container + Driver + Integration | — |
+| [LinuxSDWANRouter](linux-sdwan-router.md) | StrongSwan + CA ✅ | FRR QoS (`tc`), iptables firewall | Replaced by vendor device class |
+| [QoEClient](qoe-client.md) | CA trust + `protocol` field ✅ | — | — |
+| [Application Services](application-services.md) | HTTPS + HTTP/3 ✅ | Malicious Host container | — |
+| [Traffic Management](traffic-management.md) | `LinuxTrafficController` ✅ | — | `SpirentTrafficController` *(optional)* |
+| [TrafficGenerator](future/traffic-generator.md) | — | Container + Driver + Integration | — |

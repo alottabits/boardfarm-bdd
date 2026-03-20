@@ -1,13 +1,14 @@
 # Traffic Management Components Architecture
 
 **Date:** March 2026  
-**Status:** Design Document  
+**Status:** Implemented  
+**Related:** [architecture.md](architecture.md), [testbed-configuration.md](testbed-configuration.md), [ADR-0001](../../adr/0001-scope-to-digital-twin-phase-3.5.md)  
 
 ---
 
 ## 1. Overview
 
-This document defines the Boardfarm architecture for Traffic Control (network impairment) components. The design follows existing Boardfarm patterns and adheres to the **DRY (Don't Repeat Yourself)** principle. Test cases remain portable across **Functional** (physical DUT + containerized surroundings) and **Pre-Production** (physical hardware) testbeds.
+This document defines the Boardfarm architecture for Traffic Control (network impairment) components. The design follows existing Boardfarm patterns and adheres to the **DRY (Don't Repeat Yourself)** principle. Test cases remain portable across different testbed configurations through the `TrafficController` template interface.
 
 ### Key Design Principles
 
@@ -172,7 +173,7 @@ set_interface_profile(tc, "eth-dut",   ImpairmentProfile(latency_ms=20, jitter_m
 
 During tests, `set_impairment_profile(profile)` applies the same profile to all interfaces (symmetric), while `set_interface_profile(interface, profile)` targets a specific interface. Named presets are symmetric (applied via `set_impairment_profile`).
 
-> **Teardown requirement:** Before calling `set_impairment_profile()` or `set_interface_profile()` in a test step, the step (or its use-case helper) should save the current profiles to `bf_context`. The `reset_sdwan_testbed_after_scenario` autouse fixture in `tests/conftest.py` reads this registry and restores all modified profiles after each scenario. See `WAN_Edge_Appliance_testing.md §3.9` for the full teardown strategy.
+> **Teardown requirement:** Before calling `set_impairment_profile()` or `set_interface_profile()` in a test step, the step (or its use-case helper) should save the current profiles to `bf_context`. The `reset_sdwan_testbed_after_scenario` autouse fixture in `tests/conftest.py` reads this registry and restores all modified profiles after each scenario. See `architecture.md §3.9` for the full teardown strategy.
 >
 > `inject_transient()` does **not** require manual teardown — it auto-restores all interfaces to their previous kernel state after `duration_ms` via a background daemon thread (see §7.3).
 
@@ -315,7 +316,7 @@ def clear_tc_profile(console, iface: str) -> None:
 
 ## 7. Device Implementations
 
-> **Project Phase alignment:** `LinuxTrafficController` (§7.1) must be implemented and passing its round-trip exit criterion before **Project Phase 1 (Foundation)** is complete. `SpirentTrafficController` (§7.2) is only required when transitioning to a pre-production hardware testbed.
+> **Implementation status:** `LinuxTrafficController` (§7.1) is implemented and deployed. See [ADR-0001](../../adr/0001-scope-to-digital-twin-phase-3.5.md) for project scope.
 
 ### 7.1 LinuxTrafficController (Standalone Device)
 
@@ -369,35 +370,7 @@ class LinuxTrafficController(LinuxDevice, TrafficController):
             clear_tc_profile(self._console, iface)
 ```
 
-### 7.2 SpirentTrafficController (Hardware Appliance)
-
-The Spirent appliance manages multiple ports natively. `set_impairment_profile` maps to applying the profile to all configured ports; `set_interface_profile` maps to a single-port API call.
-
-```python
-class SpirentTrafficController(BoardfarmDevice, TrafficController):
-    def set_impairment_profile(self, profile: ImpairmentProfile | dict) -> None:
-        p = profile_from_dict(profile) if isinstance(profile, dict) else profile
-        for port in self._ports:
-            self._api.apply_impairment(port, p)
-
-    def set_interface_profile(self, interface: str, profile: ImpairmentProfile | dict) -> None:
-        p = profile_from_dict(profile) if isinstance(profile, dict) else profile
-        self._api.apply_impairment(interface, p)
-
-    def get_interface_profile(self, interface: str) -> ImpairmentProfile:
-        return self._api.query_impairment(interface)
-
-    def get_interface_profiles(self) -> dict[str, ImpairmentProfile]:
-        return {port: self._api.query_impairment(port) for port in self._ports}
-
-    def clear(self) -> None:
-        for port in self._ports:
-            self._api.clear_impairment(port)
-```
-
----
-
-### 7.3 `inject_transient()` — Automatic Restoration
+### 7.2 `inject_transient()` — Automatic Restoration
 
 > **Contract:** `inject_transient()` is **fire-and-forget**. The caller never needs to restore state — the method applies the transient condition to ALL interfaces and automatically restores each interface to its previous kernel profile after `duration_ms`. The call returns immediately.
 
@@ -462,10 +435,11 @@ def inject_transient(self, event: str, duration_ms: int, **kwargs) -> None:
 
 Impairment is **always** handled by a dedicated, standalone device — never co-hosted on another container.
 
-| Phase | Impairment device | Class |
+| Testbed | Impairment device | Class |
 |---|---|---|
 | Functional (Raikou containers) | Dedicated Linux container per WAN link | `LinuxTrafficController` |
-| Pre-production (hardware) | Spirent / Keysight appliance | `SpirentTrafficController` |
+
+> **Note:** A hardware appliance driver (e.g. for Spirent/Keysight) can be added by implementing the `TrafficController` template. This is not currently pursued — see [ADR-0001](../../adr/0001-scope-to-digital-twin-phase-3.5.md).
 
 Each WAN link has exactly one `TrafficController` device in inventory. Test use cases retrieve it by name or by iterating `get_devices_by_type(TrafficController)`.
 
@@ -584,7 +558,7 @@ The number of WAN links and the number of interfaces per TC are **config-driven*
 | `clear_tc_profile` | Lib | `lib/traffic_control.py` | Remove all qdiscs from one interface |
 | `_build_transient_profile` | Lib | `lib/traffic_control.py` | Build transient ImpairmentProfile |
 | `LinuxTrafficController` | Device | `devices/linux_traffic_controller.py` | Standalone Linux tc (multi-interface) |
-| `SpirentTrafficController` | Device | `devices/spirent_traffic_controller.py` | Hardware appliance (future) |
+| `SpirentTrafficController` | Device (not implemented) | `devices/spirent_traffic_controller.py` | Hardware appliance — descoped per [ADR-0001](../../adr/0001-scope-to-digital-twin-phase-3.5.md) |
 | `get_traffic_controller` | Use case | `use_cases/traffic_control.py` | Device selection (single/multi-path) |
 | `set_impairment_profile` | Use case | `use_cases/traffic_control.py` | Symmetric: apply to all interfaces |
 | `set_interface_profile` | Use case | `use_cases/traffic_control.py` | Per-interface: apply to one interface |

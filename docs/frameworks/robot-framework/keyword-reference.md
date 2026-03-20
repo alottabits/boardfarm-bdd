@@ -282,8 +282,8 @@ Key guidelines:
 
 ## Further Reading
 
-- [Getting Started Guide](getting_started.md)
-- [Best Practices Guide](best_practices.md) - **Important lessons learned and pitfalls to avoid**
+- [Getting Started Guide](getting-started.md)
+- [Best Practices Guide](best-practices.md) - **Important lessons learned and pitfalls to avoid**
 - [Keyword Libraries Documentation](../../robot/libraries/README.md)
-- [Use Case Architecture](../use_case_architecture.md)
+- [Use Case Architecture](../../architecture/boardfarm-five-layer-model.md)
 - [robotframework-boardfarm README](../../../robotframework-boardfarm/README.md)

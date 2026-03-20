@@ -2,7 +2,7 @@
 
 **Date:** February 24, 2026
 **Status:** Design Document
-**Related:** `WAN_Edge_Appliance_testing.md`, `Traffic_Management_Components_Architecture.md`
+**Related:** [SD-WAN testing architecture](../architecture.md), [Traffic management components](../traffic-management.md)
 
 ---
 
@@ -29,7 +29,7 @@ The Traffic Generator is used exclusively as a **background load source** — it
 
 **Location:** `boardfarm3/templates/traffic_generator.py`
 
-The abstract interface all test cases depend on. Already defined in `WAN_Edge_Appliance_testing.md §3.4` — reproduced here for completeness.
+The abstract interface all test cases depend on. Already defined in [architecture.md](../architecture.md#level-2--boardfarm-device-templates) (§5 Level 2 — Boardfarm Device Templates) — reproduced here for completeness.
 
 ```python
 from abc import ABC, abstractmethod
@@ -372,7 +372,7 @@ def saturate_wan_link(
 
 ### 4.4 Development Phases
 
-> See the [Component Readiness Map](WAN_Edge_Appliance_testing.md#component-readiness-map) in `WAN_Edge_Appliance_testing.md §5` for how these phases map to project-level gates.
+> See the [Component Readiness Map](../../../historical/WAN_Edge_Appliance_testing.md#component-readiness-map) in the historical WAN Edge testing brief §5 for how these phases map to project-level gates.
 
 1. **Phase 1: Container Build** *(Project Phase 4 — Expansion)*
     * Build Docker image with iPerf3 + SSH.

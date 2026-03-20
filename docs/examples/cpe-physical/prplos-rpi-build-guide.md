@@ -581,7 +581,7 @@ After successfully completing Phase 1:
 5. ✅ MAC addresses documented
 
 **Proceed to Phase 2**: Network Configuration
-- See [`prplos_rpi_implementation_plan.md`](./prplos_rpi_implementation_plan.md) for Phase 2 details
+- See [prplOS RPi implementation plan](prplos-rpi-implementation.md) for Phase 2 details
 
 ---
 

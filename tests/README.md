@@ -357,7 +357,7 @@ If it exists during normal boot (no upgrade), it should be automatically removed
 
 ## Running Tests with Boardfarm Testbed
 
-For detailed test execution instructions including filtering, logging, and reporting options, see the [Getting Started Guide](../docs/tests/getting_started.md).
+For detailed test execution instructions including filtering, logging, and reporting options, see the [Getting Started Guide](../docs/frameworks/pytest-bdd/getting-started.md).
 
 ### Quick Start
 
@@ -380,7 +380,7 @@ pytest -k "UC12347Main" \
 ## Related Documentation
 
 - [Project README](../README.md) - Overall project documentation
-- [Getting Started Guide](../docs/tests/getting_started.md) - Detailed guide with examples
-- [Use Case Template](../docs/Use%20Case%20Template%20(reflect%20the%20goal).md) - Use case structure
-- [Use Case Architecture](../docs/use_case_architecture.md) - Architecture overview
+- [Getting Started Guide](../docs/frameworks/pytest-bdd/getting-started.md) - Detailed guide with examples
+- [Use Case Template](../docs/architecture/use-case-template.md) - Use case structure
+- [Architecture Overview](../docs/architecture/boardfarm-five-layer-model.md) - Five-layer architecture
 - [pytest-bdd Documentation](https://pytest-bdd.readthedocs.io/) - pytest-bdd framework docs

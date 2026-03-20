@@ -548,7 +548,7 @@ When writing new Robot Framework keywords:
 
 ## Further Reading
 
-- [Getting Started Guide](getting_started.md)
-- [Keyword Reference](keyword_reference.md)
-- [Configuration Cleanup Process](../Configuration%20Cleanup%20Process.md)
+- [Getting Started Guide](getting-started.md)
+- [Keyword Reference](keyword-reference.md)
+- [Configuration Cleanup Process](../../architecture/configuration-cleanup.md)
 - [pytest conftest.py cleanup](../../tests/conftest.py) - Reference implementation

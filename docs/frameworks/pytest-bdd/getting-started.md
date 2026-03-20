@@ -309,6 +309,6 @@ pytest --junitxml=test-results.xml \
 
 ## Further Reading
 
-- [Step Migration Guide](../step_migration_guide.md) - How to write step definitions
-- [Use Case Architecture](../use_case_architecture.md) - Architecture overview
+- [Step Migration Guide](../../migration/step-migration-guide.md) - How to write step definitions
+- [Use Case Architecture](../../architecture/boardfarm-five-layer-model.md) - Architecture overview
 - [Unit Testing Step Definitions](../../tests/unit/test_step_defs/README.md) - Testing steps

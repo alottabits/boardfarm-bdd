@@ -380,8 +380,8 @@ rebot --log newlog.html output.xml
 
 ## Further Reading
 
-- [Best Practices Guide](best_practices.md) - **Important lessons learned and pitfalls to avoid**
-- [Keyword Reference](keyword_reference.md) - Complete keyword documentation
+- [Best Practices Guide](best-practices.md) - **Important lessons learned and pitfalls to avoid**
+- [Keyword Reference](keyword-reference.md) - Complete keyword documentation
 - [Keyword Libraries Documentation](../../robot/libraries/README.md)
-- [Use Case Architecture](../use_case_architecture.md) - Architecture overview
+- [Use Case Architecture](../../architecture/boardfarm-five-layer-model.md) - Architecture overview
 - [robotframework-boardfarm Documentation](../../../robotframework-boardfarm/README.md)

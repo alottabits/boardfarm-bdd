@@ -6,8 +6,8 @@
 
 ### Related Documents
 
-- [Testbed Network Topology](./Testbed%20Network%20Topology.md) - Base Raikou + Boardfarm topology reference
-- [Traffic Management Components Architecture](./Traffic_Management_Components_Architecture.md) - Boardfarm traffic control / network impairment design
+- [Testbed network topology](./testbed-configuration.md) — Raikou + Boardfarm SD-WAN testbed reference
+- [Traffic Management Components Architecture](./traffic-management.md) - Boardfarm traffic control / network impairment design
 
 ---
 

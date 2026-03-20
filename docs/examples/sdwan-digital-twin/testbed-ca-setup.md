@@ -2,7 +2,7 @@
 
 **Date:** February 25, 2026
 **Scope:** Phase 3.5 — Digital Twin Hardening (Optional)
-**Related:** `WAN_Edge_Appliance_testing.md §4 (Phase 3.5)`, `LinuxSDWANRouter_Implementation_Plan.md §3.4`, `Application_Services_Implementation_Plan.md §6 Phase 3.5`, `QoE_Client_Implementation_Plan.md §5 Phase 3.5`
+**Related:** `architecture.md §4 (Phase 3.5)`, `linux-sdwan-router.md §3.4`, `application-services.md §6 Phase 3.5`, `qoe-client.md §5 Phase 3.5`
 
 ---
 
@@ -90,7 +90,7 @@ The CA certificate is written to `pki/ca.crt`. This file is the only CA artifact
 
 ## 5. Step 2 — Issue Service Certificates
 
-Each command generates a private key and signs a certificate with the IP and DNS SANs that identify the container on the simulated network. The IPs match `SDWAN_Testbed_Configuration.md §8.2`.
+Each command generates a private key and signs a certificate with the IP and DNS SANs that identify the container on the simulated network. The IPs match `testbed-configuration.md §8.2`.
 
 ### 5.1 app-server (Nginx — Productivity + Streaming)
 
@@ -124,7 +124,7 @@ EASYRSA_SAN="IP:172.16.0.12,DNS:conf-server" \
 
 ### 5.3 DUT — StrongSwan IKEv2
 
-StrongSwan matches peers using the certificate's Subject Alternative Name. The DNS SAN must match the `leftid` / `rightid` values in `/etc/ipsec.conf` (see `LinuxSDWANRouter_Implementation_Plan.md §3.4`).
+StrongSwan matches peers using the certificate's Subject Alternative Name. The DNS SAN must match the `leftid` / `rightid` values in `/etc/ipsec.conf` (see `linux-sdwan-router.md §3.4`).
 
 ```bash
 easyrsa gen-req dut-strongswan nopass
@@ -242,7 +242,7 @@ update-ca-certificates
 
 The `update-ca-certificates` command reads all `.crt` files in `/usr/local/share/ca-certificates/` (including the mounted `testbed-ca.crt`) and registers them with both the system OpenSSL store and the NSS database used by Chromium.
 
-> **Phase 3.5 note in `QoE_Client_Implementation_Plan.md §5`:** The alternative `--ignore-certificate-errors` Playwright launch flag is documented for reference only. It must **not** be used for Phase 4 security pillar tests, which explicitly validate TLS certificate chain behaviour. Use `update-ca-certificates` for all Phase 3.5+ work.
+> **Phase 3.5 note in `qoe-client.md §5`:** The alternative `--ignore-certificate-errors` Playwright launch flag is documented for reference only. It must **not** be used for Phase 4 security pillar tests, which explicitly validate TLS certificate chain behaviour. Use `update-ca-certificates` for all Phase 3.5+ work.
 
 ---
 
@@ -343,7 +343,7 @@ This document is referenced by the following Phase 3.5 sections as the PKI prere
 
 | Document | Section | What it needs from here |
 | :--- | :--- | :--- |
-| `WAN_Edge_Appliance_testing.md` | §4 Phase 3.5 | "Stand up a lightweight testbed CA" |
-| `LinuxSDWANRouter_Implementation_Plan.md` | §3.4 | StrongSwan IKEv2 cert paths and `ipsec.conf` identity values |
-| `Application_Services_Implementation_Plan.md` | §6 Phase 3.5 | Nginx TLS cert prerequisite for HTTPS/HTTP3 enablement |
-| `QoE_Client_Implementation_Plan.md` | §5 Phase 3.5 | Playwright/Chromium trust store registration |
+| `architecture.md` | §4 Phase 3.5 | "Stand up a lightweight testbed CA" |
+| `linux-sdwan-router.md` | §3.4 | StrongSwan IKEv2 cert paths and `ipsec.conf` identity values |
+| `application-services.md` | §6 Phase 3.5 | Nginx TLS cert prerequisite for HTTPS/HTTP3 enablement |
+| `qoe-client.md` | §5 Phase 3.5 | Playwright/Chromium trust store registration |

@@ -13,8 +13,8 @@
 
 1. [Overview](#overview)
 2. [Layer Summary](#layer-summary)
-3. [Four-Layer Architecture](#four-layer-architecture)
-4. [Layer Structure Details](#layer-structure-details) (Templates, Device Classes, Lib)
+3. [Five-Layer Architecture](#five-layer-architecture)
+4. [Layer Structure Details](#layer-structure-details) (System Use Cases, Templates, Device Classes, Lib)
 5. [Device Interface Model](#device-interface-model)
 6. [Interface Selection Pattern](#interface-selection-pattern)
 7. [Boardfarm Configuration Files](#boardfarm-configuration-files)
@@ -52,16 +52,17 @@ This architecture provides a **framework-agnostic approach** to test automation 
 ### Core Principle
 
 ```
-Tests → Step Defs/Keywords → Boardfarm Use Cases → Templates
-         (thin wrappers)     (business logic)      (device contract)
+System Use Cases → Tests → Step Defs/Keywords → Boardfarm Use Cases → Templates
+ (requirements)            (thin wrappers)      (business logic)      (device contract)
 ```
 
-Tests never call device implementations directly. They depend on **templates** and **boardfarm use cases** only.
+System level use cases drive the test scenarios. Tests never call device implementations directly. They depend on **templates** and **boardfarm use cases** only.
 
 ### Layer Summary
 
 | Layer | Location | Purpose | Depends On |
 |-------|----------|---------|------------|
+| **System Level Use Cases** | `docs/`, project wikis | Requirement use cases — system behaviour, actors, guarantees (docs as code) | — |
 | **Templates** | `boardfarm3/templates/` | Abstract device contracts (ABCs) | — |
 | **Device Classes** | `boardfarm3/devices/` | Concrete implementations | Templates, Lib |
 | **Lib** | `boardfarm3/lib/` | Schema, helpers, adapters | — |
@@ -73,11 +74,21 @@ Tests never call device implementations directly. They depend on **templates** a
 
 ---
 
-## Four-Layer Architecture
+## Five-Layer Architecture
 
 ### Visual Overview
 
 ```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ LAYER 0: System Level Use Cases                                         │
+│                                                                         │
+│   Requirement use cases — system behaviour, actors, stakeholders,       │
+│   success guarantees, minimal guarantees                                │
+│   (.md files — docs as code)                                            │
+│                                                                         │
+└──────────────────────────────────┬──────────────────────────────────────┘
+                                   │ drives
+                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ LAYER 1: Test Definition                                                │
 │                                                                         │
@@ -154,6 +165,7 @@ Tests never call device implementations directly. They depend on **templates** a
 
 | Layer       | Responsibility                   | Contains                      | Does NOT Contain        |
 | ----------- | -------------------------------- | ----------------------------- | ----------------------- |
+| **Layer 0** | System level use cases           | Requirements, actors, guarantees (docs as code) | Implementation details |
 | **Layer 1** | Test definition (human-readable) | Gherkin steps, Robot keywords | Business logic          |
 | **Layer 2** | Framework integration            | Parameter passing, fixtures   | Business logic          |
 | **Layer 3** | Test operations (business logic) | Retries, polling, validation  | Device protocol details |
@@ -163,7 +175,19 @@ Tests never call device implementations directly. They depend on **templates** a
 
 ## Layer Structure Details
 
-### Templates
+### System Level Use Cases (Layer 0)
+
+**Location:** `docs/`, project wikis, requirement-management tools
+
+**Purpose:** Capture **what** the system under test must do from a stakeholder perspective — before any automation code is written. Each use case describes actors, pre-conditions, main success scenario, extensions, and success/minimal guarantees. Maintained as *docs-as-code* (Markdown) so they live alongside the test automation and can be reviewed in the same workflow.
+
+**Characteristics:**
+- Written in natural language; no framework dependency
+- One use case per requirement or feature area
+- Drives the test scenarios defined at Layer 1
+- Serves as the single reference for *why* a test exists
+
+### Templates (Layer 4)
 
 **Location:** `boardfarm3/templates/*.py`
 
@@ -178,7 +202,7 @@ Tests never call device implementations directly. They depend on **templates** a
 
 **Examples (SD-WAN):** `WANEdgeDevice`, `QoEClient`, `TrafficController`, `TrafficGenerator`, `MaliciousHost`, `ProductivityServer`, `StreamingServer`, `ConferencingServer`
 
-> **SD-WAN template locations:** `boardfarm3/templates/wan_edge.py`, `qoe_client.py`, `traffic_controller.py`, `traffic_generator.py`, `malicious_host.py`, `productivity_server.py`, `streaming_server.py`, `conferencing_server.py`. See `WAN_Edge_Appliance_testing.md §3.4` for full interface definitions.
+> **SD-WAN template locations:** `boardfarm3/templates/wan_edge.py`, `qoe_client.py`, `traffic_controller.py`, `traffic_generator.py`, `malicious_host.py`, `productivity_server.py`, `streaming_server.py`, `conferencing_server.py`. See [SD-WAN digital twin architecture](../examples/sdwan-digital-twin/architecture.md#level-2--boardfarm-device-templates) (Level 2 — Boardfarm Device Templates) for full interface definitions.
 
 ```python
 # boardfarm3/templates/sip_phone.py
@@ -900,7 +924,7 @@ def verify_device_online(
 | `dhcp.py` | DHCP operations | `release_lease()`, `renew_lease()` |
 | `iperf.py` | Performance testing | `run_iperf_client()`, `run_iperf_server()` |
 
-#### SD-WAN Modules (in development — see [Component Readiness Map](WAN_Edge_Appliance_testing.md#component-readiness-map))
+#### SD-WAN Modules (in development — see [Component Readiness Map](../historical/WAN_Edge_Appliance_testing.md#component-readiness-map))
 
 | Module | Purpose | Key Functions |
 |--------|---------|---------------|
@@ -1138,7 +1162,7 @@ def operation_name(
 
 ## Implementation Status
 
-> **Status**: ✅ Legacy complete (January 26, 2026) · 🚧 SD-WAN modules in development (Project Phase 1 — see [Component Readiness Map](WAN_Edge_Appliance_testing.md#component-readiness-map))
+> **Status**: ✅ Legacy complete (January 26, 2026) · 🚧 SD-WAN modules in development (Project Phase 1 — see [Component Readiness Map](../historical/WAN_Edge_Appliance_testing.md#component-readiness-map))
 
 ### Implemented use_cases Functions
 
