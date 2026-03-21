@@ -16,14 +16,14 @@ code.
 
 The development and test workflow follows three steps:
 
-1. **Define system behavior** with system-level use cases (`requirements/`)
-2. **Standardize the test interface API** to all testbed components (`boardfarm3.use_cases`)
-3. **Utilize AI** to generate BDD scenarios, automated test scripts, test unit tests, and execute the test suite
+1. **Collaborative Markdown Definition (CMD)** Define system behavior with system-level use cases (`requirements/`)
+2. **Common Test Resource Layer (CTRL)** Standardize the test interface API to all test-bed components (`boardfarm3.use_cases`)
+3. **Test Automation Bridge (TAB)** Utilize AI, with Human in the Loop, to generate BDD scenarios, automated test scripts, test unit tests, and execute the test suite
 
 ![Process Flow](./Excalidraw/development_and_release_process.svg)
 
-Many thanks to Mike Vogel who inspired me to pursue this requirements
-structure. Please see details of his approach here:
+Many thanks to Mike Vogel who inspired me to pursue this requirements structure. 
+Please see details of his approach here:
 [Agile Requirements Framework](https://globallyunique.github.io/agile-requirements-framework/).
 
 I can also highly recommend the book *Writing Effective Use Cases* by Alistair
