@@ -73,6 +73,6 @@ bfrobot --board-name prplos-docker-1 \
 | [ACS URL Discovery](acs-url-discovery.md) | How the CPE discovers the ACS URL via DHCP |
 | [GenieACS Reboot Analysis](genieacs-reboot-analysis.md) | TR-069 flow for remote CPE reboot |
 | [SIP Phone Configuration](sip-phone-configuration.md) | Voice testing setup |
-| [UI Testing Guide](ui-testing-guide.md) | GUI testing with Playwright and StateExplorer |
+| [ACS GUI Testing](ui-testing-guide.md) | GenieACS-specific GUI testing setup and use cases |
 | [Log Locations](log-locations.md) | Where to find GenieACS and TR-069 logs |
 | [Password Handling](password-handling.md) | Default password flow and cleanup |

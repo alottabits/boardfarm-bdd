@@ -16,6 +16,7 @@ Cross-cutting architecture and conventions shared by all application examples.
 | [Use Case Template](architecture/use-case-template.md) | Template for writing system-level use cases in Markdown |
 | [Configuration Cleanup](architecture/configuration-cleanup.md) | Guidelines for restoring device configuration after tests |
 | [Log Collector](architecture/log-collector.md) | Centralized log collector design for all testbeds |
+| [UI Testing Guide](architecture/ui-testing-guide.md) | FSM-based GUI testing with accessibility-tree discovery and state-graph navigation |
 
 ## Architecture Decision Records
 
@@ -38,7 +39,7 @@ Full TR-069/ACS testbed with containerized PrplOS CPE, SIP voice, DHCP, and LAN 
 | [ACS URL Discovery](examples/cpe-docker/acs-url-discovery.md) | How the CPE discovers the ACS URL via DHCP |
 | [GenieACS Reboot Analysis](examples/cpe-docker/genieacs-reboot-analysis.md) | TR-069 flow analysis for CPE reboot via GenieACS |
 | [SIP Phone Configuration](examples/cpe-docker/sip-phone-configuration.md) | Voice testing setup and SIP phone configuration |
-| [UI Testing Guide](examples/cpe-docker/ui-testing-guide.md) | GUI testing with Playwright and StateExplorer |
+| [ACS GUI Testing](examples/cpe-docker/ui-testing-guide.md) | GenieACS-specific GUI testing (references generic [UI Testing Guide](architecture/ui-testing-guide.md)) |
 | [Log Locations](examples/cpe-docker/log-locations.md) | Where to find GenieACS and TR-069 proxy logs |
 | [Password Handling](examples/cpe-docker/password-handling.md) | Default password flow and cleanup after modification |
 

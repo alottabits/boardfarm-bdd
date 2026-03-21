@@ -197,7 +197,7 @@ For the full documentation index, see [docs/index.md](docs/index.md).
 
 | Section | Contents |
 |---|---|
-| [Architecture](docs/architecture/) | Five-layer model, use case template, configuration cleanup |
+| [Architecture](docs/architecture/) | Five-layer model, use case template, UI testing guide, configuration cleanup |
 | [CPE Docker](docs/examples/cpe-docker/) | Containerized CPE testbed topology, ACS, voice, GUI |
 | [CPE Physical](docs/examples/cpe-physical/) | Raspberry Pi integration, build guide, device class |
 | [SD-WAN Digital Twin](docs/examples/sdwan-digital-twin/) | WAN edge architecture, components, QoE, traffic management |
@@ -216,4 +216,7 @@ Playwright and the StateExplorer packages.
 | `model-resilience-core` | State fingerprinting and matching algorithms |
 | `aria-state-mapper` | Web UI state mapping using Playwright and accessibility trees |
 
-For details, see the [UI Testing Guide](docs/examples/cpe-docker/ui-testing-guide.md).
+For the generic workflow, see the
+[UI Testing Guide](docs/architecture/ui-testing-guide.md). For
+ACS-specific details, see
+[ACS GUI Testing](docs/examples/cpe-docker/ui-testing-guide.md).
