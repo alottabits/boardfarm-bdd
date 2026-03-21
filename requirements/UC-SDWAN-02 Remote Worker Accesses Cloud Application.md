@@ -1,3 +1,13 @@
+# Use Case: Remote Worker Accesses Cloud Application
+
+| Field | Value |
+| --- | --- |
+| ID | UC-SDWAN-02 |
+| Status | Approved |
+| Author(s) | |
+| Date | |
+| Test specifications | see [Traceability](#traceability) |
+
 ## Goal
 
 A remote worker accesses a cloud-hosted productivity application through the SD-WAN appliance with acceptable page load performance, and the application remains usable under varying WAN link conditions.
@@ -12,14 +22,16 @@ Remote Worker (end user accessing a cloud application from a branch or home offi
 
 ## Stakeholders
 
-- Remote Worker — expects fast, reliable application access
-- IT Operations — needs to validate that the SD-WAN deployment meets application SLOs
-- Application Owner — requires consistent user experience across deployment sites
-- Network Operations — needs to understand QoE degradation under different WAN conditions
+| Stakeholder | Interest |
+| --- | --- |
+| Remote Worker | Expects fast, reliable application access |
+| IT Operations | Needs to validate that the SD-WAN deployment meets application SLOs |
+| Application Owner | Requires consistent user experience across deployment sites |
+| Network Operations | Needs to understand QoE degradation under different WAN conditions |
 
 ## Level
 
-user-goal
+User-goal
 
 ## Preconditions
 
@@ -95,7 +107,7 @@ The remote worker opens their browser and navigates to the cloud-hosted producti
   3. The remote worker's browser displays an error page.
   4. Use case fails gracefully. Minimal guarantees are met.
 
-## Technology & Data Variations List
+## Technology and Data Variations
 
 ### Protocol Variations
 
@@ -113,6 +125,14 @@ The remote worker opens their browser and navigates to the cloud-hosted producti
 | **Typical subscriber** | ~15 ms | ~5 ms | ~0.1% | < 300 ms | < 4000 ms |
 | **Mobile network** | ~80 ms | ~30 ms | ~1% | < 500 ms | < 6000 ms |
 | **Satellite** | ~600 ms | ~50 ms | ~2% | < 3000 ms | < 12000 ms |
+
+## Traceability
+
+| Artifact | pytest-bdd | Robot Framework |
+| --- | --- | --- |
+| Test specification | | |
+| Step / keyword impl | | |
+| Use case code | `boardfarm3/use_cases/qoe.py`, `boardfarm3/use_cases/traffic_control.py` | |
 
 ## Related Information
 

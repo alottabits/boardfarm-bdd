@@ -1,53 +1,66 @@
+# Use Case: {Title reflecting the goal}
+
+| Field | Value |
+| --- | --- |
+| ID | UC-{DOMAIN}-{NNN} |
+| Status | Draft |
+| Author(s) | |
+| Date | |
+| Test specifications | see [Traceability](#traceability) |
 
 ## Goal
 
-Provide a short summary on what the main actor is trying to accomplish
-
 ## Scope
-
-design scope -  what system is considered 'the black-box' under design
 
 ## Primary Actor
 
-Who is the primary actor of the use case trying to achieve the goal?
-
 ## Stakeholders
 
-Who are the other stakeholders having an interest in the use-case?
+| Stakeholder | Interest |
+| --- | --- |
+| | |
 
 ## Level
 
-one of: summary, user-goal or sub-function
+<!-- One of: Summary, User-goal, Subfunction -->
 
 ## Preconditions
 
-What we expect is already the state of the world
+-
 
 ## Minimal Guarantees
 
-how the interests are protected under all exits
+-
 
 ## Success Guarantees
 
-the state of the world if goal succeeds
+-
 
 ## Trigger
 
-What starts the use-case - could be a time-trigger as well as an action by an actor.
-
 ## Main Success Scenario
 
-List of steps from trigger to goal delivery and any cleanup after
+1.
 
 ## Extensions
 
-List of extensions referencing the relevant step in the main scenario
-Also possible to list extensions on extensions - be careful not to extend too deeply; use reference to a separate use-case instead
+- **{N}a.** {Condition}:
+  1.
 
-## Technology & Data Variations List
+## Technology and Data Variations
 
-Put here the variations that will cause eventual bifurcation in the scenario
+| Step | Variation | Impact |
+| --- | --- | --- |
+| | | |
 
-## Related information
+## Traceability
 
-Any additional information related to the use case needed.
+| Artifact | pytest-bdd | Robot Framework |
+| --- | --- | --- |
+| Test specification | `tests/features/{name}.feature` | `robot/tests/{name}.robot` |
+| Step / keyword impl | `tests/step_defs/{module}.py` | `robot/libraries/{module}.py` |
+| Use case code | `boardfarm3/use_cases/{module}.py` | `boardfarm3/use_cases/{module}.py` |
+
+## Related Information
+
+-

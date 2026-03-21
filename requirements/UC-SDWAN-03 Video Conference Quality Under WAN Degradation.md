@@ -1,3 +1,13 @@
+# Use Case: Video Conference Quality Under WAN Degradation
+
+| Field | Value |
+| --- | --- |
+| ID | UC-SDWAN-03 |
+| Status | Approved |
+| Author(s) | |
+| Date | |
+| Test specifications | see [Traceability](#traceability) |
+
 ## Goal
 
 An employee conducts a video conference call through the SD-WAN appliance with acceptable voice quality, and the conferencing quality remains within defined thresholds as WAN conditions degrade.
@@ -12,14 +22,16 @@ Employee (participant in a video conference call)
 
 ## Stakeholders
 
-- Employee — expects clear, uninterrupted audio and video during the conference
-- IT Operations — needs to verify that the SD-WAN deployment supports real-time communication
-- Unified Communications Team — requires MOS baselines across deployment conditions for capacity planning
-- Network Operations — needs to understand the relationship between WAN conditions and conferencing quality
+| Stakeholder | Interest |
+| --- | --- |
+| Employee | Expects clear, uninterrupted audio and video during the conference |
+| IT Operations | Needs to verify that the SD-WAN deployment supports real-time communication |
+| Unified Communications Team | Requires MOS baselines across deployment conditions for capacity planning |
+| Network Operations | Needs to understand the relationship between WAN conditions and conferencing quality |
 
 ## Level
 
-user-goal
+User-goal
 
 ## Preconditions
 
@@ -92,7 +104,7 @@ The employee opens their browser, navigates to the conferencing application, and
   2. The employee experiences noticeable audio quality issues (choppy audio, echo, delay).
   3. Use case fails. Minimal guarantees are met.
 
-## Technology & Data Variations List
+## Technology and Data Variations
 
 ### WAN Condition Variations
 
@@ -119,6 +131,14 @@ The employee opens their browser, navigates to the conferencing application, and
 | **Key exchange** | DTLS | Secure key exchange for media encryption |
 | **Media transport** | SRTP | Encrypted real-time audio/video |
 | **Connectivity** | ICE (STUN/TURN) | NAT traversal and candidate selection |
+
+## Traceability
+
+| Artifact | pytest-bdd | Robot Framework |
+| --- | --- | --- |
+| Test specification | | |
+| Step / keyword impl | | |
+| Use case code | `boardfarm3/use_cases/qoe.py`, `boardfarm3/use_cases/traffic_control.py` | |
 
 ## Related Information
 

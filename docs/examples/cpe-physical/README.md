@@ -53,12 +53,9 @@ dongles on the host machine.
 
 ## Use Cases Exercised
 
-| Use Case | Feature File | Robot Suite |
-|---|---|---|
-| [Device Class - RPi prplOS CPE](../../../requirements/Device%20Class%20-%20RPi%20prplOS%20CPE.md) | `tests/features/Device Class Initialization.feature` | — |
-
-The same CPE use cases (UC-12347, UC-12348) can also run against the physical
-device once the device class is configured.
+The CPE use cases (UC-12347, UC-12348) run against the physical device once
+the device class is configured. See `cpe-deviceclass-development.md` for the
+RPi prplOS device class development plan.
 
 ## Quick Start
 
@@ -74,9 +71,9 @@ docker compose -f docker-compose-openwrt.yaml up -d
 pip install -e ".[all]"
 
 # 4. Run tests
-pytest --board-name rpi-prplos-1 \
+pytest --board-name prplos-rpi-1 \
        --env-config bf_config/boardfarm_env_example.json \
-       --inventory-config bf_config/boardfarm_config_rpi.json \
+       --inventory-config bf_config/boardfarm_config_prplos_rpi.json \
        tests/
 ```
 

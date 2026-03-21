@@ -74,14 +74,14 @@ network.
 | | |
 |---|---|
 | **Compose file** | `raikou/docker-compose-openwrt.yaml` |
-| **Use cases** | Device Class - RPi prplOS CPE |
+| **Use cases** | UC-12347, UC-12348 (same as dockerized, targeting physical CPE) |
 | **Documentation** | [docs/examples/cpe-physical/](docs/examples/cpe-physical/) |
 
 ```bash
 cd raikou && docker compose -f docker-compose-openwrt.yaml up -d
-pytest --board-name rpi-prplos-1 \
+pytest --board-name prplos-rpi-1 \
        --env-config bf_config/boardfarm_env_example.json \
-       --inventory-config bf_config/boardfarm_config_rpi.json \
+       --inventory-config bf_config/boardfarm_config_prplos_rpi.json \
        tests/
 ```
 
@@ -166,7 +166,6 @@ pip install -e ".[dev]"
 | UC-12347 Remote CPE Reboot | cpe-docker | `Remote CPE Reboot.feature` | `remote_cpe_reboot.robot` |
 | UC-12348 Voice Call | cpe-docker | `UC-12348 User makes a one-way call.feature` | `user_makes_one_way_call.robot` |
 | UC-ACS-GUI-01 ACS GUI Device Mgmt | cpe-docker | `ACS GUI Device Management.feature` | — |
-| Device Class - RPi prplOS CPE | cpe-physical | `Device Class Initialization.feature` | — |
 | UC-SDWAN-01 WAN Failover | sdwan-digital-twin | `WAN Failover Maintains Application Continuity.feature` | — |
 | UC-SDWAN-02 Remote Worker Cloud App | sdwan-digital-twin | — (planned) | — |
 | UC-SDWAN-03 Video Conference QoE | sdwan-digital-twin | — (planned) | — |
@@ -179,7 +178,7 @@ pip install -e ".[dev]"
 
 ### Requirements
 
-- **Use Case Format:** All use cases follow the [Use Case Template](docs/architecture/use-case-template.md).
+- **Use Case Format:** All use cases follow the [Use Case Template](docs/architecture/use-case-template.md). See the [System Use Case Guide](docs/architecture/system-use-case-guide.md) for methodology and process.
 - **Synchronization:** Use case documents, BDD scenarios, and implementations are kept in sync.
 - **Guarantee Verification:** Each test verifies Success Guarantees or Minimal Guarantees from the use case.
 

@@ -1,3 +1,13 @@
+# Use Case: WAN Failover Maintains Application Continuity
+
+| Field | Value |
+| --- | --- |
+| ID | UC-SDWAN-01 |
+| Status | Approved |
+| Author(s) | |
+| Date | |
+| Test specifications | see [Traceability](#traceability) |
+
 ## Goal
 
 When the primary WAN link fails, the SD-WAN appliance automatically detects the failure and fails over to a backup WAN link, maintaining application continuity for the end user throughout the transition.
@@ -12,14 +22,16 @@ Remote Worker (end user accessing applications through the SD-WAN appliance)
 
 ## Stakeholders
 
-- Remote Worker — expects uninterrupted application access during WAN events
-- Network Operations — needs confidence that failover is automatic and convergence is fast
-- Application Owner — requires SLA compliance even during link failures
-- SD-WAN Appliance — must detect failure and converge to backup path
+| Stakeholder | Interest |
+| --- | --- |
+| Remote Worker | Expects uninterrupted application access during WAN events |
+| Network Operations | Needs confidence that failover is automatic and convergence is fast |
+| Application Owner | Requires SLA compliance even during link failures |
+| SD-WAN Appliance | Must detect failure and converge to backup path |
 
 ## Level
 
-user-goal
+User-goal
 
 ## Preconditions
 
@@ -75,7 +87,7 @@ The primary WAN link (WAN1) experiences a complete link failure (blackout).
   5. Continue from step 9 of the main scenario.
 
 
-## Technology & Data Variations List
+## Technology and Data Variations
 
 ### Failure Mode Variations
 
@@ -99,6 +111,14 @@ The primary WAN link (WAN1) experiences a complete link failure (blackout).
 | **Productivity (HTTP/HTTPS)** | TTFB < 200 ms, page load < 2500 ms |
 | **Streaming video** | No rebuffering event, stream quality recovers within 5 s |
 | **Video conferencing** | No call drop, audio/video recovers within 2 s |
+
+## Traceability
+
+| Artifact | pytest-bdd | Robot Framework |
+| --- | --- | --- |
+| Test specification | `tests/features/WAN Failover Maintains Application Continuity.feature` | |
+| Step / keyword impl | `tests/step_defs/sdwan_steps.py` | |
+| Use case code | `boardfarm3/use_cases/wan_edge.py`, `boardfarm3/use_cases/qoe.py`, `boardfarm3/use_cases/traffic_control.py` | |
 
 ## Related Information
 

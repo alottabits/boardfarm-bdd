@@ -29,7 +29,30 @@ ip rule add from $mgmt_ip table mgmt
 ip rule add to $mgmt_ip table mgmt
 ip rule add from $mgmt_nw table mgmt
 ip rule add to $mgmt_nw table mgmt
-ip route del default
+
+# Wait for OVS-injected interface before removing default route.
+# When containers start from pre-built images the orchestrator may not
+# have attached OVS ports yet.
+ovs_ready=false
+for _i in $(seq 1 $count); do
+    for iface in /sys/class/net/*; do
+        name=$(basename "$iface")
+        if [ "$name" != "lo" ] && [ "$name" != "eth0" ]; then
+            echo "OVS interface $name detected"
+            ovs_ready=true
+            break
+        fi
+    done
+    if [ "$ovs_ready" = true ]; then
+        break
+    fi
+    echo "Waiting for OVS-injected interface..."
+    sleep 5
+done
+
+if [ "$ovs_ready" = false ]; then
+    echo "WARNING: No OVS-injected interface appeared within timeout"
+fi
 
 if ip route show default | grep -q 'via .* dev eth0'; then
     ip route del default

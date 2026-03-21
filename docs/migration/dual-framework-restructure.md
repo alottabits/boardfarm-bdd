@@ -60,8 +60,7 @@ boardfarm-bdd/
 ├── requirements/                    # SHARED - System use case definitions (unchanged)
 │   ├── UC-12347 remote cpe reboot.md
 │   ├── UC-12348 User makes a one-way call.md
-│   ├── UC-ACS-GUI-01 ACS GUI Device Management.md
-│   └── Device Class - RPi prplOS CPE.md
+│   └── UC-ACS-GUI-01 ACS GUI Device Management.md
 │
 ├── tests/                          # pytest-bdd implementation
 │   ├── conftest.py                  # Moved from root
@@ -70,7 +69,6 @@ boardfarm-bdd/
 │   │   ├── Remote CPE Reboot.feature
 │   │   ├── UC-12348 User makes a one-way call.feature
 │   │   ├── ACS GUI Device Management.feature
-│   │   ├── Device Class Initialization.feature
 │   │   └── hello.feature
 │   ├── step_defs/                   # Moved from tests/step_defs/
 │   │   ├── __init__.py
@@ -78,7 +76,6 @@ boardfarm-bdd/
 │   │   ├── acs_gui_steps.py
 │   │   ├── background_steps.py
 │   │   ├── cpe_steps.py
-│   │   ├── device_class_steps.py
 │   │   ├── hello_steps.py
 │   │   ├── operator_steps.py
 │   │   └── sip_phone_steps.py
@@ -885,7 +882,6 @@ rm -rf tests/
 | UC-12347 remote cpe reboot.md | Remote CPE Reboot.feature | remote_cpe_reboot.robot |
 | UC-12348 User makes a one-way call.md | UC-12348 User makes a one-way call.feature | user_makes_one_way_call.robot |
 | UC-ACS-GUI-01 ACS GUI Device Management.md | ACS GUI Device Management.feature | acs_gui_device_management.robot |
-| Device Class - RPi prplOS CPE.md | Device Class Initialization.feature | device_class_initialization.robot |
 
 ---
 

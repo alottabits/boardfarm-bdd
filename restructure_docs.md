@@ -209,7 +209,7 @@ and the AI-assisted process flow, rather than around the test frameworks.
    ### 4.2 Physical CPE Testing
    - What: Same services, but CPE is a physical Raspberry Pi
    - Compose: raikou/docker-compose-openwrt.yaml
-   - Use cases: Device Class - RPi prplOS CPE
+   - Use cases: UC-12347, UC-12348 (same as dockerized, targeting physical CPE)
    - Quick start: physical setup + docker compose up
    - Docs: docs/examples/cpe-physical/
 
@@ -246,7 +246,6 @@ and the AI-assisted process flow, rather than around the test frameworks.
 | UC-12347 Remote CPE Reboot | cpe-docker | `Remote CPE Reboot.feature` | `remote_cpe_reboot.robot` |
 | UC-12348 User Makes a One-Way Call | cpe-docker | `UC-12348 User makes a one-way call.feature` | `user_makes_one_way_call.robot` |
 | UC-ACS-GUI-01 ACS GUI Device Mgmt | cpe-docker | `ACS GUI Device Management.feature` | — |
-| Device Class - RPi prplOS CPE | cpe-physical | `Device Class Initialization.feature` | — |
 | UC-SDWAN-01 WAN Failover | sdwan-digital-twin | `WAN Failover Maintains Application Continuity.feature` | — |
 | UC-SDWAN-02 Remote Worker Cloud App | sdwan-digital-twin | — (planned) | — |
 | UC-SDWAN-03 Video Conference QoE | sdwan-digital-twin | — (planned) | — |

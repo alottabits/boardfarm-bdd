@@ -381,6 +381,7 @@ pytest -k "UC12347Main" \
 
 - [Project README](../README.md) - Overall project documentation
 - [Getting Started Guide](../docs/frameworks/pytest-bdd/getting-started.md) - Detailed guide with examples
-- [Use Case Template](../docs/architecture/use-case-template.md) - Use case structure
+- [System Use Case Guide](../docs/architecture/system-use-case-guide.md) - How to write a system use case
+- [Use Case Template](../docs/architecture/use-case-template.md) - Blank copyable form
 - [Architecture Overview](../docs/architecture/boardfarm-five-layer-model.md) - Five-layer architecture
 - [pytest-bdd Documentation](https://pytest-bdd.readthedocs.io/) - pytest-bdd framework docs

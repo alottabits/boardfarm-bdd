@@ -13,7 +13,8 @@ Cross-cutting architecture and conventions shared by all application examples.
 | Document | Description |
 |---|---|
 | [Five-Layer Model](architecture/boardfarm-five-layer-model.md) | Boardfarm test automation architecture — five layers from system use cases to device templates |
-| [Use Case Template](architecture/use-case-template.md) | Template for writing system-level use cases in Markdown |
+| [System Use Case Guide](architecture/system-use-case-guide.md) | How to write a system use case — methodology, process, and examples |
+| [Use Case Template](architecture/use-case-template.md) | Blank copyable form for creating a new system use case |
 | [Configuration Cleanup](architecture/configuration-cleanup.md) | Guidelines for restoring device configuration after tests |
 | [Log Collector](architecture/log-collector.md) | Centralized log collector design for all testbeds |
 | [UI Testing Guide](architecture/ui-testing-guide.md) | FSM-based GUI testing with accessibility-tree discovery and state-graph navigation |

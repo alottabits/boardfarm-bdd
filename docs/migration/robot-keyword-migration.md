@@ -62,7 +62,6 @@ robot/libraries/
 ├── background_keywords.py     # Mirrors step_defs/background_steps.py
 ├── operator_keywords.py       # Mirrors step_defs/operator_steps.py
 ├── acs_gui_keywords.py        # Mirrors step_defs/acs_gui_steps.py
-├── device_class_keywords.py   # Mirrors step_defs/device_class_steps.py
 ├── hello_keywords.py          # Smoke test keywords
 └── README.md
 ```

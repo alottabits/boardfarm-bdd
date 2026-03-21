@@ -43,7 +43,6 @@ These libraries are the **single source of truth** for all test keywords.
 | `background_keywords.py` | Background/setup operations | `tests/step_defs/background_steps.py` |
 | `operator_keywords.py` | Operator-initiated operations | `tests/step_defs/operator_steps.py` |
 | `acs_gui_keywords.py` | ACS GUI operations | `tests/step_defs/acs_gui_steps.py` |
-| `device_class_keywords.py` | Device initialization | `tests/step_defs/device_class_steps.py` |
 | `hello_keywords.py` | Simple smoke tests | `tests/step_defs/hello_steps.py` |
 
 ## Usage

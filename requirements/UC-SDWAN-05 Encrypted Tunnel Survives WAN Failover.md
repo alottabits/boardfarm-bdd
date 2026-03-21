@@ -1,3 +1,13 @@
+# Use Case: Encrypted Tunnel Survives WAN Failover
+
+| Field | Value |
+| --- | --- |
+| ID | UC-SDWAN-05 |
+| Status | Approved |
+| Author(s) | |
+| Date | |
+| Test specifications | see [Traceability](#traceability) |
+
 ## Goal
 
 When the primary WAN link carrying an encrypted IPsec overlay tunnel fails, the SD-WAN appliance re-establishes the tunnel over the backup WAN link and restores encrypted application connectivity, so that the remote worker's traffic remains protected throughout the WAN failover.
@@ -12,14 +22,16 @@ Network Operations Engineer (responsible for overlay and WAN resilience)
 
 ## Stakeholders
 
-- Network Operations Engineer — needs confidence that the overlay survives WAN failover
-- Security Officer — requires that traffic is never sent unencrypted during or after failover
-- Remote Worker — expects uninterrupted secure application access
-- SD-WAN Appliance — must detect tunnel loss, re-negotiate over backup path, and restore overlay
+| Stakeholder | Interest |
+| --- | --- |
+| Network Operations Engineer | Needs confidence that the overlay survives WAN failover |
+| Security Officer | Requires that traffic is never sent unencrypted during or after failover |
+| Remote Worker | Expects uninterrupted secure application access |
+| SD-WAN Appliance | Must detect tunnel loss, re-negotiate over backup path, and restore overlay |
 
 ## Level
 
-user-goal
+User-goal
 
 ## Preconditions
 
@@ -111,7 +123,7 @@ The network operations engineer configures the appliance with an encrypted overl
   3. The remote worker confirms the application is still accessible through the overlay via WAN2.
   4. Use case fails. Minimal guarantees are met (tunnel is functional, but not on the preferred path).
 
-## Technology & Data Variations List
+## Technology and Data Variations
 
 ### Tunnel Re-Establishment Behaviour
 
@@ -132,6 +144,14 @@ The network operations engineer configures the appliance with an encrypted overl
 ### Authentication and Encryption
 
 Same as UC-SDWAN-04 Technology & Data Variations (authentication method and encryption policy variations apply).
+
+## Traceability
+
+| Artifact | pytest-bdd | Robot Framework |
+| --- | --- | --- |
+| Test specification | | |
+| Step / keyword impl | | |
+| Use case code | `boardfarm3/use_cases/wan_edge.py`, `boardfarm3/use_cases/traffic_control.py` | |
 
 ## Related Information
 

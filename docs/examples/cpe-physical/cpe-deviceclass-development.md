@@ -4,6 +4,16 @@
 **Created**: January 9, 2026  
 **Status**: 📋 **Planning Phase**
 
+> **Note:** The earlier BDD test artefacts for device-class initialisation
+> (`requirements/Device Class - RPi prplOS CPE.md`,
+> `tests/features/Device Class Initialization.feature`,
+> `tests/step_defs/device_class_steps.py`,
+> `tests/unit/test_step_defs/test_device_class_steps.py`)
+> have been removed. They treated Boardfarm itself as the system under test,
+> which does not align with the repository's use-case methodology. When the
+> device class is implemented, the standard CPE use cases (UC-12347, UC-12348)
+> will be used to validate the physical CPE testbed.
+
 ---
 
 ## Executive Summary

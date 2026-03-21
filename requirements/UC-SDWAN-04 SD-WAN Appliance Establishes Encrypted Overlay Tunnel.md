@@ -1,3 +1,13 @@
+# Use Case: SD-WAN Appliance Establishes Encrypted Overlay Tunnel
+
+| Field | Value |
+| --- | --- |
+| ID | UC-SDWAN-04 |
+| Status | Approved |
+| Author(s) | |
+| Date | |
+| Test specifications | see [Traceability](#traceability) |
+
 ## Goal
 
 A network operations engineer configures the SD-WAN appliance to establish an encrypted IPsec/IKEv2 overlay tunnel to a remote endpoint, and the appliance successfully negotiates the tunnel, maintains it in a healthy state, and forwards traffic through the encrypted overlay so that data traversing the WAN is protected.
@@ -12,14 +22,16 @@ Network Operations Engineer (configures and activates the overlay tunnel on the 
 
 ## Stakeholders
 
-- Network Operations Engineer — needs to configure and verify tunnel establishment
-- Security Officer — requires confirmation that WAN traffic traverses the encrypted overlay
-- IT Operations — needs assurance that overlay failures are detected and reported
-- Remote Worker — depends on the overlay for secure application access
+| Stakeholder | Interest |
+| --- | --- |
+| Network Operations Engineer | Needs to configure and verify tunnel establishment |
+| Security Officer | Requires confirmation that WAN traffic traverses the encrypted overlay |
+| IT Operations | Needs assurance that overlay failures are detected and reported |
+| Remote Worker | Depends on the overlay for secure application access |
 
 ## Level
 
-user-goal
+User-goal
 
 ## Preconditions
 
@@ -100,7 +112,7 @@ The network operations engineer applies the IPsec/IKEv2 tunnel configuration to 
   2. The remote worker accesses an application routed through the tunnel and observes that the application does not respond.
   3. Use case fails. Minimal guarantees are met.
 
-## Technology & Data Variations List
+## Technology and Data Variations
 
 ### Authentication Method Variations
 
@@ -122,6 +134,14 @@ The network operations engineer applies the IPsec/IKEv2 tunnel configuration to 
 |--------|--------|---------------|
 | **ICMP echo** | Remote tunnel endpoint IP | Reply received within timeout |
 | **Application reachability** | Application on the remote network | Application responds through overlay |
+
+## Traceability
+
+| Artifact | pytest-bdd | Robot Framework |
+| --- | --- | --- |
+| Test specification | | |
+| Step / keyword impl | | |
+| Use case code | `boardfarm3/use_cases/wan_edge.py` | |
 
 ## Related Information
 
