@@ -1,0 +1,338 @@
+# SD-WAN Testbed — Phase 3.5 (Digital Twin Hardening)
+# Dual-WAN router + Raikou OVS orchestrator + TLS/IPsec infrastructure.
+#
+# NETWORKING: Containers are NOT connected via Docker networks for test traffic.
+# - Test traffic flows through Raikou OVS bridges (lan-segment, dut-wan1, dut-wan2,
+#   north-segment). Raikou injects interfaces per config_sdwan.json.
+# - The default network (192.168.55.0/24) is management-only: SSH access and host
+#   port mapping. LinuxSDWANRouter uses network_mode: none (all interfaces from Raikou).
+#
+# Phase 3.5 additions: testbed CA certificates (./testbed-ca/pki/) are volume-mounted
+# read-only into containers that need TLS: LinuxSDWANRouter (StrongSwan IKEv2),
+# productivity-server + streaming-server (Nginx HTTPS/HTTP3), conf-server (WSS),
+# lan-qoe-client (CA trust store for Playwright/Chromium).
+#
+# See: docs/SDWAN_Testbed_Configuration.md
+# See: docs/Testbed_CA_Setup.md
+# Usage: docker compose -p boardfarm-bdd-sdwan -f docker-compose-sdwan.yaml up -d
+
+name: boardfarm-bdd-sdwan
+---
+services:
+
+    # ── LinuxSDWANRouter ───────────────────────────────────────────────────────
+    # All interfaces from Raikou OVS (eth-lan, eth-wan1, eth-wan2). No Docker network.
+    # Phase 3.5: StrongSwan IKEv2 certs mounted at /etc/strongswan/
+    linux-sdwan-router:
+        image: ghcr.io/alottabits/boardfarm-bdd/sdwan-router:0.03
+        container_name: linux-sdwan-router
+        restart: always
+        network_mode: none
+        privileged: true
+        hostname: sdwan-router
+        environment:
+            - LAN_IFACE=eth-lan
+            - WAN1_IFACE=eth-wan1
+            - WAN2_IFACE=eth-wan2
+        volumes:
+            - ./testbed-ca/pki/ca.crt:/etc/ipsec.d/cacerts/ca.crt:ro
+            - ./testbed-ca/pki/issued/dut-strongswan.crt:/etc/ipsec.d/certs/dut.crt:ro
+            - ./testbed-ca/pki/private/dut-strongswan.key:/etc/ipsec.d/private/dut.key:ro
+        deploy:
+            resources:
+                limits:
+                    cpus: '2.0'
+                    memory: 512M
+                reservations:
+                    cpus: '1.5'
+                    memory: 256M
+
+    # ── Traffic Controllers (WAN Impairment) ───────────────────────────────────
+    # Pure tc netem impairment. Test traffic via Raikou OVS:
+    #   eth-dut (dut-wan1/dut-wan2), eth-north (north-wan1/north-wan2).
+    wan1-tc:
+        image: ghcr.io/alottabits/boardfarm-bdd/traffic-controller:0.03
+        container_name: wan1-tc
+        ports:
+            - "5001:22"
+        environment:
+            - TC_DUT_IFACE=eth-dut
+            - TC_NORTH_IFACE=eth-north
+            - LEGACY=no
+        privileged: true
+        hostname: wan1-tc
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.5'
+                    memory: 128M
+                reservations:
+                    cpus: '0.25'
+                    memory: 64M
+
+    wan2-tc:
+        image: ghcr.io/alottabits/boardfarm-bdd/traffic-controller:0.03
+        container_name: wan2-tc
+        ports:
+            - "5002:22"
+        environment:
+            - TC_DUT_IFACE=eth-dut
+            - TC_NORTH_IFACE=eth-north
+            - LEGACY=no
+        privileged: true
+        hostname: wan2-tc
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.5'
+                    memory: 128M
+                reservations:
+                    cpus: '0.25'
+                    memory: 64M
+
+    # ── App-Router (Symmetric Return Routing) ────────────────────────────────
+    # Connects per-WAN north-side networks to the shared app-services network.
+    # CONNMARK + policy routing ensures replies return through the correct WAN path.
+    # Test traffic via Raikou OVS: eth-wan1 (north-wan1), eth-wan2 (north-wan2),
+    #   eth-south (north-segment).
+    # See: docs/app-router-implementation.md
+    app-router:
+        image: ghcr.io/alottabits/boardfarm-bdd/app-router:0.01
+        container_name: app-router
+        privileged: true
+        hostname: app-router
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.25'
+                    memory: 64M
+                reservations:
+                    cpus: '0.1'
+                    memory: 32M
+
+    # ── QoE Client (Playwright) ─────────────────────────────────────────────────
+    # Test traffic via Raikou OVS: eth1 (lan-segment). Docker eth0 for SSH/port mapping only.
+    # Phase 3.5: testbed CA cert mounted for Playwright/Chromium HTTPS trust.
+    lan-qoe-client:
+        image: ghcr.io/alottabits/boardfarm-bdd/lan-qoe-client:0.02
+        container_name: lan-qoe-client
+        ports:
+            - "5003:22"
+            - "18090:8080"   # Dante SOCKS v5 proxy — developer access to LAN-side services
+        environment:
+            - LEGACY=no
+        privileged: true
+        hostname: lan-qoe-client
+        volumes:
+            - ./testbed-ca/pki/ca.crt:/usr/local/share/ca-certificates/testbed-ca.crt:ro
+        deploy:
+            resources:
+                limits:
+                    cpus: '3.0'
+                    memory: 3G
+                reservations:
+                    cpus: '1.5'
+                    memory: 1G
+
+    # ── North-Side Application Services ────────────────────────────────────────
+    # Separate containers enable L7 path steering: productivity vs streaming via different WAN paths.
+    # Phase 3.5: TLS certs mounted at /certs/ for HTTPS/HTTP3.
+    # See: docs/WAN_Edge_Appliance_testing.md §4.2
+    # See: docs/Application_Services_Implementation_Plan.md §6 Phase 3.5
+    productivity-server:
+        image: ghcr.io/alottabits/boardfarm-bdd/productivity-server:0.02
+        container_name: productivity-server
+        ports:
+            - "5005:22"
+            - "18080:8080"       # Nginx productivity (HTTP)
+            - "18443:443"        # Nginx productivity (HTTPS + HTTP/3)
+        environment:
+            - LEGACY=no
+        privileged: true
+        hostname: productivity-server
+        volumes:
+            - ./testbed-ca/pki/ca.crt:/certs/ca.crt:ro
+            - ./testbed-ca/pki/issued/app-server.crt:/certs/server.crt:ro
+            - ./testbed-ca/pki/private/app-server.key:/certs/server.key:ro
+        deploy:
+            resources:
+                limits:
+                    cpus: '1.0'
+                    memory: 256M
+                reservations:
+                    cpus: '0.5'
+                    memory: 128M
+
+    # Test traffic via Raikou OVS: eth1 (north-segment), eth2 (content-internal → MinIO).
+    # Phase 3.5: TLS certs mounted at /certs/ for HTTPS.
+    streaming-server:
+        image: ghcr.io/alottabits/boardfarm-bdd/streaming-server:0.02
+        container_name: streaming-server
+        ports:
+            - "5006:22"
+            - "18081:8081"       # Nginx streaming (HLS proxy, HTTP)
+            - "18444:8443"       # Nginx streaming (HLS proxy, HTTPS)
+        environment:
+            - LEGACY=no
+        privileged: true
+        hostname: streaming-server
+        volumes:
+            - ./testbed-ca/pki/ca.crt:/certs/ca.crt:ro
+            - ./testbed-ca/pki/issued/streaming-server.crt:/certs/server.crt:ro
+            - ./testbed-ca/pki/private/streaming-server.key:/certs/server.key:ro
+        deploy:
+            resources:
+                limits:
+                    cpus: '2.0'
+                    memory: 512M
+                reservations:
+                    cpus: '1.0'
+                    memory: 256M
+
+    # ── Conferencing Server (pion WebRTC Echo) ────────────────────────────────
+    # Phase 3.5: Synthetic WebRTC endpoint for conferencing QoE measurement.
+    # Test traffic via Raikou OVS: eth1 (north-segment, 172.16.0.12).
+    # See: docs/Application_Services_Implementation_Plan.md §3.3
+    conf-server:
+        image: ghcr.io/alottabits/boardfarm-bdd/conf-server:0.02
+        container_name: conf-server
+        ports:
+            - "5007:22"
+            - "18445:8443"       # pion signalling (WSS)
+        environment:
+            - LEGACY=no
+            - PION_PUBLIC_IP=172.16.0.12
+            - PION_PORT=8443
+            - PION_CERT_FILE=/certs/server.crt
+            - PION_KEY_FILE=/certs/server.key
+        privileged: true
+        hostname: conf-server
+        volumes:
+            - ./testbed-ca/pki/ca.crt:/certs/ca.crt:ro
+            - ./testbed-ca/pki/issued/conf-server.crt:/certs/server.crt:ro
+            - ./testbed-ca/pki/private/conf-server.key:/certs/server.key:ro
+        deploy:
+            resources:
+                limits:
+                    cpus: '1.0'
+                    memory: 256M
+                reservations:
+                    cpus: '0.5'
+                    memory: 128M
+
+    # ── IPsec Hub (StrongSwan responder) ─────────────────────────────────────────
+    # Phase 3.5: IKEv2 responder peer for LinuxSDWANRouter tunnel.
+    # Test traffic via Raikou OVS: eth1 (north-segment, 172.16.0.20).
+    # See: docs/LinuxSDWANRouter_Implementation_Plan.md §3.4
+    ipsec-hub:
+        image: ghcr.io/alottabits/boardfarm-bdd/ipsec-hub:0.01
+        container_name: ipsec-hub
+        privileged: true
+        hostname: ipsec-hub
+        volumes:
+            - ./testbed-ca/pki/ca.crt:/etc/ipsec.d/cacerts/ca.crt:ro
+            - ./testbed-ca/pki/issued/hub-strongswan.crt:/etc/ipsec.d/certs/hub.crt:ro
+            - ./testbed-ca/pki/private/hub-strongswan.key:/etc/ipsec.d/private/hub.key:ro
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.5'
+                    memory: 128M
+                reservations:
+                    cpus: '0.25'
+                    memory: 64M
+
+    # ── Content Origin (MinIO) ───────────────────────────────────────────────────
+    # S3-compatible store for HLS content. Raikou OVS: eth1 on content-internal only.
+    # Management: host ports 19000 (S3 API), 19001 (console) via Docker.
+    minio:
+        image: ghcr.io/alottabits/boardfarm-bdd/minio:0.01
+        container_name: minio
+        ports:
+            - "19000:9000"       # S3 API (management ingest)
+            - "19001:9001"       # Web console
+        environment:
+            - MINIO_ROOT_USER=testbed
+            - MINIO_ROOT_PASSWORD=testbed-secret
+        volumes:
+            - minio-data:/data
+        privileged: true
+        hostname: minio
+        deploy:
+            resources:
+                limits:
+                    cpus: '1.0'
+                    memory: 256M
+
+    # ── Centralized Log Collector ──────────────────────────────────────────────
+    # Management network only. NOT in config_sdwan.json — no Raikou OVS interfaces.
+    # Tails Docker log files; unified output at ./logs/sdwan-testbed.log
+    # See: docs/Centralized_Log_Collector_Implementation.md
+    log-collector:
+        container_name: log-collector
+        image: fluent/fluent-bit:3.2
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - /var/lib/docker/containers:/var/lib/docker/containers:ro
+            - ./components/log-collector/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+            - ./components/log-collector/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+            - ./components/log-collector/format.lua:/fluent-bit/etc/format.lua:ro
+            - ./logs:/logs
+            - fluent-bit-db:/fluent-bit/db
+        hostname: log-collector
+        restart: unless-stopped
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.25'
+                    memory: 128M
+                reservations:
+                    cpus: '0.1'
+                    memory: 64M
+
+    # ── Raikou OVS Orchestrator ────────────────────────────────────────────────
+    raikou-net:
+        container_name: orchestrator
+        image: ghcr.io/ketantewari/raikou/orchestrator:v1
+        volumes:
+            - /lib/modules:/lib/modules
+            - /var/run/docker.sock:/var/run/docker.sock
+            - ./config_sdwan.json:/root/config.json
+        privileged: true
+        environment:
+            - USE_LINUX_BRIDGE=false
+        pid: host
+        network_mode: host
+        hostname: orchestrator
+        depends_on:
+            - linux-sdwan-router
+            - lan-qoe-client
+            - wan1-tc
+            - wan2-tc
+            - app-router
+            - productivity-server
+            - streaming-server
+            - conf-server
+            - ipsec-hub
+            - minio
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.5'
+                    memory: 128M
+                reservations:
+                    cpus: '0.25'
+                    memory: 64M
+
+# Management network only — SSH and host port mapping. Test traffic uses Raikou OVS.
+networks:
+    default:
+        ipam:
+            config:
+                - subnet: 192.168.55.0/24
+                  gateway: 192.168.55.1
+
+volumes:
+    minio-data: {}
+    fluent-bit-db:
+        driver: local

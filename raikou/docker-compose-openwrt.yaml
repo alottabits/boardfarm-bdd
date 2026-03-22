@@ -16,13 +16,8 @@ name: boardfarm-bdd-openwrt
 #   - enx00e04c327b58 -> lan-cpe bridge (RPi LAN side)
 
 services:
-    ssh_service:
-        build:
-            context: ./components/ssh/
-            tags:
-                - ssh:v1.2.0
-
     router:
+        image: ghcr.io/alottabits/boardfarm-bdd/router:v1.2.0
         container_name: router
         ports:
             - 4000:22
@@ -33,23 +28,14 @@ services:
             - CPE_DATA_IFACE=cpe
             - CPE_DATA_BUNDLE=10.1.1.1/24,2001:dead:cafe:1::1/64
             - DHCP_RELAY=eth1,172.25.1.20,2001:dead:beef:2::20
-        build:
-            context: ./components/router
-            tags:
-                - router:v1.2.0
         privileged: true
         hostname: router
-        depends_on:
-            - ssh_service
 
     # NOTE: CPE service removed - using physical RPi with OpenWrt instead
 
     wan:
+        image: ghcr.io/alottabits/boardfarm-bdd/wan:v1.2.0
         container_name: wan
-        build:
-            context: ./components/wan
-            tags:
-                - wan:v1.2.0
         ports:
             - 4001:22
             - 8001:8080
@@ -58,15 +44,10 @@ services:
             - LEGACY=no
         privileged: true
         hostname: wan
-        depends_on:
-            - ssh_service
 
     sipcenter:
+        image: ghcr.io/alottabits/boardfarm-bdd/sip:v1.2.0
         container_name: sipcenter
-        build:
-            context: ./components/sip
-            tags:
-                - sip:v1.2.0
         ports:
             - 4005:22
         environment:
@@ -76,59 +57,40 @@ services:
             - LEGACY=no
         privileged: true
         hostname: sipcenter
-        depends_on:
-            - ssh_service
-
-    phone-image:
-        build:
-            context: ./components/phone
-            tags:
-                - phone:v1.2.0
-        depends_on:
-            - ssh_service
 
     lan-phone:
+        image: ghcr.io/alottabits/boardfarm-bdd/phone:v1.2.0
         container_name: lan-phone
-        image: phone:v1.2.0
         ports:
             - 4006:22
         environment:
             - LEGACY=no
         privileged: true
         hostname: lan-phone
-        depends_on:
-            - phone-image
 
     wan-phone:
+        image: ghcr.io/alottabits/boardfarm-bdd/phone:v1.2.0
         container_name: wan-phone
-        image: phone:v1.2.0
         ports:
             - 4007:22
         environment:
             - LEGACY=no
         privileged: true
         hostname: wan-phone
-        depends_on:
-            - phone-image
 
     wan-phone2:
+        image: ghcr.io/alottabits/boardfarm-bdd/phone:v1.2.0
         container_name: wan-phone2
-        image: phone:v1.2.0
         ports:
             - 4008:22
         environment:
             - LEGACY=no
         privileged: true
         hostname: wan-phone2
-        depends_on:
-            - phone-image
 
     lan:
+        image: ghcr.io/alottabits/boardfarm-bdd/lan:v1.2.0
         container_name: lan
-        build:
-            context: ./components/lan
-            tags:
-                - lan:v1.2.0
         ports:
             - 4002:22
             - 8002:8080
@@ -136,15 +98,10 @@ services:
             - LEGACY=no
         privileged: true
         hostname: lan
-        depends_on:
-            - ssh_service
 
     dhcp:
+        image: ghcr.io/alottabits/boardfarm-bdd/dhcp:v1.2.0
         container_name: dhcp
-        build:
-            context: ./components/dhcp
-            tags:
-                - dhcp:v1.2.0
         ports:
             - 4003:22
         environment:
@@ -154,8 +111,6 @@ services:
         volumes:
             - ./config/kea-dhcp4.conf:/etc/kea/kea-dhcp4.conf
             - ./config/kea-dhcp6.conf:/etc/kea/kea-dhcp6.conf
-        depends_on:
-            - ssh_service
 
     mongo:
         image: mongo:4.4
@@ -175,12 +130,9 @@ services:
             - 27017:27017
 
     acs:
+        image: ghcr.io/alottabits/boardfarm-bdd/acs:v1.2.0
         depends_on:
             - mongo
-        build:
-            context: ./components/acs
-            tags:
-                - acs:v1.2.0
         restart: always
         container_name: acs
         hostname: acs

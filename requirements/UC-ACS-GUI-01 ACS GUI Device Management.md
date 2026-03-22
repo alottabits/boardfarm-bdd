@@ -1,3 +1,13 @@
+# Use Case: ACS GUI Device Management
+
+| Field | Value |
+| --- | --- |
+| ID | UC-ACS-GUI-01 |
+| Status | Approved |
+| Author(s) | |
+| Date | |
+| Test specifications | see [Traceability](#traceability) |
+
 ## Goal
 
 Manage CPE devices through the ACS GUI to perform monitoring and operational tasks without requiring direct API access.
@@ -12,21 +22,22 @@ Network Operator
 
 ## Stakeholders
 
-- Network Operator: Manages devices through GUI
-- ACS Administrator: Maintains GUI availability
-- Subscriber: Benefits from reliable device management
-- CPE: Receives commands and reports status
+| Stakeholder | Interest |
+| --- | --- |
+| Network Operator | Manages devices through GUI |
+| ACS Administrator | Maintains GUI availability |
+| Subscriber | Benefits from reliable device management |
+| CPE | Receives commands and reports status |
 
 ## Level
 
-user-goal
+User-goal
 
 ## Preconditions
 
 1. The ACS GUI is accessible and operational.
 2. The operator has valid credentials for GUI access.
 3. Target CPE devices are registered with the ACS.
-4. GUI artifacts (selectors.yaml, navigation.yaml) are configured.
 
 ## Minimal Guarantees
 
@@ -94,7 +105,7 @@ A network operator needs to manage CPE devices through the ACS web interface.
   3. Operator reviews error and may retry.
   4. System logs failure for troubleshooting.
 
-## Technology & Data Variations List
+## Technology and Data Variations
 
 - **Authentication methods**: 
   
@@ -127,6 +138,14 @@ A network operator needs to manage CPE devices through the ACS web interface.
   - Element names, IDs, or locators can change
   - Functional metadata (aria-label, data-action) remains stable
 
+## Traceability
+
+| Artifact | pytest-bdd | Robot Framework |
+| --- | --- | --- |
+| Test specification | `tests/features/ACS GUI Device Management.feature` | |
+| Step / keyword impl | `tests/step_defs/acs_steps.py` | |
+| Use case code | `boardfarm3/use_cases/acs.py` | `boardfarm3/use_cases/acs.py` |
+
 ## Related Information
 
 - This use case leverages the self-healing UI testing framework
@@ -134,22 +153,3 @@ A network operator needs to manage CPE devices through the ACS web interface.
 - Task-oriented methods abstract UI navigation from test logic.
 - GUI operations complement NBI (API) operations for comprehensive testing.
 
-## Testing Approach
-
-This use case validates:
-
-1. **GUI availability and authentication**
-2. **Device discovery and navigation**
-3. **Information retrieval and display**
-4. **Operational command execution**
-5. **Error handling and user feedback**
-6. **Self-healing capabilities** (resilience to UI changes)
-
-Tests use the GenieAcsGUI class which implements 18 task-oriented methods across 6 categories:
-
-- Authentication (login, logout, is_logged_in)
-- Discovery (search_device, get_device_count, filter_devices)
-- Status (get_device_status, verify_device_online, get_last_inform_time)
-- Operations (reboot_device_via_gui, factory_reset_via_gui, delete_device_via_gui)
-- Parameters (get_device_parameter_via_gui, set_device_parameter_via_gui)
-- Firmware (trigger_firmware_upgrade_via_gui, verify_firmware_version_via_gui)

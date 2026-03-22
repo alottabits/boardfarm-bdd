@@ -1,3 +1,13 @@
+# Use Case: User Makes a One-Way Call
+
+| Field | Value |
+| --- | --- |
+| ID | UC-12348 |
+| Status | Approved |
+| Author(s) | |
+| Date | |
+| Test specifications | see [Traceability](#traceability) |
+
 ## Goal
 
 Enable a user to successfully make a one-way voice call from one SIP phone to another SIP phone, establishing a voice communication session.
@@ -12,16 +22,18 @@ User (caller)
 
 ## Stakeholders
 
-- User (caller)
-- User (callee)
-- SIP Server Administrator
-- Network Operations
-- CPE
-- SIP Server (Kamailio)
+| Stakeholder | Interest |
+| --- | --- |
+| User (caller) | Expects to successfully place a voice call |
+| User (callee) | Expects to receive and answer incoming calls |
+| SIP Server Administrator | Maintains call routing platform availability |
+| Network Operations | Needs reliable SIP signalling and media paths |
+| CPE | Provides NAT traversal for SIP/RTP traffic |
+| SIP Server (Kamailio) | Routes calls and relays media |
 
 ## Level
 
-user-goal
+User-goal
 
 ## Preconditions
 
@@ -124,7 +136,7 @@ A user picks up a SIP phone (or takes it off-hook) and dials another phone's num
   4. Continue from step 18 of the main success scenario.
   5. Use case fails. Minimal guarantees are met.
 
-## Technology & Data Variations List
+## Technology and Data Variations
 
 ### Phone Location Combinations
 
@@ -158,7 +170,15 @@ The following table shows all possible combinations of caller and callee locatio
 - **Call Duration**: Short (< 1 minute), medium (1-5 minutes), long (> 5 minutes)
 - **Network Conditions**: Normal, packet loss, jitter, latency
 
-## Related information
+## Traceability
+
+| Artifact | pytest-bdd | Robot Framework |
+| --- | --- | --- |
+| Test specification | `tests/features/UC-12348 User makes a one-way call.feature` | `robot/tests/user_makes_one_way_call.robot` |
+| Step / keyword impl | `tests/step_defs/sip_phone_steps.py` | `robot/libraries/voice_keywords.py` |
+| Use case code | `boardfarm3/use_cases/voice.py` | `boardfarm3/use_cases/voice.py` |
+
+## Related Information
 
 - This use case assumes the use of SIP (Session Initiation Protocol) for call signaling.
 - RTP (Real-time Transport Protocol) is used for voice media transmission.

@@ -1,0 +1,53 @@
+{
+    "sdwan": {
+        "devices": [
+            {
+                "name": "sdwan",
+                "type": "linux_sdwan_router",
+                "connection_type": "local_cmd",
+                "conn_cmd": ["docker exec -i linux-sdwan-router bash -i"],
+                "wan_interfaces": {
+                    "wan1": "eth-wan1",
+                    "wan2": "eth-wan2"
+                },
+                "wan_gateways": {
+                    "wan1": "10.10.1.2",
+                    "wan2": "10.10.2.2"
+                },
+                "wan_metrics": {
+                    "wan1": 10,
+                    "wan2": 200
+                },
+                "lan_interface": "eth-lan"
+            },
+            {
+                "name": "wan1_tc",
+                "type": "linux_traffic_controller",
+                "connection_type": "authenticated_ssh",
+                "ipaddr": "localhost",
+                "port": 5001,
+                "username": "root",
+                "password": "boardfarm"
+            },
+            {
+                "name": "wan2_tc",
+                "type": "linux_traffic_controller",
+                "connection_type": "authenticated_ssh",
+                "ipaddr": "localhost",
+                "port": 5002,
+                "username": "root",
+                "password": "boardfarm"
+            },
+            {
+                "name": "lan_qoe_client",
+                "type": "playwright_qoe_client",
+                "connection_type": "authenticated_ssh",
+                "ipaddr": "localhost",
+                "port": 5003,
+                "username": "root",
+                "password": "boardfarm",
+                "simulated_ip": "192.168.10.10"
+            }
+        ]
+    }
+}

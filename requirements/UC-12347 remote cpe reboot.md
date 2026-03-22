@@ -1,3 +1,13 @@
+# Use Case: Remote CPE Reboot
+
+| Field | Value |
+| --- | --- |
+| ID | UC-12347 |
+| Status | Approved |
+| Author(s) | |
+| Date | |
+| Test specifications | see [Traceability](#traceability) |
+
 ## Goal
 
 Remotely reboot the CPE device to restore connectivity, apply configuration changes, or resolve operational issues without physical access to the device.
@@ -12,15 +22,17 @@ Operator
 
 ## Stakeholders
 
-- Subscriber
-- ACS Administrator
-- Network Operations
-- CPE
-- ACS
+| Stakeholder | Interest |
+| --- | --- |
+| Subscriber | Expects connectivity to be restored promptly |
+| ACS Administrator | Maintains device management platform availability |
+| Network Operations | Needs confidence that remote reboot is reliable |
+| CPE | Receives and executes reboot command |
+| ACS | Orchestrates the reboot via TR-069 |
 
 ## Level
 
-user-goal
+User-goal
 
 ## Preconditions
 
@@ -79,7 +91,7 @@ An operator initiates a reboot command via the ACS targeting a specific CPE devi
 
 
 
-## Technology & Data Variations List
+## Technology and Data Variations
 
 - **Trigger method**: The reboot can be triggered via:
   - ACS UI interface
@@ -94,7 +106,15 @@ An operator initiates a reboot command via the ACS targeting a specific CPE devi
   - The command key from the original Reboot RPC is included
   - Value change events may be included if configuration or state changes occurred
 
-## Related information
+## Traceability
+
+| Artifact | pytest-bdd | Robot Framework |
+| --- | --- | --- |
+| Test specification | `tests/features/Remote CPE Reboot.feature` | `robot/tests/remote_cpe_reboot.robot` |
+| Step / keyword impl | `tests/step_defs/acs_steps.py`, `tests/step_defs/cpe_steps.py` | `robot/libraries/acs_keywords.py`, `robot/libraries/cpe_keywords.py` |
+| Use case code | `boardfarm3/use_cases/acs.py`, `boardfarm3/use_cases/cpe.py` | `boardfarm3/use_cases/acs.py`, `boardfarm3/use_cases/cpe.py` |
+
+## Related Information
 
 - This use case assumes the use of the TR-069 protocol for CPE management.
 - The CPE's ability to reconnect after reboot depends on network configuration being preserved (e.g., WAN interface configuration, ACS URL, credentials).

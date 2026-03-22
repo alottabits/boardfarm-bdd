@@ -297,5 +297,5 @@ See [libraries/README.md](libraries/README.md) for detailed guidelines.
 ## Further Reading
 
 - [Keyword Libraries Documentation](libraries/README.md)
-- [Migration Plan](../docs/robot_keyword_migration_plan.md)
+- [Migration Plan](../docs/migration/robot-keyword-migration.md)
 - [Project README](../README.md)
