@@ -825,7 +825,7 @@ CPE (Template)
 ## References
 
 - [OpenWrt Topology Correction Migration](./openwrt_topology_correction_migration.md) - Corrected network topology
-- [Testbed Network Topology](./Testbed%20Network%20Topology.md) - Complete network architecture
+- [Testbed Topology](./testbed-topology.md) - Complete network architecture
 - [Raikou Physical Interface Integration](./Raikou_Physical_Interface_Integration.md) - Physical device integration guide
 - prplOS GitLab: https://gitlab.com/prpl-foundation/prplos/prplos
 - Boardfarm Device Classes: `boardfarm/boardfarm3/devices/prplos_cpe.py`, `boardfarm/boardfarm3/devices/rpirdkb_cpe.py`

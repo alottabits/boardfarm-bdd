@@ -172,7 +172,7 @@ To ensure consistency and portability across different environments (Functional 
 
 The initial testbed uses a **Dual WAN** topology to prove the concept. Expansion to **Triple WAN** follows once validation is complete.
 
-![triple_wan_topology](../Excalidraw/triple_wan_topology.excalidraw.svg)
+![triple_wan_topology](../../Excalidraw/triple_wan_topology.excalidraw.svg)
 
 **Connections:**
 

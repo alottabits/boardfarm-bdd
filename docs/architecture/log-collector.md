@@ -156,7 +156,7 @@ The log collector **must not** appear in Raikou's `config.json`. That file decla
 
 | Testbed Type | Compose Location | Notes |
 |--------------|------------------|-------|
-| Home gateway (Raikou) | `raikou-net/examples/bdd/docker-compose.yaml` or project `docker-compose.yaml` | Add `log-collector` service |
+| Home gateway (Raikou) | `raikou/docker-compose-sdwan.yaml` (currently the only testbed with log collection) | Add `log-collector` service |
 | SD-WAN (Raikou) | Project `docker-compose.yaml` (e.g. `sdwan-testbed/docker-compose.yaml`) | Add `log-collector` service |
 | Standalone (no Raikou) | Project `docker-compose.yaml` | Same service definition |
 
@@ -446,7 +446,7 @@ done
 
 | Document | Description |
 |----------|-------------|
-| `SDWAN_Testbed_Configuration.md` | SD-WAN-specific deployment including log collector |
-| `Testbed Network Topology.md` | Management vs. simulated network overview |
+| [SD-WAN Testbed Configuration](../examples/sdwan-digital-twin/testbed-configuration.md) | SD-WAN-specific deployment including log collector |
+| [SD-WAN Testbed Configuration](../examples/sdwan-digital-twin/testbed-configuration.md) | Management vs. simulated network overview |
 | `Boardfarm Test Automation Architecture.md` | Framework reference |
 | `Locations of logs.md` | Boardfarm framework and device log locations |

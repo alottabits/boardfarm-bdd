@@ -33,7 +33,7 @@ The framework approaches verification from a user-centric perspective: **A Clien
 
 To determine system behavior, we introduce **Traffic Control** as a fundamental part of the network. By varying traffic conditions (latency, loss, bandwidth), we stress the Device Under Test (DUT) and measure the impact on the user's experience.
 
-![Top Level QoE](../Excalidraw/Top_level_QoE.excalidraw.svg)
+![Top Level QoE](../../../Excalidraw/Top_level_QoE.excalidraw.svg)
 
 1. **SUT**: The system / device being verified (SD-WAN appliance, Router, Gateway).
 2. **Traffic Control**: The active network element applying impairments (the "knobs" we turn).

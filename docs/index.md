@@ -51,7 +51,7 @@ Same services as dockerized CPE, but with a physical Raspberry Pi as the gateway
 | Document | Description |
 |---|---|
 | [Overview](examples/cpe-physical/README.md) | Quick-start, hardware requirements, USB dongle setup |
-| [Raikou Physical Integration](examples/cpe-physical/raikou-physical-integration.md) | Integrating a physical device with Raikou OVS bridges |
+| [Testbed Topology](examples/cpe-physical/testbed-topology.md) | Network topology, OVS bridges, USB dongle mapping, and troubleshooting |
 | [prplOS RPi Implementation](examples/cpe-physical/prplos-rpi-implementation.md) | RPi4 gateway integration plan and status |
 | [prplOS RPi Build Guide](examples/cpe-physical/prplos-rpi-build-guide.md) | Step-by-step prplOS build for Raspberry Pi 4 |
 | [prplOS RPi Console API](examples/cpe-physical/prplos-rpi-console-api.md) | Console API for Boardfarm device class integration |

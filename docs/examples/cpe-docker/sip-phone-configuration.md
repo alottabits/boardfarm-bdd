@@ -234,11 +234,11 @@ Create feature files for:
 
 ## Key Configuration Files to Monitor
 
-1. **[docker-compose.yaml](file:///home/rjvisser/projects/req-tst/boardfarm-bdd/raikou/docker-compose.yaml)** - Container definitions
-2. **[config.json](file:///home/rjvisser/projects/req-tst/boardfarm-bdd/raikou/config.json)** - Network topology (raikou-net)
-3. **[boardfarm_config_example.json](file:///home/rjvisser/projects/req-tst/boardfarm-bdd/bf_config/boardfarm_config_example.json)** - Boardfarm device configuration
-4. **[kamailio.py](file:///home/rjvisser/projects/req-tst/boardfarm/boardfarm3/devices/kamailio.py)** - SIP server device class
-5. **[pjsip_phone.py](file:///home/rjvisser/projects/req-tst/boardfarm/boardfarm3/devices/pjsip_phone.py)** - Phone device class
+1. **[docker-compose.yaml](../../../raikou/docker-compose.yaml)** - Container definitions
+2. **[config.json](../../../raikou/config.json)** - Network topology (Raikou)
+3. **[boardfarm_config_example.json](../../../bf_config/boardfarm_config_example.json)** - Boardfarm device configuration
+4. **`boardfarm3.devices.kamailio`** - SIP server device class (in the [boardfarm](https://github.com/alottabits/boardfarm) package)
+5. **`boardfarm3.devices.pjsip_phone`** - Phone device class (in the [boardfarm](https://github.com/alottabits/boardfarm) package)
 
 ## Available Phone Methods (from PJSIPPhone class)
 

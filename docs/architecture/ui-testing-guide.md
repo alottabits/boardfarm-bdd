@@ -125,7 +125,9 @@ Discovery produces a single **FSM graph JSON file** containing:
 ## Prerequisites
 
 - Python 3.10+ with a boardfarm-bdd virtual environment
-- StateExplorer packages installed:
+- StateExplorer packages installed (assumes the
+  [StateExplorer](https://github.com/alottabits/StateExplorer) repo is cloned
+  as a sibling directory):
 
 ```bash
 pip install -e ../StateExplorer/packages/model-resilience-core
@@ -364,7 +366,7 @@ regressions.
 | No states discovered | App not running or network unreachable | Check `curl http://localhost:3000` |
 | Many duplicate warnings in Stage 3 | Expected for stable UIs | Not a problem — fingerprint deduplication is working correctly |
 | Browser doesn't open | Playwright not installed | Run `playwright install chromium firefox` |
-| `aria-discover` command not found | Package not installed | Run `pip install -e ../StateExplorer/packages/aria-state-mapper` |
+| `aria-discover` command not found | Package not installed | Run `pip install -e ../StateExplorer/packages/aria-state-mapper` (see [Prerequisites](#prerequisites)) |
 
 ## Artifact Management
 

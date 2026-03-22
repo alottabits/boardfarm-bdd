@@ -87,7 +87,7 @@ pytest --board-name prplos-rpi-1 \
 
 | Document | Description |
 |---|---|
-| [Raikou Physical Integration](raikou-physical-integration.md) | How to bridge physical interfaces into Raikou OVS |
+| [Testbed Topology](testbed-topology.md) | Network topology, OVS bridges, USB dongle mapping, and troubleshooting |
 | [prplOS RPi Implementation](prplos-rpi-implementation.md) | RPi4 integration plan and completion status |
 | [prplOS RPi Build Guide](prplos-rpi-build-guide.md) | Step-by-step prplOS firmware build for RPi4 |
 | [prplOS RPi Console API](prplos-rpi-console-api.md) | Console API for Boardfarm device class |
