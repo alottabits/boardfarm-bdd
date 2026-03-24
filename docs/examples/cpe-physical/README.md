@@ -64,8 +64,7 @@ RPi prplOS device class development plan.
 ip link show | grep enx
 
 # 2. Start the testbed (uses config_openwrt.json for Raikou)
-cd raikou
-docker compose -f docker-compose-openwrt.yaml up -d
+docker compose -f raikou/docker-compose-openwrt.yaml up -d
 
 # 3. Install dependencies
 pip install -e ".[all]"

@@ -79,12 +79,10 @@ The default Docker network is management-only.
 
 ```bash
 # 1. Generate testbed CA certificates (one-time)
-cd raikou/testbed-ca
-./generate-certs.sh
+(cd raikou/testbed-ca && ./generate-certs.sh)
 
 # 2. Start the testbed
-cd raikou
-docker compose -p boardfarm-bdd-sdwan -f docker-compose-sdwan.yaml up -d
+docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml up -d
 
 # 3. Install dependencies
 pip install -e ".[all]"

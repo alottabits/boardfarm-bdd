@@ -38,8 +38,7 @@ See [testbed-topology.md](testbed-topology.md) for the full network architecture
 
 ```bash
 # 1. Start the testbed
-cd raikou
-docker compose up -d
+docker compose -f raikou/docker-compose.yaml up -d
 
 # 2. Install dependencies
 pip install -e ".[all]"

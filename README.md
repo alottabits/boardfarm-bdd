@@ -58,7 +58,7 @@ services, DHCP provisioning, and LAN clients — all orchestrated by Raikou.
 | **Documentation** | [docs/examples/cpe-docker/](docs/examples/cpe-docker/) |
 
 ```bash
-cd raikou && docker compose up -d
+docker compose -f raikou/docker-compose.yaml up -d
 pytest --board-name prplos-docker-1 \
        --env-config bf_config/boardfarm_env_example.json \
        --inventory-config bf_config/boardfarm_config_example.json \
@@ -78,7 +78,7 @@ network.
 | **Documentation** | [docs/examples/cpe-physical/](docs/examples/cpe-physical/) |
 
 ```bash
-cd raikou && docker compose -f docker-compose-openwrt.yaml up -d
+docker compose -f raikou/docker-compose-openwrt.yaml up -d
 pytest --board-name prplos-rpi-1 \
        --env-config bf_config/boardfarm_env_example.json \
        --inventory-config bf_config/boardfarm_config_prplos_rpi.json \
@@ -98,7 +98,7 @@ HTTPS/HTTP3 application servers, and IPsec overlay.
 | **Documentation** | [docs/examples/sdwan-digital-twin/](docs/examples/sdwan-digital-twin/) |
 
 ```bash
-cd raikou && docker compose -p boardfarm-bdd-sdwan -f docker-compose-sdwan.yaml up -d
+docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml up -d
 pytest --board-name sdwan-digital-twin \
        --env-config bf_config/boardfarm_env_sdwan.json \
        --inventory-config bf_config/boardfarm_config_sdwan.json \
