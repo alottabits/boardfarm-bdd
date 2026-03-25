@@ -134,6 +134,50 @@ services:
                     cpus: '1.5'
                     memory: 1G
 
+    # ── Traffic Generators (iPerf3 Background Load) ────────────────────────────
+    # Dual-role containers: iPerf3 server pool (ports 5201-5210) + client on demand.
+    # Test traffic via Raikou OVS: eth1 (lan-segment or north-segment).
+    # See: docs/examples/sdwan-digital-twin/future/traffic-generator.md
+    lan-traffic-gen:
+        image: ghcr.io/alottabits/boardfarm-bdd/traffic-gen:0.01
+        container_name: lan-traffic-gen
+        ports:
+            - "5008:22"
+        environment:
+            - LEGACY=no
+            - TG_GATEWAY=192.168.10.1
+            - TG_REMOTE_NETS=172.16.0.0/24
+        privileged: true
+        hostname: lan-traffic-gen
+        deploy:
+            resources:
+                limits:
+                    cpus: '1.0'
+                    memory: 256M
+                reservations:
+                    cpus: '0.5'
+                    memory: 128M
+
+    north-traffic-gen:
+        image: ghcr.io/alottabits/boardfarm-bdd/traffic-gen:0.01
+        container_name: north-traffic-gen
+        ports:
+            - "5009:22"
+        environment:
+            - LEGACY=no
+            - TG_GATEWAY=172.16.0.254
+            - TG_REMOTE_NETS=192.168.10.0/24,10.10.1.0/30,10.10.2.0/30
+        privileged: true
+        hostname: north-traffic-gen
+        deploy:
+            resources:
+                limits:
+                    cpus: '1.0'
+                    memory: 256M
+                reservations:
+                    cpus: '0.5'
+                    memory: 128M
+
     # ── North-Side Application Services ────────────────────────────────────────
     # Separate containers enable L7 path steering: productivity vs streaming via different WAN paths.
     # Phase 3.5: TLS certs mounted at /certs/ for HTTPS/HTTP3.
@@ -307,6 +351,8 @@ services:
         depends_on:
             - linux-sdwan-router
             - lan-qoe-client
+            - lan-traffic-gen
+            - north-traffic-gen
             - wan1-tc
             - wan2-tc
             - app-router

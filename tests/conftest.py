@@ -313,7 +313,7 @@ def sipcenter(devices):
 
 @pytest.fixture
 def sdwan(devices):
-    """SD-WAN DUT (LinuxSDWANRouter) when available (e.g. --board-name sdwan)."""
+    """SD-WAN appliance (LinuxSDWANRouter) when available (e.g. --board-name sdwan)."""
     return getattr(devices, "sdwan", None)
 
 
@@ -588,4 +588,26 @@ def cleanup_sdwan_impairments_after_scenario(bf_context: Any):
             tc_uc.clear_impairment(tc)
         except Exception as e:  # noqa: BLE001
             print(f"⚠ Could not clear impairment on {attr}: {e}")
+
+
+@pytest.fixture(scope="function", autouse=True)
+def cleanup_traffic_generators_after_scenario(bf_context: Any):
+    """Stop all active traffic flows after each scenario.
+
+    Only activates when the scenario discovered traffic generators
+    (stored in bf_context by the 'traffic generators are available' step).
+    """
+    yield
+
+    from boardfarm3.use_cases import traffic_generator as tg_uc
+
+    for attr in ("lan_traffic_gen", "north_traffic_gen"):
+        tg = getattr(bf_context, attr, None)
+        if tg is None:
+            continue
+        try:
+            if tg.active_flows:
+                tg_uc.stop_all_traffic(tg)
+        except Exception as e:  # noqa: BLE001
+            print(f"⚠ Could not stop traffic on {attr}: {e}")
 

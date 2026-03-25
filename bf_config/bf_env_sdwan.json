@@ -23,6 +23,8 @@
                 "eth-dut":   {"latency_ms": 5, "jitter_ms": 1, "loss_percent": 0, "bandwidth_limit_mbps": 1000}
             }
         },
+        "lan_traffic_gen": {},
+        "north_traffic_gen": {},
         "impairment_presets": {
             "pristine":      {"latency_ms": 5,   "jitter_ms": 1,  "loss_percent": 0,   "bandwidth_limit_mbps": 1000},
             "cable_typical": {"latency_ms": 15,  "jitter_ms": 5,  "loss_percent": 0.1, "bandwidth_limit_mbps": 100},

@@ -13,6 +13,7 @@ test portability across vendors.
 - **Failover convergence** — sub-second failover between dual WAN links
 - **VPN/overlay encryption** — IPsec IKEv2 tunnel establishment and integrity
 - **Deterministic impairment** — calibrated `tc netem` profiles (latency, loss, jitter, bandwidth)
+- **QoS contention** — iPerf3 background load injection for QoS priority validation under WAN saturation
 - **TLS everywhere** — testbed CA/PKI, HTTPS/HTTP3, WSS conferencing
 
 ## Testbed Components
@@ -28,39 +29,13 @@ test portability across vendors.
 | **Conferencing Server** | Node.js WebRTC/WSS conferencing simulation | `conf-server:0.02` |
 | **IPsec Hub** | StrongSwan hub for IKEv2 tunnel termination | `ipsec-hub:0.01` |
 | **MinIO** | S3-compatible object store for streaming content | `minio:latest` |
+| **LAN Traffic Generator** | iPerf3 background load — LAN side | `traffic-gen:0.01` |
+| **North Traffic Generator** | iPerf3 background load — north side (server) | `traffic-gen:0.01` |
 | **Log Collector** | Centralized test log aggregation | `log-collector:0.01` |
 
 ## Network Topology
 
-```
-                    ┌─────────────────────────────────────┐
-                    │         north-segment                │
-                    │  ┌──────────┐ ┌──────────┐          │
-                    │  │Productiv.│ │Streaming │ ┌──────┐ │
-                    │  │ Server   │ │ Server   │ │Conf. │ │
-                    │  └──────────┘ └──────────┘ │Server│ │
-                    │                            └──────┘ │
-                    └──────────┬──────────────────────────┘
-                               │
-                          ┌────┴────┐
-                          │App Router│
-                          └────┬────┘
-                    ┌──────────┴──────────┐
-              ┌─────┴─────┐        ┌─────┴─────┐
-              │  WAN1-TC  │        │  WAN2-TC  │
-              │ (tc netem)│        │ (tc netem)│
-              └─────┬─────┘        └─────┬─────┘
-                    │  dut-wan1     dut-wan2  │
-              ┌─────┴────────────────────┴─────┐
-              │      LinuxSDWANRouter (DUT)     │
-              │   FRR + StrongSwan + PBR        │
-              └──────────────┬─────────────────┘
-                             │ lan-segment
-                    ┌────────┴────────┐
-                    │  LAN QoE Client │
-                    │  (Playwright)   │
-                    └─────────────────┘
-```
+![Dual-WAN SD-WAN Testbed Topology](../../../Excalidraw/dual-wan-testbed-topology.svg)
 
 All test traffic flows through **Raikou OVS bridges** (not Docker networks).
 The default Docker network is management-only.
@@ -74,6 +49,7 @@ The default Docker network is management-only.
 | [UC-SDWAN-03 Video Conference QoE](../../../requirements/UC-SDWAN-03%20Video%20Conference%20Quality%20Under%20WAN%20Degradation.md) | — (planned) |
 | [UC-SDWAN-04 Encrypted Overlay Tunnel](../../../requirements/UC-SDWAN-04%20SD-WAN%20Appliance%20Establishes%20Encrypted%20Overlay%20Tunnel.md) | — (planned) |
 | [UC-SDWAN-05 Tunnel Survives Failover](../../../requirements/UC-SDWAN-05%20Encrypted%20Tunnel%20Survives%20WAN%20Failover.md) | — (planned) |
+| [UC-SDWAN-06 QoS Priority Under WAN Contention](../../../requirements/UC-SDWAN-06%20QoS%20Priority%20Under%20WAN%20Contention.md) | `tests/features/QoS Priority Under WAN Contention.feature` |
 
 ## Quick Start
 
@@ -118,6 +94,7 @@ decision and deliverable inventory.
 | [QoE Client](qoe-client.md) | Playwright-based QoE measurement client |
 | [Application Services](application-services.md) | North-side server designs |
 | [Traffic Management](traffic-management.md) | TrafficController architecture |
+| [Traffic Generator](traffic-generator.md) | iPerf3 background load generator |
 | [App Router](app-router.md) | Split north-segment topology |
 | [QoE Verification Brief](qoe-verification-brief.md) | Automated QoE verification approach |
 | [Cross-Vendor API Analysis](cross-vendor-api-analysis.md) | WANEdgeDevice vendor mappings |
@@ -126,5 +103,4 @@ decision and deliverable inventory.
 
 | Document | Description |
 |---|---|
-| [Traffic Generator](future/traffic-generator.md) | iPerf3 background load generator |
 | [Security Testing](future/security-testing.md) | MaliciousHost and security test scenarios |

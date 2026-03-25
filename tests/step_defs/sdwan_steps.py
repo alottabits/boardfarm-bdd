@@ -12,6 +12,7 @@ from pytest_bdd import given, parsers, then, when
 
 from boardfarm3.use_cases import qoe as qoe_use_cases
 from boardfarm3.use_cases import traffic_control as tc_use_cases
+from boardfarm3.use_cases import traffic_generator as tg_use_cases
 from boardfarm3.use_cases import wan_edge as wan_edge_use_cases
 
 APP_CONFIG = {
@@ -94,6 +95,70 @@ def network_conditions_set_to_preset(
 
 
 # ---------------------------------------------------------------------------
+# Traffic generator discovery and operations (actor: network operations)
+# ---------------------------------------------------------------------------
+
+
+@given(
+    "traffic generators are available on both sides"
+    " of the appliance"
+)
+def traffic_generators_available(bf_context):
+    """Discover LAN-side and north-side traffic generators."""
+    bf_context.lan_traffic_gen = tg_use_cases.get_traffic_generator(
+        "lan_traffic_gen"
+    )
+    bf_context.north_traffic_gen = tg_use_cases.get_traffic_generator(
+        "north_traffic_gen"
+    )
+    print(
+        "✓ Traffic generators discovered:"
+        " lan_traffic_gen, north_traffic_gen"
+    )
+
+
+@when(
+    parsers.parse(
+        "network operations starts {bandwidth:d} Mbps of"
+        " best-effort upstream background traffic"
+        " through the appliance"
+    )
+)
+def network_ops_starts_upstream_traffic(bf_context, bandwidth):
+    """Start upstream best-effort traffic from LAN to north side."""
+    flow_id = tg_use_cases.saturate_wan_link(
+        source=bf_context.lan_traffic_gen,
+        destination=bf_context.north_traffic_gen,
+        link_bandwidth_mbps=bandwidth / 0.85,
+        dscp=0,
+        utilisation_pct=0.85,
+        duration_s=120,
+    )
+    bf_context.upstream_flow_id = flow_id
+    print(
+        f"✓ Upstream background traffic started:"
+        f" {bandwidth} Mbps BE (flow {flow_id})"
+    )
+
+
+@when(
+    "network operations stops the upstream background traffic"
+)
+def network_ops_stops_upstream_traffic(bf_context):
+    """Stop the upstream background traffic flow and collect results."""
+    result = tg_use_cases.stop_traffic(
+        bf_context.lan_traffic_gen,
+        bf_context.upstream_flow_id,
+    )
+    bf_context.upstream_traffic_result = result
+    print(
+        f"✓ Upstream background traffic stopped"
+        f" (sent: {result.sent_mbps:.1f} Mbps,"
+        f" loss: {result.loss_percent:.2f}%)"
+    )
+
+
+# ---------------------------------------------------------------------------
 # WAN link status verification (actor: network operations)
 # ---------------------------------------------------------------------------
 
@@ -108,12 +173,12 @@ def network_conditions_set_to_preset(
 )
 def network_ops_verifies_wan_links_up(bf_context):
     """Assert both WAN1 and WAN2 are in UP state."""
-    dut = bf_context.sdwan_appliance
+    edge = bf_context.sdwan_appliance
     wan_edge_use_cases.assert_wan_interface_status(
-        dut, "wan1", "up"
+        edge, "wan1", "up"
     )
     wan_edge_use_cases.assert_wan_interface_status(
-        dut, "wan2", "up"
+        edge, "wan2", "up"
     )
     print("✓ Both WAN links are in UP state")
 
@@ -127,15 +192,15 @@ def network_ops_verifies_wan_links_up(bf_context):
 def network_ops_verifies_active_path_given(
     bf_context, wan_link
 ):
-    """Wait for the DUT to settle on the expected WAN path.
+    """Wait for the device to settle on the expected WAN path.
 
     Used as a precondition: the SLA daemon may still be
     re-converging after a pristine reset, so we poll rather
     than assert instantly.
     """
-    dut = bf_context.sdwan_appliance
+    edge = bf_context.sdwan_appliance
     wan_edge_use_cases.wait_for_path_switch(
-        dut, wan_link, timeout_ms=10_000
+        edge, wan_link, timeout_ms=10_000
     )
     print(f"✓ {wan_link} is the active forwarding path")
 
@@ -147,9 +212,9 @@ def network_ops_verifies_active_path_given(
     )
 )
 def network_ops_verifies_active_path(bf_context, wan_link):
-    """Assert the DUT is forwarding on the specified WAN link."""
-    dut = bf_context.sdwan_appliance
-    wan_edge_use_cases.assert_active_path(dut, wan_link)
+    """Assert the device is forwarding on the specified WAN link."""
+    edge = bf_context.sdwan_appliance
+    wan_edge_use_cases.assert_active_path(edge, wan_link)
     print(f"✓ {wan_link} is the active forwarding path")
 
 
@@ -296,10 +361,10 @@ def wan_link_recovers(bf_context, wan_link):
 def appliance_converges_within_slo(
     bf_context, expected_wan, max_ms
 ):
-    """Wait for the DUT to switch to expected_wan within SLO."""
-    dut = bf_context.sdwan_appliance
+    """Wait for the device to switch to expected_wan within SLO."""
+    edge = bf_context.sdwan_appliance
     elapsed_ms = wan_edge_use_cases.wait_for_path_switch(
-        dut, expected_wan, timeout_ms=max_ms
+        edge, expected_wan, timeout_ms=max_ms
     )
     bf_context.convergence_ms = elapsed_ms
     print(
@@ -314,10 +379,10 @@ def appliance_converges_within_slo(
     )
 )
 def appliance_steers_traffic(bf_context, expected_wan):
-    """Wait for the DUT to steer traffic to expected_wan."""
-    dut = bf_context.sdwan_appliance
+    """Wait for the device to steer traffic to expected_wan."""
+    edge = bf_context.sdwan_appliance
     elapsed_ms = wan_edge_use_cases.wait_for_path_switch(
-        dut, expected_wan, timeout_ms=10_000
+        edge, expected_wan, timeout_ms=10_000
     )
     print(
         f"✓ Appliance steered traffic to {expected_wan}"
@@ -332,10 +397,10 @@ def appliance_steers_traffic(bf_context, expected_wan):
     )
 )
 def appliance_fails_back(bf_context, wan_link):
-    """Wait for the DUT to fail back to the preferred WAN link."""
-    dut = bf_context.sdwan_appliance
+    """Wait for the device to fail back to the preferred WAN link."""
+    edge = bf_context.sdwan_appliance
     elapsed_ms = wan_edge_use_cases.wait_for_path_switch(
-        dut, wan_link, timeout_ms=30_000
+        edge, wan_link, timeout_ms=30_000
     )
     bf_context.failback_ms = elapsed_ms
     print(

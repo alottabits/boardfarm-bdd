@@ -1,8 +1,8 @@
 # SD-WAN Testbed Configuration
 
 **Date:** March 8, 2026
-**Status:** Deployed — Phase 3.5 (Digital Twin Hardening)
-**Related:** `architecture.md`, `app-router.md`, `future/traffic-generator.md`, `traffic-management.md`
+**Status:** Deployed — Phase 3.5+ (Digital Twin Hardening + TrafficGenerator)
+**Related:** `architecture.md`, `app-router.md`, `traffic-generator.md`, `traffic-management.md`
 
 ---
 
@@ -59,7 +59,8 @@ The Raikou orchestrator container reads `config_sdwan.json` that declares the OV
 | **Raikou Orchestrator** | Infrastructure | `orchestrator` | OVS bridge manager. Creates and wires simulated network. No test traffic. |
 | **Conferencing Server** | Server (North-side) | `conf-server` | `pion`-based WebRTC Echo server (WSS :8443) for conferencing QoE measurement. Phase 3.5: TLS certificates mounted. |
 | **IPsec Hub** | Infrastructure | `ipsec-hub` | StrongSwan IKEv2 responder peer for `linux-sdwan-router` site-to-site VPN tunnel. Phase 3.5: IKEv2 certificates mounted. |
-| **LAN Traffic Generator** _(Phase 2+)_ | Load (`TrafficGenerator`) | `lan-traffic-gen` | iPerf3 client container for QoS contention background load. Added when QoS pillar validation begins. |
+| **LAN Traffic Generator** | Load (`TrafficGenerator`) | `lan-traffic-gen` | iPerf3 client/server container for QoS contention background load. See `traffic-generator.md`. |
+| **North Traffic Generator** | Load (`TrafficGenerator`) | `north-traffic-gen` | iPerf3 client/server container on the north-segment. Receives upstream traffic and can initiate downstream. See `traffic-generator.md`. |
 | **Malicious Host** _(Phase 4+)_ | Threat (`MaliciousHost`) | `malicious-host` | Kali Linux container. Active inbound attacker + passive threat services (C2 listener, EICAR). Added when Security pillar validation begins. |
 
 ### 1.2 Network Segments
@@ -97,6 +98,8 @@ flowchart LR
     STREAM_MGMT[streaming-server eth0<br/>192.168.55.x<br/>SSH:5006 HTTP:18081 HTTPS:18444]
     CONF_MGMT[conf-server eth0<br/>192.168.55.x<br/>SSH:5007 WSS:18445]
     MINIO_MGMT[minio<br/>192.168.55.x<br/>S3-API:19000 Console:19001<br/>content ingest only]
+    LAN_TG_MGMT[lan-traffic-gen eth0<br/>192.168.55.x<br/>SSH:5008]
+    NORTH_TG_MGMT[north-traffic-gen eth0<br/>192.168.55.x<br/>SSH:5009]
 
     MGMT -.->|docker exec| DUT_MGMT
     MGMT -.->|SSH/Management| TC1_MGMT
@@ -106,23 +109,27 @@ flowchart LR
     MGMT -.->|SSH/Management| STREAM_MGMT
     MGMT -.->|SSH/Management| CONF_MGMT
     MGMT -.->|S3 API / mc CLI| MINIO_MGMT
+    MGMT -.->|SSH/Management| LAN_TG_MGMT
+    MGMT -.->|SSH/Management| NORTH_TG_MGMT
 
     classDef mgmt stroke-width:3px
     classDef container stroke-width:2px
     class MGMT mgmt
-    class DUT_MGMT,TC1_MGMT,TC2_MGMT,LAN_MGMT,PROD_MGMT,STREAM_MGMT,CONF_MGMT,MINIO_MGMT container
+    class DUT_MGMT,TC1_MGMT,TC2_MGMT,LAN_MGMT,PROD_MGMT,STREAM_MGMT,CONF_MGMT,MINIO_MGMT,LAN_TG_MGMT,NORTH_TG_MGMT container
 ```
 
 ### 2.2 Simulated Network Topology (Dual WAN)
 
 This is the functional testbed network created by Raikou using OVS bridges. Test traffic flows here.
 
+![Dual-WAN SD-WAN Testbed Topology](../../../Excalidraw/dual-wan-testbed-topology.svg)
+
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '12px', 'fontFamily': 'arial' }}}%%
 graph LR
     %% --- LAN SIDE ---
     LAN_CLIENT[lan-qoe-client<br/>QoEClient<br/>192.168.10.10]
-    LAN_GEN[lan-traffic-gen<br/>TrafficGenerator<br/>192.168.10.20<br/>Phase 2+]
+    LAN_GEN[lan-traffic-gen<br/>TrafficGenerator<br/>192.168.10.20]
 
     %% --- OVS BRIDGES ---
     BR_LAN[lan-segment bridge<br/>192.168.10.0/24]
@@ -148,6 +155,7 @@ graph LR
     STREAM[streaming-server<br/>HLS proxy<br/>172.16.0.11]
     CONF[conf-server<br/>WebRTC Echo<br/>172.16.0.12]
     IPSEC[ipsec-hub<br/>StrongSwan IKEv2<br/>172.16.0.20]
+    NORTH_GEN[north-traffic-gen<br/>TrafficGenerator<br/>172.16.0.25]
     MAL[malicious-host<br/>Kali Linux<br/>MaliciousHost<br/>172.16.0.30<br/>Phase 4+]
 
     %% --- CONTENT ORIGIN ---
@@ -155,7 +163,7 @@ graph LR
 
     %% --- LAN CONNECTIONS ---
     LAN_CLIENT <-->|eth1| BR_LAN
-    LAN_GEN -. eth1 .-> BR_LAN
+    LAN_GEN <-->|eth1| BR_LAN
     DUT <-->|eth-lan| BR_LAN
 
     %% --- DUT-to-TC CONNECTIONS ---
@@ -179,6 +187,7 @@ graph LR
     STREAM <-->|eth1| BR_NORTH
     CONF <-->|eth1| BR_NORTH
     IPSEC <-->|eth1| BR_NORTH
+    NORTH_GEN <-->|eth1| BR_NORTH
     MAL -. eth1 .-> BR_NORTH
 
     %% --- CONTENT-INTERNAL CONNECTIONS ---
@@ -196,8 +205,7 @@ graph LR
 
     class DUT dut
     class TC1,TC2 tc
-    class LAN_CLIENT client
-    class LAN_GEN planned
+    class LAN_CLIENT,LAN_GEN,NORTH_GEN client
     class PROD,STREAM north
     class CONF north
     class IPSEC infra
@@ -217,7 +225,7 @@ graph LR
 | :--- | :--- | :--- | :--- |
 | `linux-sdwan-router` | `eth-lan` | `192.168.10.1/24` | LAN gateway |
 | `lan-qoe-client` | `eth1` | `192.168.10.10/24` | QoEClient — Playwright measurements |
-| `lan-traffic-gen` _(Phase 2+)_ | `eth1` | `192.168.10.20/24` | TrafficGenerator — iPerf3 client |
+| `lan-traffic-gen` | `eth1` | `192.168.10.20/24` | TrafficGenerator — iPerf3 client/server |
 
 ### 3.2 DUT–WAN1 Segment (`dut-wan1` bridge)
 
@@ -266,6 +274,7 @@ The simulated Internet/cloud services network. The app-router connects this segm
 | `streaming-server` | `eth1`, `eth2` | `172.16.0.11/24`, `10.100.0.1/30` | Nginx HLS streaming edge (`eth1` north-segment, `eth2` content-internal to MinIO; HTTPS :8443) |
 | `conf-server` | `eth1` | `172.16.0.12/24` | `pion`-based WebRTC Echo server (WSS :8443) |
 | `ipsec-hub` | `eth1` | `172.16.0.20/24` | StrongSwan IKEv2 responder — site-to-site VPN hub |
+| `north-traffic-gen` | `eth1` | `172.16.0.25/24` | TrafficGenerator — iPerf3 client/server (north side) |
 | `malicious-host` _(Phase 4+)_ | `eth1` | `172.16.0.30/24` | Kali Linux — active attacks + passive C2/EICAR services |
 
 ### 3.7 Content-Internal Segment (`content-internal` bridge)
@@ -337,6 +346,12 @@ The Raikou orchestrator reads this file at startup and:
         "ipsec-hub": [
             { "bridge": "north-segment", "iface": "eth1", "ipaddress": "172.16.0.20/24", "gateway": "172.16.0.254" }
         ],
+        "lan-traffic-gen": [
+            { "bridge": "lan-segment", "iface": "eth1", "ipaddress": "192.168.10.20/24", "gateway": "192.168.10.1" }
+        ],
+        "north-traffic-gen": [
+            { "bridge": "north-segment", "iface": "eth1", "ipaddress": "172.16.0.25/24", "gateway": "172.16.0.254" }
+        ],
         "minio": [
             { "bridge": "content-internal", "iface": "eth1", "ipaddress": "10.100.0.2/30" }
         ]
@@ -373,14 +388,15 @@ The latency-sensitive containers (`linux-sdwan-router`, `wan1-tc`, `wan2-tc`) ha
 | `minio` | 1.0 | — | 256M | Content origin; management-plane ingest only |
 | `log-collector` | 0.25 | 0.1 | 128M | Fluent Bit is extremely lightweight at this log volume |
 | `raikou-net` | 0.5 | 0.25 | 128M | Startup only; idle during tests |
-| `lan-traffic-gen` _(Phase 2+)_ | 1.0 | 0.5 | 256M | iPerf3 UDP at 85 Mbps is PPS-heavy in userspace |
+| `lan-traffic-gen` | 1.0 | 0.5 | 256M | iPerf3 UDP at 85 Mbps is PPS-heavy in userspace |
+| `north-traffic-gen` | 1.0 | 0.5 | 256M | iPerf3 server + downstream client capability |
 | `malicious-host` _(Phase 4+)_ | 1.5 | 0.5 | 256M | Brief spikes during nmap scans / hping3 floods |
 
-> **CI environments:** On a 4–8 vCPU CI runner, reduce `lan-qoe-client` to `cpus: '1.0'` and `streaming-server` to `cpus: '1.0'`. Phase 2+ container (`lan-traffic-gen`) and Phase 4+ containers (`malicious-host`) are not in scope until their respective pillars are validated.
+> **CI environments:** On a 4–8 vCPU CI runner, reduce `lan-qoe-client` to `cpus: '1.0'` and `streaming-server` to `cpus: '1.0'`. Phase 4+ containers (`malicious-host`) are not in scope until their respective pillars are validated.
 
 The compose file is located at `raikou/docker-compose-sdwan.yaml`. It is the authoritative source — the YAML below is a reference copy. See the actual file for the latest version.
 
-> **Phase 2+ services** (`lan-traffic-gen`) and **Phase 4+ services** (`malicious-host`) are added to the compose file and `config_sdwan.json` when their respective testing pillars begin implementation.
+> **Phase 4+ services** (`malicious-host`) are added to the compose file and `config_sdwan.json` when their respective testing pillars begin implementation.
 ---
 
 ## 5. Container Specifications
@@ -399,7 +415,8 @@ The compose file is located at `raikou/docker-compose-sdwan.yaml`. It is the aut
 | `conf-server` | 5007 | 18445 (WSS) | `ssh -p 5007 root@localhost` | pion WebRTC Echo; Phase 3.5: TLS certs mounted |
 | `ipsec-hub` | — | — | `docker exec -it ipsec-hub bash` | StrongSwan IKEv2 responder; Phase 3.5: IKEv2 certs mounted |
 | `minio` | — | 19000 (S3 API), 19001 (Console) | `mc alias set testbed http://localhost:19000 testbed testbed-secret` | Management network (ingest/debug only); eth1 on `content-internal` bridge carries proxy traffic |
-| `lan-traffic-gen` _(Phase 2+)_ | 5004 | — | `ssh -p 5004 root@localhost` | |
+| `lan-traffic-gen` | 5008 | — | `ssh -p 5008 root@localhost` | |
+| `north-traffic-gen` | 5009 | — | `ssh -p 5009 root@localhost` | |
 | `malicious-host` _(Phase 4+)_ | 5008 | — | `ssh -p 5008 root@localhost` | |
 | `log-collector` | — | — | `tail -f logs/sdwan-testbed.log` | Management network only; no OVS interfaces — see §5.4 |
 
@@ -458,7 +475,7 @@ See `qoe-client.md §3.4` for the full tracing setup and CI artifact integration
 | `ipsec-hub` | `components/ipsec-hub` | `strongswan`, `iproute2` |
 | `minio` | `components/minio` | Custom build on MinIO base |
 | `log-collector` | `fluent/fluent-bit:3.2` (official image, no custom build) | — |
-| `lan-traffic-gen` _(Phase 2+)_ | `components/traffic-generator` | `iperf3`, `openssh-server`, `iproute2` |
+| `lan-traffic-gen`, `north-traffic-gen` | `components/traffic-gen` | `iperf3`, `openssh-server`, `iproute2` |
 | `malicious-host` _(Phase 4+)_ | `components/malicious-host` | `kali-linux-core`, `nmap`, `hping3`, `netcat`, `openssh-server` |
 
 ---
@@ -666,6 +683,26 @@ Inventory holds device identity and connection details. The DUT uses `local_cmd`
                 "username": "root",
                 "password": "boardfarm",
                 "simulated_ip": "192.168.10.10"
+            },
+            {
+                "name": "lan_traffic_gen",
+                "type": "iperf_traffic_generator",
+                "connection_type": "authenticated_ssh",
+                "ipaddr": "localhost",
+                "port": 5008,
+                "username": "root",
+                "password": "boardfarm",
+                "simulated_ip": "192.168.10.20"
+            },
+            {
+                "name": "north_traffic_gen",
+                "type": "iperf_traffic_generator",
+                "connection_type": "authenticated_ssh",
+                "ipaddr": "localhost",
+                "port": 5009,
+                "username": "root",
+                "password": "boardfarm",
+                "simulated_ip": "172.16.0.25"
             }
         ]
     }
@@ -723,7 +760,8 @@ The environment config defines per-device defaults and behavior. The DUT has SLA
 4. **App-router startup** — The `app-router` container enables IP forwarding, creates `wan1`/`wan2` routing tables, installs CONNMARK rules for ingress WAN tagging, and adds `ip rule fwmark` entries for symmetric return routing. See `app-router.md`.
 5. **TC startup** — each Traffic Controller enables IP forwarding between `eth-dut` and `eth-north`. No impairment is applied by default (`pristine` state). MASQUERADE is **not** used — symmetric return routing is handled by the app-router.
 6. **IPsec hub startup** — The `ipsec-hub` container starts StrongSwan as an IKEv2 responder, awaiting tunnel initiation from the DUT.
-7. **Content ingest (handled automatically by Boardfarm)** — The `sdwan_testbed_setup` session-scoped autouse fixture in `tests/conftest.py` calls `streaming_server.ensure_content_available()` through the typed `StreamingServer` template reference before the first test runs. The method is idempotent: it checks whether the asset is already present in MinIO and returns immediately if so; otherwise it runs FFmpeg content generation and `mc cp` ingest automatically.
+7. **Traffic generator startup** — `lan-traffic-gen` and `north-traffic-gen` containers wait for their Raikou OVS interface (`eth1`), add static routes for remote testbed subnets via their OVS gateway, start the iPerf3 server pool (ports 5201–5210), and launch SSHD. See [traffic-generator.md](traffic-generator.md).
+8. **Content ingest (handled automatically by Boardfarm)** — The `sdwan_testbed_setup` session-scoped autouse fixture in `tests/conftest.py` calls `streaming_server.ensure_content_available()` through the typed `StreamingServer` template reference before the first test runs. The method is idempotent: it checks whether the asset is already present in MinIO and returns immediately if so; otherwise it runs FFmpeg content generation and `mc cp` ingest automatically.
 
     > **Manual fallback (debugging only):** If needed outside of a Boardfarm session, the ingest can be triggered manually. The shell script below mirrors what `ensure_content_available()` does internally via SSH into `streaming-server`:
     ```bash
@@ -737,7 +775,7 @@ The environment config defines per-device defaults and behavior. The DUT has SLA
     ```
     At runtime, `streaming-server` proxies to MinIO at `http://10.100.0.2:9000` over the `content-internal` Raikou bridge — not via Docker hostname resolution.
     See `application-services.md §3.2` for the full FFmpeg command and bitrate ladder.
-8. **Boardfarm** connects to all containers via SSH (or `docker exec` for DUT), parses `bf_config_sdwan.json` and `bf_env_sdwan.json`, instantiates devices with merged config, and the testbed is ready.
+9. **Boardfarm** connects to all containers via SSH (or `docker exec` for DUT), parses `bf_config_sdwan.json` and `bf_env_sdwan.json`, instantiates devices with merged config, and the testbed is ready.
 
 ---
 
@@ -773,7 +811,7 @@ Return path: app-router CONNMARK restores fwmark 2 → routes reply via north-wa
 lan-traffic-gen (192.168.10.20)
   → iPerf3 UDP DSCP=0 (Best Effort, 85 Mbps background)
   → DUT → wan1-tc (100 Mbps WAN1 link creates queue pressure)
-  → north-segment → lan-traffic-gen (Phase 2+) iPerf3 server
+  → north-segment → north-traffic-gen (172.16.0.25) iPerf3 server
 
 lan-qoe-client (192.168.10.10)
   → WebRTC DSCP=46 (EF — voice priority)
@@ -818,6 +856,7 @@ lan-qoe-client (192.168.10.10) attempts outbound TCP → 172.16.0.30:4444
 | WAN2-TC south | `10.10.2.2` | — | `wan2_tc` |
 | WAN1-TC north | `172.16.1.1` | — | `wan1_tc` |
 | WAN2-TC north | `172.16.2.1` | — | `wan2_tc` |
+| LAN traffic generator | `192.168.10.20` | 5201–5210 (iPerf3) | `lan_traffic_gen` |
 | App-router wan1 | `172.16.1.254` | — | — (infrastructure) |
 | App-router wan2 | `172.16.2.254` | — | — (infrastructure) |
 | App-router south | `172.16.0.254` | — | — (infrastructure) |
@@ -827,6 +866,7 @@ lan-qoe-client (192.168.10.10) attempts outbound TCP → 172.16.0.30:4444
 | MinIO content origin | `10.100.0.2` | 9000 (S3 API via content-internal) | — |
 | Conferencing server | `172.16.0.12` | 8443 (WSS) | — |
 | IPsec hub | `172.16.0.20` | IKEv2 (500/4500 UDP) | — (infrastructure) |
+| North traffic generator | `172.16.0.25` | 5201–5210 (iPerf3) | `north_traffic_gen` |
 | Malicious host _(Phase 4+)_ | `172.16.0.30` | 4444 (C2), 80 (EICAR HTTP) | `malicious_host` |
 
 ---
@@ -930,7 +970,7 @@ curl -k https://localhost:18444/hls/default/index.m3u8 # Streaming (HTTPS)
 docker exec ipsec-hub ipsec statusall
 
 # Check SSH access to all SSH-enabled containers
-for port in 5001 5002 5003 5005 5006 5007; do
+for port in 5001 5002 5003 5005 5006 5007 5008 5009; do
     ssh -p $port -o ConnectTimeout=3 root@localhost "hostname" && echo "Port $port OK"
 done
 ```
@@ -949,7 +989,7 @@ Phase 4 extends the Linux Router digital twin with capabilities needed for QoS a
 | :--- | :--- | :--- | :--- |
 | **DUT QoS shaping** (`tc htb`, `fq_codel`) | QoS | `linux-sdwan-router` gains LLQ/WFQ traffic classes on WAN egress interfaces; DUT `apply_policy()` extended with QoS dict | — |
 | **DUT firewall** (`iptables`/`nftables`) | Security | `linux-sdwan-router` gains zone-based stateful firewall rules (LAN/WAN/DMZ zones) | — |
-| **Traffic Generator** (`iPerf3`/`TRex`) | QoS | New `lan-traffic-gen` container on `lan-segment` (192.168.10.20); generates background UDP/TCP load at configurable rates to create queue contention | `TrafficGenerator` template, `IperfTrafficGenerator` device class |
+| ~~**Traffic Generator**~~ (`iPerf3`) | QoS | **Completed** — `lan-traffic-gen` and `north-traffic-gen` deployed. See [traffic-generator.md](traffic-generator.md) | `TrafficGenerator` template, `IperfTrafficGenerator` device class |
 | **Malicious Host** (Kali Linux) | Security | New `malicious-host` container on `north-segment` (172.16.0.30); provides port scanning (Nmap), SYN flood (hping3), C2 listener, and EICAR file server | `MaliciousHost` template, `KaliMaliciousHost` device class |
 | **Security use cases** | Security | — | `security_use_cases.py`: `assert_port_scan_detected()`, `assert_syn_flood_mitigated()`, `assert_c2_callback_blocked()`, `assert_eicar_download_blocked()` |
 | **Triple WAN** | Path Steering | Third WAN path — see [Section 9](#9-triple-wan-expansion) for topology details (`dut-wan3`, `north-wan3` bridges, `wan3-tc` container) | `wan_interfaces` gains `"wan3": "eth-wan3"` |
@@ -1001,7 +1041,7 @@ Phase 5 swaps the Linux Router digital twin for a commercial SD-WAN appliance (e
 - IPsec hub (peer for vendor DUT VPN tunnels)
 - QoE client and measurement infrastructure
 - All BDD scenarios and step definitions
-- All `use_cases/` modules (qoe, wan_edge, traffic_control)
+- All `use_cases/` modules (qoe, wan_edge, traffic_control, traffic_generator)
 
 **New capabilities enabled by commercial DUT:**
 
@@ -1032,4 +1072,4 @@ The table below summarises which component phases must be complete before each p
 | [QoEClient](qoe-client.md) | CA trust + `protocol` field ✅ | — | — |
 | [Application Services](application-services.md) | HTTPS + HTTP/3 ✅ | Malicious Host container | — |
 | [Traffic Management](traffic-management.md) | `LinuxTrafficController` ✅ | — | `SpirentTrafficController` *(optional)* |
-| [TrafficGenerator](future/traffic-generator.md) | — | Container + Driver + Integration | — |
+| [TrafficGenerator](traffic-generator.md) | Container + Driver ✅ | — | — |

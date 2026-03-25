@@ -10,6 +10,7 @@ from .mock_devices import (
     MockSIPPhone,
     MockSIPServer,
     MockTrafficController,
+    MockTrafficGenerator,
     MockWANEdgeDevice,
 )
 
@@ -23,5 +24,6 @@ __all__ = [
     "MockSIPPhone",
     "MockSIPServer",
     "MockTrafficController",
+    "MockTrafficGenerator",
     "MockWANEdgeDevice",
 ]

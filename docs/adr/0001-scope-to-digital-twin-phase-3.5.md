@@ -128,6 +128,6 @@ As part of this decision, the project documentation was restructured:
 | **Rewritten** (plan to as-built) | `QoE_Client_Implementation_Plan.md` → [`qoe-client.md`](../examples/sdwan-digital-twin/qoe-client.md) |
 | **Rewritten** (plan to as-built) | `Application_Services_Implementation_Plan.md` → [`application-services.md`](../examples/sdwan-digital-twin/application-services.md) |
 | **Edited** (removed aspirational sections) | [`traffic-management.md`](../examples/sdwan-digital-twin/traffic-management.md) |
-| **Retained** (never implemented; kept for future reference) | [`traffic-generator.md`](../examples/sdwan-digital-twin/future/traffic-generator.md) |
+| **Implemented** (post-ADR; moved from `future/`) | [`traffic-generator.md`](../examples/sdwan-digital-twin/traffic-generator.md) |
 | **Updated** (descoped; kept as design reference) | [`security-testing.md`](../examples/sdwan-digital-twin/future/security-testing.md) (MaliciousHost + security use cases) |
 | **Unchanged** | [`testbed-configuration.md`](../examples/sdwan-digital-twin/testbed-configuration.md), [`testbed-ca-setup.md`](../examples/sdwan-digital-twin/testbed-ca-setup.md) |

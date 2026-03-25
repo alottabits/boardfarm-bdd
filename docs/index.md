@@ -75,11 +75,12 @@ Digital twin testbed for WAN edge appliance validation with dual-WAN topology.
 | [QoE Verification Brief](examples/sdwan-digital-twin/qoe-verification-brief.md) | Technical brief on automated QoE verification |
 | [Cross-Vendor API Analysis](examples/sdwan-digital-twin/cross-vendor-api-analysis.md) | WANEdgeDevice template mapping across SD-WAN vendors |
 
+| [Traffic Generator](examples/sdwan-digital-twin/traffic-generator.md) | iPerf3 background load generator (implemented — UC-SDWAN-06) |
+
 **Future designs (not yet implemented):**
 
 | Document | Description |
 |---|---|
-| [Traffic Generator](examples/sdwan-digital-twin/future/traffic-generator.md) | iPerf3 background load generator design (descoped — ADR-0001) |
 | [Security Testing](examples/sdwan-digital-twin/future/security-testing.md) | MaliciousHost and security test scenario design (descoped — ADR-0001) |
 
 ---

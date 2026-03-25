@@ -40,7 +40,7 @@ The framework uses a **Linux Router "digital twin"** as a reference DUT, providi
 
 ### Scope Decision
 
-The framework has been realized through Phase 3.5 (Digital Twin Hardening). Phases 4 (QoS shaping, firewall, security tooling, TrafficGenerator, MaliciousHost) and 5 (commercial DUT integration) are not pursued at this time. See [ADR-0001](../../adr/0001-scope-to-digital-twin-phase-3.5.md) for the full rationale and deliverable inventory.
+The framework has been realized through Phase 3.5 (Digital Twin Hardening). The `TrafficGenerator` (iPerf3 background load) has since been implemented — see [traffic-generator.md](traffic-generator.md). Remaining items from Phases 4 (QoS shaping, firewall, security tooling, MaliciousHost) and 5 (commercial DUT integration) are not pursued at this time. See [ADR-0001](../../adr/0001-scope-to-digital-twin-phase-3.5.md) for the full rationale and deliverable inventory.
 
 ### Related Documents
 
@@ -72,11 +72,16 @@ The framework has been realized through Phase 3.5 (Digital Twin Hardening). Phas
 | --- | --- | --- |
 | [ADR-0001](../../adr/0001-scope-to-digital-twin-phase-3.5.md) | Scope to Digital Twin (Phase 3.5) | Accepted |
 
+**Implemented Design Documents**
+
+| Document | Description |
+| :--- | :--- |
+| [Traffic Generator](traffic-generator.md) | iPerf3 background load generator — `lan-traffic-gen` and `north-traffic-gen` containers deployed for QoS contention (UC-SDWAN-06) |
+
 **Retained Design Documents (not pursued, kept for reference)**
 
 | Document | Description |
 | :--- | :--- |
-| [Traffic Generator](future/traffic-generator.md) | Design for iPerf3 background load generator (descoped — see ADR-0001) |
 | [Security Testing](future/security-testing.md) | `MaliciousHost` template, `LinuxMaliciousHost` container, `security_use_cases.py`, and security test scenarios (descoped — see ADR-0001) |
 
 ---
@@ -461,7 +466,7 @@ All integration tests pass in three consecutive runs.
 | Risk / Debt | Impact | Mitigation |
 | --- | --- | --- |
 | Commercial DUT portability unproven | `WANEdgeDevice` template may need adjustments for vendor APIs | Template design follows Boardfarm conventions used successfully for CPE testing |
-| QoS contention testing not validated | Cannot assert DSCP prioritisation under load | `TrafficGenerator` template is designed; implementation plan retained for future use |
+| QoS contention testing | `TrafficGenerator` deployed; basic QoS contention validated (UC-SDWAN-06). DUT-side QoS shaping (`tc htb`) not yet implemented — DUT cannot actively prioritise DSCP-marked traffic | See [traffic-generator.md](traffic-generator.md) |
 | Security pillar partially unvalidated | Active threat emulation (port scan, SYN flood, C2, EICAR) not tested | `MaliciousHost` template and `security_use_cases.py` are designed in the original technical brief |
 | `reset_to_default()` not yet implemented | Change-registry teardown requires each test step to record its changes | Natural next step once template implementations are stable |
 

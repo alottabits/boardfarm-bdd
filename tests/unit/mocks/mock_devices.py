@@ -435,6 +435,52 @@ class MockQoEClient:
         return True
 
 
+class MockTrafficGenerator:
+    """Lightweight mock of TrafficGenerator for unit testing."""
+
+    def __init__(self, name: str = "mock_traffic_gen"):
+        self.name = name
+        self.device_name = name
+        self._active_flows: dict[str, dict] = {}
+        self._flow_counter = 0
+        self._server_ip = "172.16.0.25"
+
+    @property
+    def server_ip(self) -> str:
+        return self._server_ip
+
+    @property
+    def active_flows(self) -> list[str]:
+        return list(self._active_flows)
+
+    def start_traffic(self, spec) -> str:
+        self._flow_counter += 1
+        fid = f"flow-{self._flow_counter}"
+        self._active_flows[fid] = {"spec": spec}
+        return fid
+
+    def stop_traffic(self, flow_id: str):
+        from types import SimpleNamespace
+
+        self._active_flows.pop(flow_id, None)
+        return SimpleNamespace(
+            sent_mbps=85.0, received_mbps=84.5,
+            loss_percent=0.1, jitter_ms=0.5, dscp_marking=0,
+        )
+
+    def stop_all_traffic(self) -> dict:
+        from types import SimpleNamespace
+
+        results = {}
+        for fid in list(self._active_flows):
+            results[fid] = SimpleNamespace(
+                sent_mbps=85.0, received_mbps=84.5,
+                loss_percent=0.1, jitter_ms=0.5, dscp_marking=0,
+            )
+        self._active_flows.clear()
+        return results
+
+
 class MockDevices:
     """Mock devices namespace (like boardfarm devices fixture)."""
     
@@ -451,3 +497,5 @@ class MockDevices:
         self.wan1_tc = MockTrafficController("wan1_tc")
         self.wan2_tc = MockTrafficController("wan2_tc")
         self.lan_qoe_client = MockQoEClient("lan_qoe_client")
+        self.lan_traffic_gen = MockTrafficGenerator("lan_traffic_gen")
+        self.north_traffic_gen = MockTrafficGenerator("north_traffic_gen")

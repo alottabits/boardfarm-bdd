@@ -103,6 +103,22 @@
                 "ipaddress": "10.100.0.2/30"
             }
         ],
+        "lan-traffic-gen": [
+            {
+                "bridge": "lan-segment",
+                "iface": "eth1",
+                "ipaddress": "192.168.10.20/24",
+                "gateway": "192.168.10.1"
+            }
+        ],
+        "north-traffic-gen": [
+            {
+                "bridge": "north-segment",
+                "iface": "eth1",
+                "ipaddress": "172.16.0.25/24",
+                "gateway": "172.16.0.254"
+            }
+        ],
         "linux-sdwan-router": [
             {
                 "bridge": "lan-segment",

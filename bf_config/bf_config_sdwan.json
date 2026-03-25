@@ -47,6 +47,26 @@
                 "username": "root",
                 "password": "boardfarm",
                 "simulated_ip": "192.168.10.10"
+            },
+            {
+                "name": "lan_traffic_gen",
+                "type": "iperf_traffic_generator",
+                "connection_type": "authenticated_ssh",
+                "ipaddr": "localhost",
+                "port": 5008,
+                "username": "root",
+                "password": "boardfarm",
+                "simulated_ip": "192.168.10.20"
+            },
+            {
+                "name": "north_traffic_gen",
+                "type": "iperf_traffic_generator",
+                "connection_type": "authenticated_ssh",
+                "ipaddr": "localhost",
+                "port": 5009,
+                "username": "root",
+                "password": "boardfarm",
+                "simulated_ip": "172.16.0.25"
             }
         ]
     }

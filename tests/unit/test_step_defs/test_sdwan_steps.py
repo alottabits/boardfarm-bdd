@@ -19,6 +19,7 @@ from tests.unit.mocks import (
     MockContext,
     MockQoEClient,
     MockTrafficController,
+    MockTrafficGenerator,
     MockWANEdgeDevice,
 )
 from tests.step_defs.sdwan_steps import (
@@ -29,6 +30,8 @@ from tests.step_defs.sdwan_steps import (
     appliance_fails_back,
     appliance_steers_traffic,
     network_conditions_set_to_preset,
+    network_ops_starts_upstream_traffic,
+    network_ops_stops_upstream_traffic,
     network_ops_verifies_active_path,
     network_ops_verifies_active_path_given,
     network_ops_verifies_wan_links_up,
@@ -36,6 +39,7 @@ from tests.step_defs.sdwan_steps import (
     remote_worker_confirms_session_functional,
     remote_worker_starts_session,
     sdwan_appliance_operational,
+    traffic_generators_available,
     wan_link_complete_failure,
     wan_link_degraded,
     wan_link_recovers,
@@ -123,8 +127,8 @@ class TestSdwanApplianceOperational:
                 "tests.step_defs.sdwan_steps.qoe_use_cases"
             ) as mock_qoe,
         ):
-            mock_dut = MockWANEdgeDevice()
-            mock_we.get_wan_edge.return_value = mock_dut
+            mock_edge = MockWANEdgeDevice()
+            mock_we.get_wan_edge.return_value = mock_edge
             mock_tc.get_traffic_controller.side_effect = [
                 mock_tc1,
                 mock_tc2,
@@ -140,7 +144,7 @@ class TestSdwanApplianceOperational:
                 mock_tc.get_traffic_controller.call_count == 2
             )
             mock_qoe.get_qoe_client.assert_called_once()
-            assert ctx.sdwan_appliance is mock_dut
+            assert ctx.sdwan_appliance is mock_edge
             assert ctx.wan1_tc is mock_tc1
             assert ctx.wan2_tc is mock_tc2
             assert ctx.lan_client is mock_qoe_client
@@ -283,7 +287,7 @@ class TestNetworkOpsVerifiesActivePathGiven:
         mock_we = _make_wan_edge_mock()
         mock_we.wait_for_path_switch.side_effect = (
             AssertionError(
-                "DUT did not switch to 'wan1' within 10000ms"
+                "Device did not switch to 'wan1' within 10000ms"
             )
         )
         with patch(
@@ -321,7 +325,7 @@ class TestNetworkOpsVerifiesActivePath:
         mock_we = _make_wan_edge_mock()
         mock_we.assert_active_path.side_effect = (
             AssertionError(
-                "Expected 'wan1' but DUT reports 'wan2'"
+                "Expected 'wan1' but Device reports 'wan2'"
             )
         )
         with patch(
@@ -855,7 +859,7 @@ class TestApplianceConvergesWithinSlo:
         ) as mock_we:
             mock_we.wait_for_path_switch.side_effect = (
                 AssertionError(
-                    "DUT did not switch to 'wan2'"
+                    "Device did not switch to 'wan2'"
                     " within 1000ms"
                 )
             )
@@ -876,7 +880,7 @@ class TestApplianceSteersTraffic:
     """Tests for 'the appliance steers traffic to "<wan>"'."""
 
     def test_success_traffic_steered(self, bf_context):
-        """Statement is true: DUT steers to expected WAN."""
+        """Statement is true: Device steers to expected WAN."""
         with patch(
             "tests.step_defs.sdwan_steps.wan_edge_use_cases"
         ) as mock_we:
@@ -891,12 +895,12 @@ class TestApplianceSteersTraffic:
             )
 
     def test_failure_no_steering(self, bf_context):
-        """Statement is not true: DUT does not steer → step raises."""
+        """Statement is not true: Device does not steer → step raises."""
         with patch(
             "tests.step_defs.sdwan_steps.wan_edge_use_cases"
         ) as mock_we:
             mock_we.wait_for_path_switch.side_effect = (
-                AssertionError("DUT did not switch")
+                AssertionError("Device did not switch")
             )
             with pytest.raises(
                 AssertionError, match="did not switch"
@@ -913,7 +917,7 @@ class TestApplianceFailsBack:
     """Tests for 'the appliance fails back to "<wan>" …'."""
 
     def test_success_failback(self, bf_context):
-        """Statement is true: DUT fails back → failback_ms stored."""
+        """Statement is true: Device fails back → failback_ms stored."""
         with patch(
             "tests.step_defs.sdwan_steps.wan_edge_use_cases"
         ) as mock_we:
@@ -929,13 +933,13 @@ class TestApplianceFailsBack:
             assert bf_context.failback_ms == 5000.0
 
     def test_failure_no_failback(self, bf_context):
-        """Statement is not true: DUT does not fail back → raises."""
+        """Statement is not true: Device does not fail back → raises."""
         with patch(
             "tests.step_defs.sdwan_steps.wan_edge_use_cases"
         ) as mock_we:
             mock_we.wait_for_path_switch.side_effect = (
                 AssertionError(
-                    "DUT did not switch to 'wan1'"
+                    "Device did not switch to 'wan1'"
                     " within 30000ms"
                 )
             )
@@ -968,3 +972,160 @@ class TestGetTcForWan:
     def test_unknown_raises(self, bf_context):
         with pytest.raises(ValueError, match="wan3"):
             _get_tc_for_wan(bf_context, "wan3")
+
+
+# ---------------------------------------------------------------------------
+# Traffic generator discovery
+# ---------------------------------------------------------------------------
+
+
+class TestTrafficGeneratorsAvailable:
+    """Tests for the 'traffic generators are available' step."""
+
+    def test_success_discovers_both_generators(self, bf_context):
+        """Statement true: both traffic generators found → stored in context."""
+        lan_tg = MockTrafficGenerator("lan_traffic_gen")
+        north_tg = MockTrafficGenerator("north_traffic_gen")
+
+        with patch(
+            "tests.step_defs.sdwan_steps.tg_use_cases"
+        ) as mock_uc:
+            mock_uc.get_traffic_generator.side_effect = (
+                lambda name: {
+                    "lan_traffic_gen": lan_tg,
+                    "north_traffic_gen": north_tg,
+                }[name]
+            )
+
+            traffic_generators_available(bf_context)
+
+            assert bf_context.lan_traffic_gen is lan_tg
+            assert bf_context.north_traffic_gen is north_tg
+            assert mock_uc.get_traffic_generator.call_count == 2
+
+    def test_failure_propagates_device_not_found(self, bf_context):
+        """Statement not true: device missing → raises."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tg_use_cases"
+        ) as mock_uc:
+            mock_uc.get_traffic_generator.side_effect = Exception(
+                "No TrafficGenerator devices available"
+            )
+
+            with pytest.raises(
+                Exception, match="No TrafficGenerator"
+            ):
+                traffic_generators_available(bf_context)
+
+
+# ---------------------------------------------------------------------------
+# Network operations starts upstream traffic
+# ---------------------------------------------------------------------------
+
+
+class TestNetworkOpsStartsUpstreamTraffic:
+    """Tests for the 'starts N Mbps upstream traffic' step."""
+
+    @pytest.fixture
+    def bf_ctx_with_tg(self):
+        ctx = MockContext()
+        ctx.lan_traffic_gen = MockTrafficGenerator("lan_traffic_gen")
+        ctx.north_traffic_gen = MockTrafficGenerator("north_traffic_gen")
+        return ctx
+
+    def test_success_starts_flow_and_stores_id(self, bf_ctx_with_tg):
+        """Statement true: flow started → flow_id stored in context."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tg_use_cases"
+        ) as mock_uc:
+            mock_uc.saturate_wan_link.return_value = "flow-42"
+
+            network_ops_starts_upstream_traffic(bf_ctx_with_tg, 85)
+
+            mock_uc.saturate_wan_link.assert_called_once_with(
+                source=bf_ctx_with_tg.lan_traffic_gen,
+                destination=bf_ctx_with_tg.north_traffic_gen,
+                link_bandwidth_mbps=100.0,
+                dscp=0,
+                utilisation_pct=0.85,
+                duration_s=120,
+            )
+            assert bf_ctx_with_tg.upstream_flow_id == "flow-42"
+
+    def test_failure_propagates_exception(self, bf_ctx_with_tg):
+        """Statement not true: iPerf3 fails → raises."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tg_use_cases"
+        ) as mock_uc:
+            mock_uc.saturate_wan_link.side_effect = RuntimeError(
+                "iPerf3 connection refused"
+            )
+
+            with pytest.raises(
+                RuntimeError, match="iPerf3 connection refused"
+            ):
+                network_ops_starts_upstream_traffic(
+                    bf_ctx_with_tg, 85
+                )
+
+
+# ---------------------------------------------------------------------------
+# Network operations stops upstream traffic
+# ---------------------------------------------------------------------------
+
+
+class TestNetworkOpsStopsUpstreamTraffic:
+    """Tests for the 'stops the upstream background traffic' step."""
+
+    @pytest.fixture
+    def bf_ctx_with_flow(self):
+        ctx = MockContext()
+        ctx.lan_traffic_gen = MockTrafficGenerator("lan_traffic_gen")
+        ctx.upstream_flow_id = "flow-42"
+        return ctx
+
+    def test_success_stops_flow_and_stores_result(
+        self, bf_ctx_with_flow
+    ):
+        """Statement true: flow stopped → result stored in context."""
+        mock_result = SimpleNamespace(
+            sent_mbps=85.0,
+            received_mbps=84.5,
+            loss_percent=0.1,
+            jitter_ms=0.5,
+            dscp_marking=0,
+        )
+        with patch(
+            "tests.step_defs.sdwan_steps.tg_use_cases"
+        ) as mock_uc:
+            mock_uc.stop_traffic.return_value = mock_result
+
+            network_ops_stops_upstream_traffic(bf_ctx_with_flow)
+
+            mock_uc.stop_traffic.assert_called_once_with(
+                bf_ctx_with_flow.lan_traffic_gen,
+                "flow-42",
+            )
+            assert (
+                bf_ctx_with_flow.upstream_traffic_result is mock_result
+            )
+            assert (
+                bf_ctx_with_flow.upstream_traffic_result.sent_mbps
+                == 85.0
+            )
+
+    def test_failure_propagates_exception(self, bf_ctx_with_flow):
+        """Statement not true: stop fails → raises."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tg_use_cases"
+        ) as mock_uc:
+            mock_uc.stop_traffic.side_effect = RuntimeError(
+                "Flow not found"
+            )
+
+            with pytest.raises(
+                RuntimeError, match="Flow not found"
+            ):
+                network_ops_stops_upstream_traffic(
+                    bf_ctx_with_flow
+                )
