@@ -64,9 +64,9 @@ docker compose -p boardfarm-bdd-sdwan -f raikou/docker-compose-sdwan.yaml up -d
 pip install -e ".[all]"
 
 # 4. Run tests
-pytest --board-name sdwan-digital-twin \
-       --env-config bf_config/boardfarm_env_sdwan.json \
-       --inventory-config bf_config/boardfarm_config_sdwan.json \
+pytest --board-name sdwan \
+       --env-config bf_config/bf_env_sdwan.json \
+       --inventory-config bf_config/bf_config_sdwan.json \
        tests/
 ```
 
@@ -75,7 +75,7 @@ pytest --board-name sdwan-digital-twin \
 - **Raikou config:** `raikou/config_sdwan.json`
 - **Docker Compose:** `raikou/docker-compose-sdwan.yaml`
 - **Testbed CA:** `raikou/testbed-ca/` (see [Testbed CA Setup](testbed-ca-setup.md))
-- **Boardfarm inventory:** `bf_config/boardfarm_config_sdwan.json`
+- **Boardfarm inventory:** `bf_config/bf_config_sdwan.json`
 
 ## Scope
 

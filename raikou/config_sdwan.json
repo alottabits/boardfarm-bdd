@@ -1,6 +1,10 @@
 {
     "_comment": "Raikou OVS topology. Containers connect via OVS bridges, NOT Docker networks. Test traffic flows through these bridges. See docs/SDWAN_Testbed_Configuration.md",
     "bridge": {
+        "mgmt": {
+            "iprange": "192.168.55.0/24",
+            "ipaddress": "192.168.55.1/24"
+        },
         "lan-segment": {},
         "dut-wan1": {},
         "dut-wan2": {},
@@ -10,15 +14,29 @@
         "content-internal": {}
     },
     "container": {
-        "lan-qoe-client": [
+        "linux-sdwan-router": [
             {
                 "bridge": "lan-segment",
-                "iface": "eth1",
-                "ipaddress": "192.168.10.10/24",
-                "gateway": "192.168.10.1"
+                "iface": "eth-lan",
+                "ipaddress": "192.168.10.1/24"
+            },
+            {
+                "bridge": "dut-wan1",
+                "iface": "eth-wan1",
+                "ipaddress": "10.10.1.1/30"
+            },
+            {
+                "bridge": "dut-wan2",
+                "iface": "eth-wan2",
+                "ipaddress": "10.10.2.1/30"
             }
         ],
         "wan1-tc": [
+            {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.20/24"
+            },
             {
                 "bridge": "dut-wan1",
                 "iface": "eth-dut",
@@ -32,6 +50,11 @@
         ],
         "wan2-tc": [
             {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.21/24"
+            },
+            {
                 "bridge": "dut-wan2",
                 "iface": "eth-dut",
                 "ipaddress": "10.10.2.2/30"
@@ -43,6 +66,11 @@
             }
         ],
         "app-router": [
+            {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.22/24"
+            },
             {
                 "bridge": "north-wan1",
                 "iface": "eth-wan1",
@@ -59,7 +87,51 @@
                 "ipaddress": "172.16.0.254/24"
             }
         ],
+        "lan-qoe-client": [
+            {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.23/24"
+            },
+            {
+                "bridge": "lan-segment",
+                "iface": "eth1",
+                "ipaddress": "192.168.10.10/24",
+                "gateway": "192.168.10.1"
+            }
+        ],
+        "lan-traffic-gen": [
+            {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.24/24"
+            },
+            {
+                "bridge": "lan-segment",
+                "iface": "eth1",
+                "ipaddress": "192.168.10.20/24",
+                "gateway": "192.168.10.1"
+            }
+        ],
+        "north-traffic-gen": [
+            {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.25/24"
+            },
+            {
+                "bridge": "north-segment",
+                "iface": "eth1",
+                "ipaddress": "172.16.0.25/24",
+                "gateway": "172.16.0.254"
+            }
+        ],
         "productivity-server": [
+            {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.26/24"
+            },
             {
                 "bridge": "north-segment",
                 "iface": "eth1",
@@ -68,6 +140,11 @@
             }
         ],
         "streaming-server": [
+            {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.27/24"
+            },
             {
                 "bridge": "north-segment",
                 "iface": "eth1",
@@ -82,6 +159,11 @@
         ],
         "conf-server": [
             {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.28/24"
+            },
+            {
                 "bridge": "north-segment",
                 "iface": "eth1",
                 "ipaddress": "172.16.0.12/24",
@@ -89,6 +171,11 @@
             }
         ],
         "ipsec-hub": [
+            {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.29/24"
+            },
             {
                 "bridge": "north-segment",
                 "iface": "eth1",
@@ -98,42 +185,14 @@
         ],
         "minio": [
             {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.30/24"
+            },
+            {
                 "bridge": "content-internal",
                 "iface": "eth1",
                 "ipaddress": "10.100.0.2/30"
-            }
-        ],
-        "lan-traffic-gen": [
-            {
-                "bridge": "lan-segment",
-                "iface": "eth1",
-                "ipaddress": "192.168.10.20/24",
-                "gateway": "192.168.10.1"
-            }
-        ],
-        "north-traffic-gen": [
-            {
-                "bridge": "north-segment",
-                "iface": "eth1",
-                "ipaddress": "172.16.0.25/24",
-                "gateway": "172.16.0.254"
-            }
-        ],
-        "linux-sdwan-router": [
-            {
-                "bridge": "lan-segment",
-                "iface": "eth-lan",
-                "ipaddress": "192.168.10.1/24"
-            },
-            {
-                "bridge": "dut-wan1",
-                "iface": "eth-wan1",
-                "ipaddress": "10.10.1.1/30"
-            },
-            {
-                "bridge": "dut-wan2",
-                "iface": "eth-wan2",
-                "ipaddress": "10.10.2.1/30"
             }
         ]
     },

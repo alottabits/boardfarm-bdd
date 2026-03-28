@@ -76,21 +76,6 @@ def bf_context() -> MockContext:
 
 
 @pytest.fixture(scope="function", autouse=True)
-def cleanup_cpe_config_after_scenario(cpe: MockCPE, bf_context: MockContext):
-    """Override and disable the CPE config cleanup fixture for unit tests."""
-    yield  # Allows the test to run
-    # No cleanup action is performed
-
-
-@pytest.fixture(scope="function", autouse=True)
-def cleanup_sip_phones_after_scenario(bf_context: MockContext):
-    """Override and disable the SIP phone cleanup fixture for unit tests."""
-    yield  # Allows the test to run
-    # No cleanup action is performed
-
-
-@pytest.fixture(scope="function", autouse=True)
-def cleanup_traffic_generators_after_scenario(bf_context: MockContext):
-    """Override and disable the traffic generator cleanup fixture for unit tests."""
+def refresh_cpe_console_after_scenario(cpe: MockCPE):
+    """Override and disable the CPE console refresh fixture for unit tests."""
     yield
-    # No cleanup action is performed

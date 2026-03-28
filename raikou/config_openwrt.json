@@ -1,5 +1,9 @@
 {
     "bridge": {
+        "mgmt": {
+            "iprange": "192.168.55.0/24",
+            "ipaddress": "192.168.55.1/24"
+        },
         "cpe-rtr": {
             "parents": [
                 {"iface": "enx00e04c5b7570"}
@@ -19,6 +23,11 @@
     "container": {
         "acs": [
             {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.11/24"
+            },
+            {
                 "bridge": "rtr-wan",
                 "gateway": "172.25.1.1",
                 "gateway6": "2001:dead:beef:2::1",
@@ -28,6 +37,11 @@
             }
         ],
         "dhcp": [
+            {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.6/24"
+            },
             {
                 "bridge": "rtr-wan",
                 "gateway": "172.25.1.1",
@@ -39,17 +53,39 @@
         ],
         "lan": [
             {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.8/24"
+            },
+            {
                 "bridge": "lan-cpe",
                 "iface": "eth1"
             }
         ],
         "lan-phone": [
             {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.12/24"
+            },
+            {
                 "bridge": "lan-cpe",
                 "iface": "eth1"
             }
         ],
+        "mongo": [
+            {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.9/24"
+            }
+        ],
         "router": [
+            {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.7/24"
+            },
             {
                 "bridge": "cpe-rtr",
                 "iface": "cpe"
@@ -65,6 +101,11 @@
         ],
         "sipcenter": [
             {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.5/24"
+            },
+            {
                 "bridge": "rtr-wan",
                 "gateway": "172.25.1.1",
                 "gateway6": "2001:dead:beef:2::1",
@@ -74,6 +115,11 @@
             }
         ],
         "wan": [
+            {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.10/24"
+            },
             {
                 "bridge": "rtr-wan",
                 "gateway": "172.25.1.1",
@@ -85,6 +131,11 @@
         ],
         "wan-phone": [
             {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.13/24"
+            },
+            {
                 "bridge": "rtr-wan",
                 "gateway": "172.25.1.1",
                 "gateway6": "2001:dead:beef:2::1",
@@ -94,6 +145,11 @@
             }
         ],
         "wan-phone2": [
+            {
+                "bridge": "mgmt",
+                "iface": "eth0",
+                "ipaddress": "192.168.55.14/24"
+            },
             {
                 "bridge": "rtr-wan",
                 "gateway": "172.25.1.1",

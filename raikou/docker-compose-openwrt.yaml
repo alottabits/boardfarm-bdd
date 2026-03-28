@@ -1,8 +1,11 @@
 name: boardfarm-bdd-openwrt
 ---
-# OpenWrt RPi Gateway Configuration
-# This compose file is used with a physical Raspberry Pi running OpenWrt
-# instead of the containerized PrplOS CPE.
+# Management Network Isolation — OpenWrt RPi Testbed
+# All containers use network_mode: none. Networking is fully managed by Raikou OVS:
+#   - mgmt bridge (192.168.55.0/24): SSH access, inter-container services (MongoDB)
+#   - Test bridges (cpe-rtr, lan-cpe, rtr-wan, rtr-uplink): test traffic
+# Host accesses container services via the mgmt bridge IP (e.g., 192.168.55.11:3000).
+# See: docs/management-network-isolation.md
 #
 # Architecture:
 #   - OpenWrt RPi WAN connects to cpe-rtr bridge (10.1.1.x)
@@ -19,8 +22,7 @@ services:
     router:
         image: ghcr.io/alottabits/boardfarm-bdd/router:v1.2.0
         container_name: router
-        ports:
-            - 4000:22
+        network_mode: none
         environment:
             - ENABLE_NAT_ON=eth1,aux0
             - FRR_AUTO_CONF=yes
@@ -36,76 +38,67 @@ services:
     wan:
         image: ghcr.io/alottabits/boardfarm-bdd/wan:v1.2.0
         container_name: wan
-        ports:
-            - 4001:22
-            - 8001:8080
+        network_mode: none
         environment:
-            - DNS_UPSTREAM=8.8.8.8
-            - LEGACY=no
+            - DNS_UPSTREAM=127.0.0.1
+            - LEGACY=yes
         privileged: true
         hostname: wan
 
     sipcenter:
         image: ghcr.io/alottabits/boardfarm-bdd/sip:v1.2.0
         container_name: sipcenter
-        ports:
-            - 4005:22
+        network_mode: none
         environment:
             - KAM_LISTEN_IPv4=172.25.1.5
             - KAM_LISTEN_IPv6=2001:dead:beef:2::5
             - KAM_LISTEN_ALIAS=sipcenter.boardfarm.com
-            - LEGACY=no
+            - LEGACY=yes
         privileged: true
         hostname: sipcenter
 
     lan-phone:
         image: ghcr.io/alottabits/boardfarm-bdd/phone:v1.2.0
         container_name: lan-phone
-        ports:
-            - 4006:22
+        network_mode: none
         environment:
-            - LEGACY=no
+            - LEGACY=yes
         privileged: true
         hostname: lan-phone
 
     wan-phone:
         image: ghcr.io/alottabits/boardfarm-bdd/phone:v1.2.0
         container_name: wan-phone
-        ports:
-            - 4007:22
+        network_mode: none
         environment:
-            - LEGACY=no
+            - LEGACY=yes
         privileged: true
         hostname: wan-phone
 
     wan-phone2:
         image: ghcr.io/alottabits/boardfarm-bdd/phone:v1.2.0
         container_name: wan-phone2
-        ports:
-            - 4008:22
+        network_mode: none
         environment:
-            - LEGACY=no
+            - LEGACY=yes
         privileged: true
         hostname: wan-phone2
 
     lan:
         image: ghcr.io/alottabits/boardfarm-bdd/lan:v1.2.0
         container_name: lan
-        ports:
-            - 4002:22
-            - 8002:8080
+        network_mode: none
         environment:
-            - LEGACY=no
+            - LEGACY=yes
         privileged: true
         hostname: lan
 
     dhcp:
         image: ghcr.io/alottabits/boardfarm-bdd/dhcp:v1.2.0
         container_name: dhcp
-        ports:
-            - 4003:22
+        network_mode: none
         environment:
-            - LEGACY=no
+            - LEGACY=yes
         privileged: true
         hostname: dhcp
         volumes:
@@ -117,6 +110,7 @@ services:
         restart: always
         privileged: true
         container_name: mongo
+        network_mode: none
         hostname: mongo
         environment:
             - MONGO_INITDB_ROOT_USERNAME=admin
@@ -126,8 +120,6 @@ services:
         volumes:
             - data_db:/data/db
             - data_configdb:/data/configdb
-        ports:
-            - 27017:27017
 
     acs:
         image: ghcr.io/alottabits/boardfarm-bdd/acs:v1.2.0
@@ -135,9 +127,10 @@ services:
             - mongo
         restart: always
         container_name: acs
+        network_mode: none
         hostname: acs
         environment:
-            - LEGACY=no
+            - LEGACY=yes
             - GENIEACS_UI_JWT_SECRET=bigfoot1
             - GENIEACS_CWMP_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-cwmp-access.log
             - GENIEACS_NBI_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-nbi-access.log
@@ -145,14 +138,8 @@ services:
             - GENIEACS_UI_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-ui-access.log
             - GENIEACS_DEBUG_FILE=/var/log/genieacs/genieacs-debug.yaml
             - GENIEACS_EXT_DIR=/opt/genieacs/ext
-            - GENIEACS_MONGODB_CONNECTION_URL=mongodb://admin:bigfoot1@mongo:27017
+            - GENIEACS_MONGODB_CONNECTION_URL=mongodb://admin:bigfoot1@192.168.55.9:27017
         privileged: true
-        ports:
-            - 4503:22
-            - 7547:7547
-            - 7557:7557
-            - 7567:7567
-            - 3000:3000
         volumes:
             - opt_volume:/opt
 
@@ -184,12 +171,3 @@ volumes:
     data_db:
     data_configdb:
     opt_volume:
-
-
-networks:
-    default:
-        ipam:
-            config:
-                - subnet: 192.168.55.0/24
-                  gateway: 192.168.55.1
-

@@ -252,6 +252,7 @@ wait_for_iface "$WAN2_IFACE"
 wait_for_iface "$SOUTH_IFACE"
 
 sysctl -w net.ipv4.ip_forward=1
+sysctl -w net.ipv4.conf.all.src_valid_mark=1
 
 # --- Routing tables ---
 echo "100 wan1" >> /etc/iproute2/rt_tables

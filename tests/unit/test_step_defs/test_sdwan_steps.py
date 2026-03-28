@@ -10,6 +10,7 @@ Patches: use_case modules at the step's import site (tests.step_defs.sdwan_steps
 
 from __future__ import annotations
 
+import inspect
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -44,6 +45,20 @@ from tests.step_defs.sdwan_steps import (
     wan_link_degraded,
     wan_link_recovers,
 )
+
+
+def _run_step(step_fn, *args, **kwargs):
+    """Execute the setup portion of a step function.
+
+    Yielding steps (generator functions) are advanced to the first yield so
+    the setup code runs.  Non-yielding steps are called normally.  The
+    generator (or None) is returned so tests can optionally verify teardown.
+    """
+    result = step_fn(*args, **kwargs)
+    if inspect.isgenerator(result):
+        next(result)
+        return result
+    return result
 
 
 def _make_wan_edge_mock(**overrides) -> MagicMock:
@@ -183,8 +198,9 @@ class TestNetworkConditionsPreset:
         with patch(
             "tests.step_defs.sdwan_steps.tc_use_cases"
         ) as mock_tc:
-            network_conditions_set_to_preset(
-                bf_context, "pristine", mock_boardfarm_config
+            _run_step(
+                network_conditions_set_to_preset,
+                bf_context, "pristine", mock_boardfarm_config,
             )
             assert mock_tc.apply_preset.call_count == 2
             mock_tc.apply_preset.assert_any_call(
@@ -209,8 +225,9 @@ class TestNetworkConditionsPreset:
                 "Preset 'bogus' not found"
             )
             with pytest.raises(KeyError, match="bogus"):
-                network_conditions_set_to_preset(
-                    bf_context, "bogus", mock_boardfarm_config
+                _run_step(
+                    network_conditions_set_to_preset,
+                    bf_context, "bogus", mock_boardfarm_config,
                 )
 
 
@@ -724,7 +741,7 @@ class TestWanLinkCompleteFailure:
         with patch(
             "tests.step_defs.sdwan_steps.tc_use_cases"
         ) as mock_tc:
-            wan_link_complete_failure(bf_context, "wan1")
+            _run_step(wan_link_complete_failure, bf_context, "wan1")
 
             mock_tc.set_impairment_profile.assert_called_once()
             args = (
@@ -742,7 +759,7 @@ class TestWanLinkCompleteFailure:
     def test_failure_unknown_wan_link(self, bf_context):
         """Statement is not true: unknown WAN link → ValueError."""
         with pytest.raises(ValueError, match="wan3"):
-            wan_link_complete_failure(bf_context, "wan3")
+            _run_step(wan_link_complete_failure, bf_context, "wan3")
 
 
 # ===========================================================================
@@ -760,7 +777,8 @@ class TestWanLinkDegraded:
         with patch(
             "tests.step_defs.sdwan_steps.tc_use_cases"
         ) as mock_tc:
-            wan_link_degraded(
+            _run_step(
+                wan_link_degraded,
                 bf_context,
                 "wan1",
                 "4g_mobile",
@@ -784,7 +802,8 @@ class TestWanLinkDegraded:
                 "Preset 'unknown' not found"
             )
             with pytest.raises(KeyError, match="unknown"):
-                wan_link_degraded(
+                _run_step(
+                    wan_link_degraded,
                     bf_context,
                     "wan1",
                     "unknown",
@@ -824,6 +843,162 @@ class TestWanLinkRecovers:
                 Exception, match="SSH connection lost"
             ):
                 wan_link_recovers(bf_context, "wan1")
+
+
+# ===========================================================================
+# Teardown verification for yielding steps
+# ===========================================================================
+
+
+class TestYieldTeardownBehavior:
+    """Verify that yielding impairment steps clear impairments on teardown."""
+
+    def test_complete_failure_teardown_clears(self, bf_context):
+        """wan_link_complete_failure teardown calls clear_impairment."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tc_use_cases"
+        ) as mock_tc:
+            gen = _run_step(wan_link_complete_failure, bf_context, "wan1")
+            mock_tc.clear_impairment.reset_mock()
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+            mock_tc.clear_impairment.assert_called_once_with(
+                bf_context.wan1_tc
+            )
+
+    def test_degraded_teardown_clears(
+        self, bf_context, mock_boardfarm_config
+    ):
+        """wan_link_degraded teardown calls clear_impairment."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tc_use_cases"
+        ) as mock_tc:
+            gen = _run_step(
+                wan_link_degraded,
+                bf_context, "wan1", "4g_mobile", mock_boardfarm_config,
+            )
+            mock_tc.clear_impairment.reset_mock()
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+            mock_tc.clear_impairment.assert_called_once_with(
+                bf_context.wan1_tc
+            )
+
+    def test_preset_teardown_clears_both(
+        self, bf_context, mock_boardfarm_config
+    ):
+        """network_conditions_set_to_preset teardown clears both TCs."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tc_use_cases"
+        ) as mock_tc:
+            gen = _run_step(
+                network_conditions_set_to_preset,
+                bf_context, "pristine", mock_boardfarm_config,
+            )
+            mock_tc.clear_impairment.reset_mock()
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+            assert mock_tc.clear_impairment.call_count == 2
+            mock_tc.clear_impairment.assert_any_call(
+                bf_context.wan1_tc
+            )
+            mock_tc.clear_impairment.assert_any_call(
+                bf_context.wan2_tc
+            )
+
+    def test_teardown_swallows_exception(self, bf_context):
+        """Teardown logs but does not re-raise clear_impairment failures."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tc_use_cases"
+        ) as mock_tc:
+            gen = _run_step(wan_link_complete_failure, bf_context, "wan1")
+            mock_tc.clear_impairment.side_effect = Exception("SSH lost")
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+
+class TestTrafficGeneratorYieldTeardown:
+    """Verify that the upstream-traffic step stops the flow on teardown.
+
+    Teardown uses the captured flow_id (closure), not bf_context, so it
+    always attempts to stop the flow it started — idempotent via try/except.
+    """
+
+    @pytest.fixture
+    def bf_ctx_with_tg(self):
+        ctx = MockContext()
+        ctx.lan_traffic_gen = MockTrafficGenerator("lan_traffic_gen")
+        ctx.north_traffic_gen = MockTrafficGenerator("north_traffic_gen")
+        return ctx
+
+    def test_teardown_stops_flow(self, bf_ctx_with_tg):
+        """Teardown always calls stop_traffic with the captured flow_id."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tg_use_cases"
+        ) as mock_uc:
+            mock_uc.saturate_wan_link.return_value = "flow-99"
+
+            gen = _run_step(
+                network_ops_starts_upstream_traffic,
+                bf_ctx_with_tg, 85,
+            )
+            mock_uc.stop_traffic.reset_mock()
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+            mock_uc.stop_traffic.assert_called_once_with(
+                bf_ctx_with_tg.lan_traffic_gen, "flow-99"
+            )
+
+    def test_teardown_is_idempotent_after_explicit_stop(
+        self, bf_ctx_with_tg
+    ):
+        """If the explicit stop step already ran, teardown still fires but swallows the error."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tg_use_cases"
+        ) as mock_uc:
+            mock_uc.saturate_wan_link.return_value = "flow-99"
+
+            gen = _run_step(
+                network_ops_starts_upstream_traffic,
+                bf_ctx_with_tg, 85,
+            )
+            mock_uc.stop_traffic.side_effect = RuntimeError(
+                "Flow flow-99 not found (already stopped)"
+            )
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+            mock_uc.stop_traffic.assert_called_once_with(
+                bf_ctx_with_tg.lan_traffic_gen, "flow-99"
+            )
+
+    def test_teardown_swallows_exception(self, bf_ctx_with_tg):
+        """Teardown logs but does not re-raise stop_traffic failures."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tg_use_cases"
+        ) as mock_uc:
+            mock_uc.saturate_wan_link.return_value = "flow-99"
+
+            gen = _run_step(
+                network_ops_starts_upstream_traffic,
+                bf_ctx_with_tg, 85,
+            )
+            mock_uc.stop_traffic.side_effect = Exception(
+                "iPerf3 process died"
+            )
+
+            with pytest.raises(StopIteration):
+                next(gen)
 
 
 # ===========================================================================
@@ -1040,7 +1215,10 @@ class TestNetworkOpsStartsUpstreamTraffic:
         ) as mock_uc:
             mock_uc.saturate_wan_link.return_value = "flow-42"
 
-            network_ops_starts_upstream_traffic(bf_ctx_with_tg, 85)
+            _run_step(
+                network_ops_starts_upstream_traffic,
+                bf_ctx_with_tg, 85,
+            )
 
             mock_uc.saturate_wan_link.assert_called_once_with(
                 source=bf_ctx_with_tg.lan_traffic_gen,
@@ -1064,8 +1242,9 @@ class TestNetworkOpsStartsUpstreamTraffic:
             with pytest.raises(
                 RuntimeError, match="iPerf3 connection refused"
             ):
-                network_ops_starts_upstream_traffic(
-                    bf_ctx_with_tg, 85
+                _run_step(
+                    network_ops_starts_upstream_traffic,
+                    bf_ctx_with_tg, 85,
                 )
 
 

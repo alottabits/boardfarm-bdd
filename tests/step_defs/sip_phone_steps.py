@@ -365,10 +365,24 @@ def validate_use_case_phone_requirements(
         ensure_phone_registered(phone, sipcenter)
         print(f"✓ {use_case_name} configured, started, and registered")
     
+    registered_phones = list(phone_mapping.values())
+
     print(f"\n✓ Use case phone requirements satisfied")
     print(f"  Testbed → Use Case Mapping:")
     for use_case_name, (fixture_name, _) in phone_mapping.items():
         print(f"    {fixture_name} → {use_case_name}")
+
+    yield
+
+    for fixture_name, phone in registered_phones:
+        try:
+            phone.hangup()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            phone.phone_kill()
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠ Could not stop phone {fixture_name}: {exc}")
 
 
 
@@ -594,7 +608,7 @@ def phone_is_idle(phone_role: str, bf_context: Any) -> None:
 
 
 @given("the {phone_role} phone is in an active call")
-def phone_in_active_call(phone_role: str, bf_context: Any) -> None:
+def phone_in_active_call(phone_role: str, bf_context: Any):
     """Set up phone in active call state (for testing busy scenarios).
     
     This step makes the target phone busy by establishing a call with a 
@@ -629,22 +643,18 @@ def phone_in_active_call(phone_role: str, bf_context: Any) -> None:
             break
     
     if not busy_maker_phone:
-        # Fallback if no third phone is available (e.g. only 2 phones in testbed)
-        # We'll just take the phone off-hook, which might be enough for some devices
-        # to report busy, but establishing a call is better.
         print(f"⚠ No third phone available to make {target_phone.name} busy.")
         print(f"  Attempting to set busy state by taking phone off-hook only.")
         
-        # Try to answer (off-hook) without incoming call
-        # This is device specific behavior
         try:
             target_phone.answer() 
         except Exception:
             pass
             
-        # Verify it's not idle
         if target_phone.is_idle():
              print(f"⚠ Could not make phone {target_phone.name} busy (still idle)")
+
+        yield
         return
 
     # Establish call between busy_maker and target_phone
@@ -686,6 +696,13 @@ def phone_in_active_call(phone_role: str, bf_context: Any) -> None:
     # Store busy_maker in context to clean up later if needed
     bf_context.busy_maker = busy_maker_phone
 
+    yield
+
+    try:
+        voice_use_cases.disconnect_the_call(busy_maker_phone)
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠ Could not disconnect busy-maker call: {exc}")
+
 
 # ============================================================================
 # Call Setup Steps
@@ -715,7 +732,7 @@ def phone_off_hook(phone_role: str, bf_context: Any) -> None:
 
 
 @when('the {caller_role} dials the {callee_role}\'s number')
-def phone_dials_number(caller_role: str, callee_role: str, bf_context: Any) -> None:
+def phone_dials_number(caller_role: str, callee_role: str, bf_context: Any):
     """Dial the callee's number - delegates to voice use_case."""
     caller = get_phone_by_role(bf_context, caller_role)
     callee = get_phone_by_role(bf_context, callee_role)
@@ -736,16 +753,22 @@ def phone_dials_number(caller_role: str, callee_role: str, bf_context: Any) -> N
     
     print(f"✓ Phone {caller.name} dialed {callee.number}")
 
+    yield
+
+    try:
+        voice_use_cases.disconnect_the_call(caller)
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠ Could not disconnect call for {caller.name}: {exc}")
+
 
 @when("the caller calls the callee")
-def caller_calls_callee(bf_context: Any) -> None:
+def caller_calls_callee(bf_context: Any):
     """Caller dials the callee's number (simplified step)."""
-    # Delegate to the parameterized version
-    phone_dials_number("caller", "callee", bf_context)
+    yield from phone_dials_number("caller", "callee", bf_context)
 
 
 @when('"{caller_name}" calls "{number}"')
-def phone_calls_number(caller_name: str, number: str, bf_context: Any) -> None:
+def phone_calls_number(caller_name: str, number: str, bf_context: Any):
     """Direct dial by phone name and number."""
     caller = get_phone_by_name(bf_context, caller_name)
     
@@ -762,6 +785,13 @@ def phone_calls_number(caller_name: str, number: str, bf_context: Any) -> None:
     print(f"Phone {caller.name} calling {number}...")
     caller.dial(number)
     print(f"✓ Phone {caller.name} called {number}")
+
+    yield
+
+    try:
+        voice_use_cases.disconnect_the_call(caller)
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠ Could not disconnect call for {caller.name}: {exc}")
 
 
 @when("the {phone_role} dials an unregistered phone number")

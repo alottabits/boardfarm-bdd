@@ -1,6 +1,9 @@
 """Unit tests for SIP phone step definitions."""
 
+import inspect
+
 import pytest
+from unittest.mock import patch
 
 # Import the step definition functions to be tested
 from tests.step_defs.sip_phone_steps import (
@@ -15,6 +18,7 @@ from tests.step_defs.sip_phone_steps import (
     get_phone_by_role,
     map_phones_to_requirements,
     phone_answers_call,
+    phone_calls_number,
     phone_dials_invalid_number,
     phone_dials_number,
     phone_hangs_up,
@@ -31,6 +35,20 @@ from tests.step_defs.sip_phone_steps import (
     wait_for_phone_state,
 )
 from tests.unit.mocks import MockContext, MockSIPPhone, MockSIPServer, MockDevices
+
+
+def _run_step(step_fn, *args, **kwargs):
+    """Execute the setup portion of a step function.
+
+    Yielding steps (generator functions) are advanced to the first yield so
+    the setup code runs.  Non-yielding steps are called normally.  The
+    generator (or None) is returned so tests can optionally verify teardown.
+    """
+    result = step_fn(*args, **kwargs)
+    if inspect.isgenerator(result):
+        next(result)
+        return result
+    return result
 
 
 def test_get_phone_by_role_caller(bf_context: MockContext, lan_phone: MockSIPPhone):
@@ -210,7 +228,7 @@ def test_phone_dials_number_success(
     bf_context.callee = wan_phone
 
     # Act: Run the step definition
-    phone_dials_number("caller", "callee", bf_context)
+    _run_step(phone_dials_number, "caller", "callee", bf_context)
 
     # Assert: Verify the dial method was called with the correct number
     assert lan_phone.last_dialed_number == wan_phone.number
@@ -228,7 +246,7 @@ def test_phone_dials_number_detects_busy(
     lan_phone._console.before = "DISCONNECTED [reason=486 (Busy Here)]"
 
     # Act: Run the step definition
-    phone_dials_number("caller", "callee", bf_context)
+    _run_step(phone_dials_number, "caller", "callee", bf_context)
 
     # Assert: Verify the context flags for immediate disconnect are set
     assert bf_context.call_immediately_disconnected is True
@@ -352,8 +370,9 @@ def test_validate_phone_reqs_datatable_too_short(
 
     # Act & Assert
     with pytest.raises(ValueError, match="Datatable must have at least a header row and one data row"):
-        validate_use_case_phone_requirements(
-            sipcenter, bf_context, mock_devices, datatable
+        _run_step(
+            validate_use_case_phone_requirements,
+            sipcenter, bf_context, mock_devices, datatable,
         )
 
 
@@ -424,8 +443,9 @@ def test_validate_use_case_phone_requirements_success(
     sipcenter.register_user(mock_devices.wan_phone.number)
 
     # Act
-    validate_use_case_phone_requirements(
-        sipcenter, bf_context, mock_devices, datatable
+    _run_step(
+        validate_use_case_phone_requirements,
+        sipcenter, bf_context, mock_devices, datatable,
     )
 
     # Assert
@@ -540,7 +560,7 @@ def test_phone_in_active_call_success_with_third_phone(
     wan_phone._wait_for_state_result = True
 
     # Act
-    phone_in_active_call("callee", bf_context)
+    _run_step(phone_in_active_call, "callee", bf_context)
 
     # Assert
     assert wan_phone.is_connected()
@@ -563,7 +583,7 @@ def test_phone_in_active_call_fallback_no_third_phone(
     wan_phone.answer = lambda: setattr(wan_phone, '_state', 'connected') or True
 
     # Act
-    phone_in_active_call("callee", bf_context)
+    _run_step(phone_in_active_call, "callee", bf_context)
 
     # Assert that the phone is no longer idle (best effort for busy)
     assert not wan_phone.is_idle()
@@ -590,7 +610,7 @@ def test_phone_in_active_call_failure_target_not_ringing(
 
     # Act & Assert
     with pytest.raises(AssertionError, match="did not start ringing"):
-        phone_in_active_call("callee", bf_context)
+        _run_step(phone_in_active_call, "callee", bf_context)
 
 
 def test_caller_calls_callee_alias(
@@ -602,7 +622,7 @@ def test_caller_calls_callee_alias(
     bf_context.callee = wan_phone
 
     # Act
-    caller_calls_callee(bf_context)
+    _run_step(caller_calls_callee, bf_context)
 
     # Assert
     assert lan_phone.last_dialed_number == wan_phone.number
@@ -852,3 +872,288 @@ def test_verify_rtp_session_checks_correct_port_range(lan_phone: MockSIPPhone):
     command = lan_phone._sendline_commands[0]
     assert "4000" in command or "400[0-9]" in command
     assert "4999" in command or "4[1-9][0-9]{2}" in command
+
+
+# =========================================================================
+# Teardown verification for yielding SIP phone steps
+# =========================================================================
+
+
+class TestPhoneRegistrationYieldTeardown:
+    """Verify that validate_use_case_phone_requirements cleans up on teardown."""
+
+    def test_teardown_kills_all_registered_phones(
+        self, sipcenter: MockSIPServer, bf_context: MockContext
+    ):
+        """Teardown calls hangup + phone_kill on every registered phone."""
+        datatable = [
+            ["phone_name", "network_location"],
+            ["lan_voice_phone", "LAN"],
+            ["wan_voice_phone", "WAN"],
+        ]
+        mock_devices = MockDevices()
+        sipcenter.register_user(mock_devices.lan_phone.number)
+        sipcenter.register_user(mock_devices.wan_phone.number)
+
+        gen = _run_step(
+            validate_use_case_phone_requirements,
+            sipcenter, bf_context, mock_devices, datatable,
+        )
+
+        with pytest.raises(StopIteration):
+            next(gen)
+
+        assert mock_devices.lan_phone.phone_started is False
+        assert mock_devices.wan_phone.phone_started is False
+
+    def test_teardown_swallows_hangup_exception(
+        self, sipcenter: MockSIPServer, bf_context: MockContext
+    ):
+        """Teardown does not raise if hangup fails (idempotent)."""
+        datatable = [
+            ["phone_name", "network_location"],
+            ["lan_voice_phone", "LAN"],
+        ]
+        mock_devices = MockDevices()
+        sipcenter.register_user(mock_devices.lan_phone.number)
+
+        gen = _run_step(
+            validate_use_case_phone_requirements,
+            sipcenter, bf_context, mock_devices, datatable,
+        )
+
+        mock_devices.lan_phone.hangup = lambda: (_ for _ in ()).throw(
+            Exception("No active call")
+        )
+
+        with pytest.raises(StopIteration):
+            next(gen)
+
+        assert mock_devices.lan_phone.phone_started is False
+
+    def test_teardown_swallows_phone_kill_exception(
+        self, sipcenter: MockSIPServer, bf_context: MockContext
+    ):
+        """Teardown does not raise if phone_kill fails."""
+        datatable = [
+            ["phone_name", "network_location"],
+            ["lan_voice_phone", "LAN"],
+        ]
+        mock_devices = MockDevices()
+        sipcenter.register_user(mock_devices.lan_phone.number)
+
+        gen = _run_step(
+            validate_use_case_phone_requirements,
+            sipcenter, bf_context, mock_devices, datatable,
+        )
+
+        mock_devices.lan_phone.phone_kill = lambda: (_ for _ in ()).throw(
+            Exception("Process already dead")
+        )
+
+        with pytest.raises(StopIteration):
+            next(gen)
+
+
+class TestPhoneDialsNumberYieldTeardown:
+    """Verify that phone_dials_number disconnects the call on teardown."""
+
+    def test_teardown_disconnects_call(
+        self, bf_context: MockContext, lan_phone: MockSIPPhone, wan_phone: MockSIPPhone
+    ):
+        """Teardown calls disconnect_the_call with the captured caller."""
+        bf_context.caller = lan_phone
+        bf_context.callee = wan_phone
+
+        with patch(
+            "tests.step_defs.sip_phone_steps.voice_use_cases"
+        ) as mock_vc:
+            gen = _run_step(phone_dials_number, "caller", "callee", bf_context)
+            mock_vc.disconnect_the_call.reset_mock()
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+            mock_vc.disconnect_the_call.assert_called_once_with(lan_phone)
+
+    def test_teardown_is_idempotent_after_hangup(
+        self, bf_context: MockContext, lan_phone: MockSIPPhone, wan_phone: MockSIPPhone
+    ):
+        """Teardown swallows error if call was already hung up."""
+        bf_context.caller = lan_phone
+        bf_context.callee = wan_phone
+
+        with patch(
+            "tests.step_defs.sip_phone_steps.voice_use_cases"
+        ) as mock_vc:
+            gen = _run_step(phone_dials_number, "caller", "callee", bf_context)
+            mock_vc.disconnect_the_call.side_effect = RuntimeError(
+                "No active call to disconnect"
+            )
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+            mock_vc.disconnect_the_call.assert_called_once_with(lan_phone)
+
+
+class TestCallerCallsCalleeYieldTeardown:
+    """Verify that caller_calls_callee properly propagates teardown."""
+
+    def test_teardown_propagated_from_delegate(
+        self, bf_context: MockContext, lan_phone: MockSIPPhone, wan_phone: MockSIPPhone
+    ):
+        """caller_calls_callee yields from phone_dials_number, so teardown runs."""
+        bf_context.caller = lan_phone
+        bf_context.callee = wan_phone
+
+        with patch(
+            "tests.step_defs.sip_phone_steps.voice_use_cases"
+        ) as mock_vc:
+            gen = _run_step(caller_calls_callee, bf_context)
+            mock_vc.disconnect_the_call.reset_mock()
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+            mock_vc.disconnect_the_call.assert_called_once_with(lan_phone)
+
+
+class TestPhoneCallsNumberYieldTeardown:
+    """Verify that phone_calls_number disconnects the call on teardown."""
+
+    def test_teardown_disconnects_call(
+        self, bf_context: MockContext, lan_phone: MockSIPPhone, wan_phone: MockSIPPhone
+    ):
+        """Teardown calls disconnect_the_call with the captured caller."""
+        setattr(bf_context, "lan_phone", lan_phone)
+        setattr(bf_context, "wan_phone", wan_phone)
+
+        with patch(
+            "tests.step_defs.sip_phone_steps.voice_use_cases"
+        ) as mock_vc:
+            gen = _run_step(phone_calls_number, "lan_phone", wan_phone.number, bf_context)
+            mock_vc.disconnect_the_call.reset_mock()
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+            mock_vc.disconnect_the_call.assert_called_once_with(lan_phone)
+
+    def test_teardown_swallows_exception(
+        self, bf_context: MockContext, lan_phone: MockSIPPhone, wan_phone: MockSIPPhone
+    ):
+        """Teardown does not raise if disconnect fails."""
+        setattr(bf_context, "lan_phone", lan_phone)
+        setattr(bf_context, "wan_phone", wan_phone)
+
+        with patch(
+            "tests.step_defs.sip_phone_steps.voice_use_cases"
+        ) as mock_vc:
+            gen = _run_step(phone_calls_number, "lan_phone", wan_phone.number, bf_context)
+            mock_vc.disconnect_the_call.side_effect = Exception("Phone unreachable")
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+
+class TestPhoneInActiveCallYieldTeardown:
+    """Verify that phone_in_active_call disconnects busy-maker on teardown."""
+
+    def test_teardown_disconnects_busy_maker(
+        self,
+        bf_context: MockContext,
+        lan_phone: MockSIPPhone,
+        wan_phone: MockSIPPhone,
+        wan_phone2: MockSIPPhone,
+    ):
+        """Teardown calls disconnect_the_call on the busy-maker phone."""
+        bf_context.caller = lan_phone
+        bf_context.callee = wan_phone
+        bf_context.configured_phones = {
+            "lan_phone": ("lan_phone_fixture", lan_phone),
+            "wan_phone": ("wan_phone_fixture", wan_phone),
+            "wan_phone2": ("wan_phone2_fixture", wan_phone2),
+        }
+        wan_phone._state = "idle"
+        wan_phone2._state = "idle"
+
+        def dial_triggers_ringing(number):
+            if number == wan_phone.number:
+                wan_phone._state = "ringing"
+            wan_phone2._state = "dialing"
+
+        wan_phone2.dial = dial_triggers_ringing
+        wan_phone.answer = lambda: setattr(wan_phone, '_state', 'connected') or True
+        wan_phone._wait_for_state_result = True
+
+        with patch(
+            "tests.step_defs.sip_phone_steps.voice_use_cases"
+        ) as mock_vc:
+            gen = _run_step(phone_in_active_call, "callee", bf_context)
+            mock_vc.disconnect_the_call.reset_mock()
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+            mock_vc.disconnect_the_call.assert_called_once_with(wan_phone2)
+
+    def test_teardown_swallows_exception(
+        self,
+        bf_context: MockContext,
+        lan_phone: MockSIPPhone,
+        wan_phone: MockSIPPhone,
+        wan_phone2: MockSIPPhone,
+    ):
+        """Teardown does not raise if disconnect_the_call fails."""
+        bf_context.caller = lan_phone
+        bf_context.callee = wan_phone
+        bf_context.configured_phones = {
+            "lan_phone": ("lan_phone_fixture", lan_phone),
+            "wan_phone": ("wan_phone_fixture", wan_phone),
+            "wan_phone2": ("wan_phone2_fixture", wan_phone2),
+        }
+        wan_phone._state = "idle"
+        wan_phone2._state = "idle"
+
+        def dial_triggers_ringing(number):
+            if number == wan_phone.number:
+                wan_phone._state = "ringing"
+            wan_phone2._state = "dialing"
+
+        wan_phone2.dial = dial_triggers_ringing
+        wan_phone.answer = lambda: setattr(wan_phone, '_state', 'connected') or True
+        wan_phone._wait_for_state_result = True
+
+        with patch(
+            "tests.step_defs.sip_phone_steps.voice_use_cases"
+        ) as mock_vc:
+            gen = _run_step(phone_in_active_call, "callee", bf_context)
+            mock_vc.disconnect_the_call.side_effect = RuntimeError(
+                "Call already terminated"
+            )
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+    def test_fallback_path_still_yields(
+        self,
+        bf_context: MockContext,
+        lan_phone: MockSIPPhone,
+        wan_phone: MockSIPPhone,
+    ):
+        """Fallback path (no third phone) still yields, ensuring no crash."""
+        bf_context.caller = lan_phone
+        bf_context.callee = wan_phone
+        bf_context.configured_phones = {
+            "lan_phone": ("lan_phone_fixture", lan_phone),
+            "wan_phone": ("wan_phone_fixture", wan_phone),
+        }
+        wan_phone._state = "idle"
+        wan_phone.answer = lambda: setattr(wan_phone, '_state', 'connected') or True
+
+        gen = _run_step(phone_in_active_call, "callee", bf_context)
+
+        assert inspect.isgenerator(gen)
+        with pytest.raises(StopIteration):
+            next(gen)

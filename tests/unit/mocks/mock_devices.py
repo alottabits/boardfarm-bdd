@@ -334,19 +334,31 @@ class MockCPESoftware:
         self.cpe_id = "mock_cpe_001"
 
 
+class MockACSNBI:
+    """Lightweight mock of the ACS NBI (north-bound interface)."""
+
+    def GPV(self, param, timeout=60, cpe_id=None):
+        """Mock NBI Get Parameter Values — returns GpvResponse."""
+        return []
+
+    def SPV(self, param_value, timeout=None, cpe_id=None):
+        return 0
+
+
 class MockACS:
     """Lightweight mock of ACS (GenieACS) for unit testing."""
-    
+
     def __init__(self):
         self.name = "mock_acs"
-    
+        self.nbi = MockACSNBI()
+
     def GPV(self, param: str, cpe_id: str, timeout: int = 60) -> str:
-        """Mock Get Parameter Value."""
+        """Mock Get Parameter Value (deprecated shim)."""
         return "mock_value"
-    
+
     def SPV(self, params: list, cpe_id: str, timeout: int = 60) -> int:
         """Mock Set Parameter Value."""
-        return 0  # Success
+        return 0
 
 
 class MockWANEdgeDevice:

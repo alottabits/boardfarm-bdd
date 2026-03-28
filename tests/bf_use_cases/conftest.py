@@ -32,14 +32,8 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture(scope="function", autouse=True)
-def cleanup_cpe_config_after_scenario() -> None:  # type: ignore[override]
-    """No-op CPE cleanup — no CPE in SD-WAN / use-case-test scope."""
-    yield
-
-
-@pytest.fixture(scope="function", autouse=True)
-def cleanup_sip_phones_after_scenario() -> None:  # type: ignore[override]
-    """No-op SIP phone cleanup — no SIP phones in SD-WAN / use-case-test scope."""
+def refresh_cpe_console_after_scenario() -> None:  # type: ignore[override]
+    """No-op CPE console refresh — no CPE in SD-WAN / use-case-test scope."""
     yield
 
 

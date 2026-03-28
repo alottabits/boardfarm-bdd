@@ -49,7 +49,7 @@ def cpe_sends_inform_message(
     print(f"Waiting for CPE {cpe_id} to send Inform message...")
 
     acs_use_cases.wait_for_inform_message(
-        acs, cpe_id, since=since, timeout=30
+        acs, cpe_id, since=since, timeout=120
     )
 
     print(f"✓ CPE {cpe_id} sent Inform message (verified in GenieACS logs)")
@@ -201,13 +201,16 @@ def cpe_does_not_reboot(
 @given("the CPE is unreachable for TR-069 sessions")
 def cpe_is_unreachable_for_tr069(
     acs: AcsTemplate, cpe: CpeTemplate, bf_context: Any  # noqa: ARG001
-) -> None:
-    """Make CPE unreachable for TR-069 sessions - delegates to use_case."""
-    # Get CPE ID and store in context
+):
+    """Make CPE unreachable for TR-069 sessions - delegates to use_case.
+
+    Yield-based teardown restarts the TR-069 client when the scenario ends —
+    even on failure. The teardown is idempotent: if a later step already
+    restarted the client, the redundant start call is swallowed harmlessly.
+    """
     cpe_id = cpe.sw.cpe_id
     bf_context.reboot_cpe_id = cpe_id
 
-    # Record test start timestamp for filtering logs
     bf_context.test_start_timestamp = (
         datetime.now(timezone.utc) - timedelta(seconds=5)
     ).replace(tzinfo=None)
@@ -224,6 +227,14 @@ def cpe_is_unreachable_for_tr069(
     bf_context.cpe_offline_timestamp = (
         datetime.now(timezone.utc).replace(tzinfo=None)
     )
+
+    yield
+
+    try:
+        cpe_use_cases.start_tr069_client(cpe)
+        print(f"✓ TR-069 client restored for CPE {cpe_id}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠ Could not restart TR-069 client for CPE {cpe_id}: {exc}")
 
 
 @then("when the CPE comes online, it connects to the ACS")

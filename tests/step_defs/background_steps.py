@@ -14,11 +14,42 @@ from boardfarm3.use_cases import cpe as cpe_use_cases
 from pytest_bdd import given
 
 
+def _extract_index_from_key(key: str) -> int | None:
+    """Extract the instance index from a GPV response key.
+
+    GPV response keys may be mangled by the GenieACS driver's
+    ``strip('._value')`` call, e.g. ``Device.Users.User.10.Usernam``
+    instead of ``Device.Users.User.10.Username``.  We therefore
+    split on dots and look for an integer at position 3.
+    """
+    parts = key.split(".")
+    if len(parts) >= 5:
+        try:
+            return int(parts[3])
+        except ValueError:
+            pass
+    return None
+
+
+_INDEX_MULTIPLIER = 2
+_MAX_USER_INDEX = 30
+
+
 def discover_admin_user_index(acs: AcsTemplate, cpe: CpeTemplate) -> int:
     """Discover which user index corresponds to the GUI admin user.
 
-    Searches through all users to find the one with username='admin'.
-    This makes the code robust against configuration changes.
+    TR-069 instance indices are not guaranteed to be contiguous
+    (1, 2, 3 …).  We query ``UserNumberOfEntries`` to learn
+    how many users exist, then scan indices 1 … user_count * 2
+    with individual GPV calls.  Each call triggers a CWMP
+    connection-request → getParameterValues cycle, so the CPE
+    is queried live (not just the ACS database).
+
+    The scan exits early once all expected users have been found,
+    avoiding unnecessary connection requests.
+
+    If ``UserNumberOfEntries`` is unavailable (e.g. after a fresh
+    ACS restart), the scan falls back to a fixed ceiling.
 
     Args:
         acs: ACS template instance
@@ -32,50 +63,57 @@ def discover_admin_user_index(acs: AcsTemplate, cpe: CpeTemplate) -> int:
     """
     cpe_id = cpe.sw.cpe_id
 
-    # Get total number of users
+    max_idx = _MAX_USER_INDEX
+    user_count = None
     try:
-        user_count_result = acs.GPV(
-            "Device.Users.UserNumberOfEntries",
-            cpe_id=cpe_id,
-            timeout=30,
+        raw = acs_use_cases.get_parameter_value(
+            acs, cpe, "Device.Users.UserNumberOfEntries",
+            retries=2,
         )
-        if not user_count_result:
-            raise AssertionError("Could not get user count")
-        user_count = int(user_count_result[0].get("value", 0))
-    except Exception as e:
-        raise AssertionError(f"Failed to get user count: {e}") from e
+        user_count = int(raw)
+        if user_count > 0:
+            max_idx = user_count * _INDEX_MULTIPLIER
+    except Exception:  # noqa: BLE001
+        pass
 
-    if user_count == 0:
-        raise AssertionError("No users found in CPE")
+    if user_count is not None:
+        print(
+            f"CPE reports {user_count} users — scanning "
+            f"indices 1–{max_idx} for admin user"
+        )
+    else:
+        print(
+            f"UserNumberOfEntries unavailable — scanning "
+            f"indices 1–{max_idx} for admin user"
+        )
 
-    # Search through all users to find the one with username='admin'
-    print(f"Searching through {user_count} users to find admin user...")
-    for user_idx in range(1, user_count + 1):
+    found_usernames: list[str] = []
+    for user_idx in range(1, max_idx + 1):
         try:
-            username_result = acs.GPV(
+            username = acs_use_cases.get_parameter_value(
+                acs, cpe,
                 f"Device.Users.User.{user_idx}.Username",
-                cpe_id=cpe_id,
-                timeout=30,
+                retries=3,
             )
-            if username_result:
-                value = username_result[0].get("value", "")
-                # Convert to string and strip whitespace
-                username = str(value).strip() if value else ""
-                if username.lower() == "admin":
-                    print(
-                        f"✓ Found admin user at index {user_idx} "
-                        f"(username='{username}')"
-                    )
-                    return user_idx
-        except Exception as e:  # noqa: BLE001
-            # Continue searching if this user doesn't exist or query fails
-            print(f"⚠ Could not query User.{user_idx}: {e}")
+        except Exception:  # noqa: BLE001
             continue
 
-    # If we get here, no admin user was found
+        username = str(username).strip()
+        if not username:
+            continue
+
+        found_usernames.append(f"User.{user_idx}={username}")
+        if username.lower() == "admin":
+            print(f"Found admin user at index {user_idx}")
+            return user_idx
+
+        if user_count and len(found_usernames) >= user_count:
+            break
+
     raise AssertionError(
-        f"No user with username='admin' found among {user_count} users. "
-        f"Please verify the CPE configuration."
+        f"No user with username='admin' found among "
+        f"indices 1–{max_idx}. "
+        f"Discovered: {found_usernames}"
     )
 
 
@@ -123,12 +161,16 @@ def user_sets_cpe_gui_password(
     cpe: CpeTemplate,
     bf_context: Any,
     password: str,
-) -> None:
+):
     """Set CPE GUI password via ACS using TR-069 SPV - uses use_cases.
 
     Dynamically discovers which user index corresponds to the GUI admin user
     (username='admin' by default), then sets the password for that user.
-    Captures original password before making changes for cleanup.
+
+    Yield-based teardown restores the password to the PrplOS default ("admin")
+    when the scenario ends — even on failure. The teardown is idempotent: if
+    the password was already restored by a later step, the redundant SPV call
+    is swallowed harmlessly.
     """
     cpe_id = cpe.sw.cpe_id
 
@@ -137,110 +179,42 @@ def user_sets_cpe_gui_password(
         bf_context.admin_user_index = discover_admin_user_index(acs, cpe)
 
     admin_user_idx = bf_context.admin_user_index
-    print(f"Using User.{admin_user_idx} as GUI admin user")
+    param = f"Device.Users.User.{admin_user_idx}.Password"
 
-    # Capture original password BEFORE making changes using use_case
+    # Capture original encrypted password for change verification
     original_password = None
     try:
-        original_password = acs_use_cases.get_parameter_value(
-            acs, cpe, f"Device.Users.User.{admin_user_idx}.Password"
-        )
-        print(
-            f"Captured original user {admin_user_idx} "
-            f"(GUI admin) password: '***'"
-        )
-    except Exception as e:  # noqa: BLE001
-        print(f"⚠ Could not capture original password: {e}")
+        original_password = acs_use_cases.get_parameter_value(acs, cpe, param)
+    except Exception:  # noqa: BLE001
+        pass
 
-    # Now set the new password using use_case
-    print(f"Setting CPE GUI password for {cpe_id}: password='***'")
-
-    success = acs_use_cases.set_parameter_value(
-        acs, cpe, f"Device.Users.User.{admin_user_idx}.Password", password
-    )
-
+    # Set the new password
+    print(f"Setting CPE GUI password for {cpe_id} (user {admin_user_idx})")
+    success = acs_use_cases.set_parameter_value(acs, cpe, param, password)
     if not success:
         raise AssertionError("Failed to set CPE GUI password via SPV")
 
-    # VERIFY the change was actually applied
-    time.sleep(2)  # Give PrplOS time to process the change
-
-    password_change_successful = False
+    # Verify the change was applied
+    time.sleep(2)
     try:
-        new_encrypted_password = acs_use_cases.get_parameter_value(
-            acs, cpe, f"Device.Users.User.{admin_user_idx}.Password"
-        )
-        if original_password and new_encrypted_password != original_password:
-            password_change_successful = True
+        new_encrypted = acs_use_cases.get_parameter_value(acs, cpe, param)
+        if original_password and new_encrypted != original_password:
             print("✓ Verified password was changed (encrypted value changed)")
-        elif original_password and new_encrypted_password == original_password:
-            print(
-                "⚠ WARNING: Password encrypted value did not change - "
-                "password may not have been set."
-            )
+        elif original_password and new_encrypted == original_password:
+            print("⚠ Password encrypted value did not change")
         else:
-            password_change_successful = True
             print("✓ Password change attempted (could not verify)")
-    except Exception as e:  # noqa: BLE001
-        print(f"⚠ Could not verify password change: {e}")
-        password_change_successful = True
+    except Exception:  # noqa: BLE001
+        pass
 
-    # Store in original_config if the change was successful
-    if password_change_successful:
-        if not hasattr(bf_context, "original_config"):
-            bf_context.original_config = {}
-
-        if "users" not in bf_context.original_config:
-            bf_context.original_config["users"] = {
-                "count": {},
-                "items": {},
-            }
-
-        items = bf_context.original_config["users"]["items"]
-        if str(admin_user_idx) not in items:
-            items[str(admin_user_idx)] = {}
-
-        items[str(admin_user_idx)]["Password"] = {
-            "gpv_param": (
-                f"Device.Users.User.{admin_user_idx}.Password"
-            ),
-            "value": (
-                original_password
-                if original_password
-                else "PLACEHOLDER_FOR_CLEANUP"
-            ),
-        }
-        if original_password:
-            print("✓ Stored original password in cleanup config: '***'")
-        else:
-            print(
-                "✓ Stored password marker in cleanup config "
-                "(will restore to 'admin')"
-            )
-
-    if password_change_successful:
-        print(
-            f"✓ CPE GUI password set successfully for user {admin_user_idx} "
-            f"(GUI admin)"
-        )
-    else:
-        print(
-            "⚠ Password change may have been rejected by PrplOS. "
-            "Test continues."
-        )
-
-    # Store the password we set for verification
+    # Store encrypted password for reboot-preservation verification
+    if not hasattr(bf_context, "config_before_reboot"):
+        bf_context.config_before_reboot = {}
     if "users" not in bf_context.config_before_reboot:
-        bf_context.config_before_reboot["users"] = {
-            "count": {},
-            "items": {},
-        }
+        bf_context.config_before_reboot["users"] = {"count": {}, "items": {}}
 
-    # Capture the encrypted password value for comparison
     try:
-        encrypted_password = acs_use_cases.get_parameter_value(
-            acs, cpe, f"Device.Users.User.{admin_user_idx}.Password"
-        )
+        encrypted_password = acs_use_cases.get_parameter_value(acs, cpe, param)
     except Exception:  # noqa: BLE001
         encrypted_password = password
 
@@ -248,11 +222,16 @@ def user_sets_cpe_gui_password(
     if str(admin_user_idx) not in reboot_items:
         reboot_items[str(admin_user_idx)] = {}
     reboot_items[str(admin_user_idx)]["Password"] = {
-        "gpv_param": f"Device.Users.User.{admin_user_idx}.Password",
+        "gpv_param": param,
         "value": encrypted_password,
     }
 
-    print(
-        f"✓ Recorded user {admin_user_idx} (GUI admin) password "
-        f"for verification: '***'"
-    )
+    print(f"✓ CPE GUI password set for user {admin_user_idx}")
+
+    yield
+
+    try:
+        acs_use_cases.set_parameter_value(acs, cpe, param, "admin")
+        print("✓ CPE GUI password restored to default")
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠ Could not restore CPE GUI password: {exc}")

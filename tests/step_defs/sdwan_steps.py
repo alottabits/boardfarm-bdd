@@ -93,6 +93,14 @@ def network_conditions_set_to_preset(
         " on all WAN links"
     )
 
+    yield
+
+    for tc in (bf_context.wan1_tc, bf_context.wan2_tc):
+        try:
+            tc_use_cases.clear_impairment(tc)
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠ Could not clear impairment: {exc}")
+
 
 # ---------------------------------------------------------------------------
 # Traffic generator discovery and operations (actor: network operations)
@@ -139,6 +147,15 @@ def network_ops_starts_upstream_traffic(bf_context, bandwidth):
         f"✓ Upstream background traffic started:"
         f" {bandwidth} Mbps BE (flow {flow_id})"
     )
+
+    yield
+
+    try:
+        tg_use_cases.stop_traffic(
+            bf_context.lan_traffic_gen, flow_id
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠ Could not stop traffic flow {flow_id}: {exc}")
 
 
 @when(
@@ -313,6 +330,13 @@ def wan_link_complete_failure(bf_context, wan_link):
         " (100% loss)"
     )
 
+    yield
+
+    try:
+        tc_use_cases.clear_impairment(tc)
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠ Could not clear impairment on {wan_link}: {exc}")
+
 
 @when(
     parsers.parse(
@@ -332,6 +356,13 @@ def wan_link_degraded(
         f"✓ {wan_link} now experiencing degraded conditions"
         f' ("{preset_name}")'
     )
+
+    yield
+
+    try:
+        tc_use_cases.clear_impairment(tc)
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠ Could not clear impairment on {wan_link}: {exc}")
 
 
 @when(

@@ -2,16 +2,12 @@
 
 import ast
 import importlib
-import time
 from pathlib import Path
-from typing import Any
 
 import pytest
 from boardfarm3.templates.acs import ACS as AcsTemplate
-import pexpect
 from boardfarm3.templates.cpe.cpe import CPE as CpeTemplate
 from boardfarm3.templates.wan import WAN as WanTemplate
-from boardfarm3.use_cases import acs as acs_use_cases
 from pytest_bdd import given, parsers, then, when
 from pytest_boardfarm3.boardfarm_fixtures import devices
 
@@ -175,39 +171,36 @@ def _discover_and_register_step_definitions():
                     # Escape quotes in step_name for the code string
                     # This preserves parameter placeholders like {username}
                     escaped_step_name = step_name.replace('"', '\\"')
-                    
+
+                    # Generator steps (yield-based teardown) need "yield from"
+                    # so pytest-bdd sees the wrapper itself as a generator and
+                    # can drive the setup/teardown lifecycle correctly.
+                    call_expr = (
+                        f"module.{func_name}({params_str})"
+                        if params_str
+                        else f"module.{func_name}()"
+                    )
+                    delegate = (
+                        f"yield from {call_expr}"
+                        if inspect.isgeneratorfunction(original_func)
+                        else f"return {call_expr}"
+                    )
+
                     # Build the wrapper function code with preserved signature
                     # Use parsers.parse() if the original step used it
                     if uses_parser:
-                        if params_str:
-                            step_code = f'''
+                        step_code = f'''
 @decorators["{step_type}"](parsers.parse("{escaped_step_name}"))
 def {wrapper_name}({params_str}):
     """Re-registered step definition wrapper."""
-    return module.{func_name}({params_str})
-'''
-                        else:
-                            step_code = f'''
-@decorators["{step_type}"](parsers.parse("{escaped_step_name}"))
-def {wrapper_name}():
-    """Re-registered step definition wrapper."""
-    return module.{func_name}()
+    {delegate}
 '''
                     else:
-                        # Plain string registration (original behavior)
-                        if params_str:
-                            step_code = f'''
+                        step_code = f'''
 @decorators["{step_type}"]("{escaped_step_name}")
 def {wrapper_name}({params_str}):
     """Re-registered step definition wrapper."""
-    return module.{func_name}({params_str})
-'''
-                        else:
-                            step_code = f'''
-@decorators["{step_type}"]("{escaped_step_name}")
-def {wrapper_name}():
-    """Re-registered step definition wrapper."""
-    return module.{func_name}()
+    {delegate}
 '''
                     
                     # Execute in module namespace with necessary variables
@@ -331,283 +324,31 @@ def boardfarm_config(request):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def cleanup_cpe_config_after_scenario(
-    acs: AcsTemplate, cpe: CpeTemplate, bf_context: Any
-):
-    """Automatically clean up CPE configuration after each scenario.
+def refresh_cpe_console_after_scenario(cpe: CpeTemplate):
+    """Refresh the CPE console connection after each scenario.
 
-    This fixture runs automatically for every test and ensures cleanup
-    happens even if the scenario fails. It walks through original_config
-    and restores all values that were changed.
+    This is a cross-cutting concern: any scenario might reboot the CPE, leaving
+    the console connection stale. Re-establishing the connection here keeps the
+    next scenario from inheriting a dead session.
+
+    CPE config restoration (passwords, parameters) is handled by yield-based
+    teardown in the individual step definitions that change those values.
     """
-    # Run the scenario first
     yield
 
-    # Skip cleanup for non-CPE testbeds (e.g. SD-WAN) where acs/cpe are None
-    if cpe is None or acs is None:
+    if cpe is None:
         return
 
-    # Always refresh console connection to ensure it's valid for the next test
-    # The previous test might have rebooted the CPE, and even if the connection
-    # seems alive (false positive), it might be unstable or attached to a dead container.
-    print("↻ Refreshing CPE console connection...")
     try:
-        # Safety measure: close existing connection to free resources
         cpe.hw.disconnect_from_consoles()
     except Exception:
         pass
-    
+
     try:
-        # Re-establish connection
-        # PrplDockerCPE inherits BoardfarmDevice which has device_name
         device_name = getattr(cpe, "device_name", "cpe")
         cpe.hw.connect_to_consoles(device_name)
-        print("✓ Console connection refreshed successfully")
-    except Exception as reconnect_error:
-        print(f"❌ Failed to refresh console connection: {reconnect_error}")
-        # We continue with cleanup anyway, as some cleanup (ACS) might still work
-
-    # Cleanup code - ALWAYS runs, even if scenario fails
-    if not hasattr(bf_context, "original_config"):
-        print("⚠ Cleanup: No original_config found in bf_context - nothing to clean up")
-        return  # Nothing to clean up
-
-    original_config = bf_context.original_config
-    if not original_config:
-        print("⚠ Cleanup: original_config is empty - nothing to restore")
-        return  # Empty config, nothing to restore
-
-    cpe_id = cpe.sw.cpe_id
-    print(f"Cleaning up CPE configuration for {cpe_id}...")
-    print(f"DEBUG: original_config keys: {list(original_config.keys())}")
-
-    cleanup_errors = []
-
-    # Generic cleanup: iterate through all items in original_config
-    for config_key, config_data in original_config.items():
-        if not isinstance(config_data, dict):
-            continue
-
-        # Handle dict-based configs (users, wifi_ssids)
-        if "items" in config_data:
-            config_name = config_key.replace("_", " ").title()
-
-            # Restore each item
-            for item_idx, item_fields in config_data["items"].items():
-                restore_params = {}
-
-                for field_name, field_data in item_fields.items():
-                    print(f"DEBUG: Processing field '{field_name}' for {config_name} {item_idx}")
-                    if (
-                        isinstance(field_data, dict)
-                        and "gpv_param" in field_data
-                        and "value" in field_data
-                    ):
-                        gpv_param = field_data["gpv_param"]
-                        original_value = field_data["value"]
-
-                        # Handle password restoration specially - SPV expects plaintext, not encrypted hash
-                        # We restore to the default "admin" password since we can't restore from encrypted value
-                        if "password" in field_name.lower():
-                            print(
-                                f"  ✓ Found password field '{field_name}' - "
-                                f"Restoring for {config_name} {item_idx} "
-                                f"to default 'admin' password "
-                                f"(cannot restore from encrypted hash)"
-                            )
-                            restore_value = "admin"  # Default PrplOS password
-                        else:
-                            # Convert boolean back to appropriate format for SPV
-                            if isinstance(original_value, bool):
-                                restore_value = original_value
-                            else:
-                                restore_value = str(original_value)
-                            print(
-                                f"  Restoring {field_name} for {config_name} "
-                                f"{item_idx} to: {restore_value}"
-                            )
-
-                        restore_params[gpv_param] = restore_value
-
-                if restore_params:
-                    try:
-                        # Convert dict to list of dicts format for SPV
-                        spv_params = [restore_params]
-
-                        print(f"DEBUG: Calling SPV with params: {restore_params}")
-                        result = acs.SPV(
-                            spv_params, cpe_id=cpe_id, timeout=60
-                        )
-                        print(f"DEBUG: SPV result: {result}")
-                        if result == 0:
-                            print(
-                                f"✓ Restored {config_name} {item_idx} "
-                                f"to original values"
-                            )
-                            # For password fields, verify the reset worked
-                            if "password" in field_name.lower():
-                                time.sleep(2)  # Give CPE time to process
-                                try:
-                                    # Try to verify password was reset by checking
-                                    # if we can still access it (this is a basic check)
-                                    current_password = acs_use_cases.get_parameter_value(
-                                        acs, cpe, gpv_param
-                                    )
-                                    print(
-                                        f"  DEBUG: Password field still accessible "
-                                        f"(encrypted value retrieved)"
-                                    )
-                                except Exception as e:  # noqa: BLE001
-                                    print(
-                                        f"  ⚠ Could not verify password reset: {e}"
-                                    )
-                        else:
-                            error_msg = (
-                                f"Failed to restore {config_name} {item_idx} "
-                                f"(SPV status: {result})"
-                            )
-                            print(f"❌ Cleanup Error: {error_msg}")
-                            cleanup_errors.append(error_msg)
-                    except Exception as e:  # noqa: BLE001
-                        cleanup_errors.append(
-                            f"Error restoring {config_name} {item_idx}: {e}"
-                        )
-
-    if cleanup_errors:
-        print("⚠ Cleanup warnings:")
-        for error in cleanup_errors:
-            print(f"  - {error}")
-    else:
-        if original_config:
-            print("✓ CPE configuration cleanup completed successfully")
+    except Exception:
+        pass
 
 
-@pytest.fixture(scope="function", autouse=True)
-def cleanup_sip_phones_after_scenario(devices, bf_context: Any):
-    """Automatically clean up SIP phone configuration after each scenario.
-    
-    This fixture runs automatically for every test and ensures cleanup
-    happens even if the scenario fails. It:
-    1. Discovers ALL SIP phones in the testbed inventory
-    2. Terminates any active calls on each phone
-    3. Unregisters phones from the SIP server
-    4. Stops the pjsua process
-    """
-    # Run the scenario first
-    yield
-    
-    # Cleanup code - ALWAYS runs, even if scenario fails
-    print("Cleaning up SIP phones...")
-    
-    from boardfarm3.templates.sip_phone import SIPPhone
-    
-    cleanup_errors = []
-    phones_cleaned = 0
-    
-    # Iterate through ALL devices in the testbed inventory
-    for device_name in dir(devices):
-        # Skip private/magic attributes
-        if device_name.startswith('_'):
-            continue
-        
-        try:
-            device = getattr(devices, device_name)
-            
-            # Check if this device is a SIP phone
-            if not isinstance(device, SIPPhone):
-                continue
-            
-            phones_cleaned += 1
-            print(f"  Cleaning up {device_name}...")
-            
-            # 1. Terminate any active calls
-            try:
-                if hasattr(device, 'hangup'):
-                    device.hangup()
-                    print(f"    ✓ Terminated active calls on {device_name}")
-            except Exception as e:
-                # It's okay if there's no active call
-                print(f"    ℹ No active calls to terminate on {device_name}")
-            
-            # 2. Stop pjsua (which also de-registers from SIP server)
-            try:
-                if hasattr(device, 'phone_kill'):
-                    device.phone_kill()
-                    print(f"    ✓ Stopped pjsua and de-registered {device_name}")
-            except Exception as e:
-                print(f"    ⚠ Could not stop pjsua on {device_name}: {e}")
-            
-        except Exception as e:
-            error_msg = f"Error cleaning up {device_name}: {e}"
-            print(f"    ❌ {error_msg}")
-            cleanup_errors.append(error_msg)
-    
-    if phones_cleaned == 0:
-        print("  ℹ No SIP phones found in testbed")
-    
-    # Clean up the SIP server registrations if we have a sipcenter
-    try:
-        sipcenter = getattr(devices, "sipcenter", None)
-        if sipcenter:
-            print("  Cleaning up SIP server registrations...")
-            # Registrations will auto-expire, no forced cleanup needed
-            print("    ✓ SIP server will auto-expire registrations")
-    except Exception as e:
-        error_msg = f"Error cleaning up SIP server: {e}"
-        print(f"    ⚠ {error_msg}")
-        cleanup_errors.append(error_msg)
-    
-    # Clear the configured_phones tracking if it exists
-    if hasattr(bf_context, "configured_phones"):
-        bf_context.configured_phones = {}
-    
-    if cleanup_errors:
-        print("⚠ SIP phone cleanup warnings:")
-        for error in cleanup_errors:
-            print(f"  - {error}")
-    else:
-        print(f"✓ SIP phone cleanup completed successfully ({phones_cleaned} phone(s) cleaned)")
-
-
-@pytest.fixture(scope="function", autouse=True)
-def cleanup_sdwan_impairments_after_scenario(bf_context: Any):
-    """Clear WAN impairments after each SDWAN scenario.
-
-    Only activates when the scenario used traffic controllers (stored in
-    bf_context by the 'SD-WAN appliance is operational' step).
-    """
-    yield
-
-    from boardfarm3.use_cases import traffic_control as tc_uc
-
-    for attr in ("wan1_tc", "wan2_tc"):
-        tc = getattr(bf_context, attr, None)
-        if tc is None:
-            continue
-        try:
-            tc_uc.clear_impairment(tc)
-        except Exception as e:  # noqa: BLE001
-            print(f"⚠ Could not clear impairment on {attr}: {e}")
-
-
-@pytest.fixture(scope="function", autouse=True)
-def cleanup_traffic_generators_after_scenario(bf_context: Any):
-    """Stop all active traffic flows after each scenario.
-
-    Only activates when the scenario discovered traffic generators
-    (stored in bf_context by the 'traffic generators are available' step).
-    """
-    yield
-
-    from boardfarm3.use_cases import traffic_generator as tg_uc
-
-    for attr in ("lan_traffic_gen", "north_traffic_gen"):
-        tg = getattr(bf_context, attr, None)
-        if tg is None:
-            continue
-        try:
-            if tg.active_flows:
-                tg_uc.stop_all_traffic(tg)
-        except Exception as e:  # noqa: BLE001
-            print(f"⚠ Could not stop traffic on {attr}: {e}")
 
