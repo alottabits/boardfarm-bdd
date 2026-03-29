@@ -1016,3 +1016,90 @@ def end_test(self, data, result):
 | Co-location | Setup + teardown in same function | `register_teardown` call sits next to the action |
 
 Both approaches achieve the same goal: cleanup is co-located with the action that needs undoing, runs in LIFO order, only fires for actions that actually executed, and is invisible to the test author.
+
+---
+
+## Addendum: Why Not Robot Framework's Built-In `[Teardown]`?
+
+> **Date:** March 26, 2026
+
+Robot Framework provides built-in teardown mechanisms at three levels: Suite Teardown, Test Teardown, and Keyword Teardown. The **Keyword Teardown** ([§4.2.3 of the RFCP Syllabus](https://robotframework.org/robotframework-RFCP-syllabus/docs/chapter-04/teardowns#423-keyword-teardown)) looks superficially similar to pytest-bdd's `yield` — cleanup code attached to the keyword that runs even on failure. This section explains why it is not a suitable replacement for the listener-based teardown stack.
+
+### The Timing Problem
+
+The critical difference is **when** the teardown executes.
+
+With pytest-bdd `yield`, the step's teardown runs **at the end of the test** (when the fixture scope closes), not when the step function returns:
+
+```
+1.  Given "impairment is applied"  → setup runs, yield suspends
+2.  When  "traffic flows"          → setup runs, yield suspends
+3.  Then  "verify results"         → runs to completion
+4.  ── test ends ──
+5.  When teardown fires            → stop traffic (LIFO)
+6.  Given teardown fires           → clear impairment (LIFO)
+```
+
+With Robot Framework's Keyword Teardown, the teardown runs **when the keyword body completes** — immediately after the keyword returns to its caller:
+
+```
+1.  "Apply WAN Impairment" runs   → impairment set
+2.  [Teardown] fires immediately  → impairment CLEARED  ← too early!
+3.  "Start Traffic" runs          → traffic on a clean link (wrong)
+```
+
+The impairment is cleared before the rest of the test can use it. Keyword Teardown is designed for resource management **within** a single keyword (open connection → work → close connection), not for state that must persist across multiple keywords in a test.
+
+### Where Keyword Teardown Would Work
+
+It is appropriate for **self-contained compound keywords** where the resource lifecycle is fully enclosed:
+
+```robotframework
+*** Keywords ***
+Measure Productivity Over Impaired Link
+    [Arguments]    ${wan_link}    ${loss}
+    Set Impairment Profile    ${wan_link}    loss=${loss}
+    ${result}=    Run QoE Measurement    productivity
+    [Teardown]    Run Keyword And Ignore Error    Clear Impairment    ${wan_link}
+    RETURN    ${result}
+```
+
+Here the impairment only needs to exist during the measurement — Keyword Teardown has the right timing. But this collapses multiple BDD-style keywords into a single monolithic keyword, defeating the composability that test authors expect.
+
+### Test Teardown — Closer but Reintroduces Centralization
+
+Robot Framework's **Test Teardown** (`[Teardown]` at the test level) executes at the right time (test end), but requires the test author to explicitly enumerate all cleanup actions:
+
+```robotframework
+*** Test Cases ***
+WAN Failover Test
+    Apply WAN Impairment    wan1    100
+    Start Background Traffic    50
+    Verify Application Continuity
+    [Teardown]    Run Keywords
+    ...    Run Keyword And Ignore Error    Clear Impairment    wan1
+    ...    AND    Run Keyword And Ignore Error    Stop All Traffic
+```
+
+This reintroduces the same weaknesses we eliminated from the pytest-bdd conftest approach:
+
+- Test author must know the internal state changes of each keyword
+- Cleanup list must be manually maintained per test
+- If a keyword changes its behavior, every test using it must update its teardown
+- A default `Test Teardown` in `*** Settings ***` runs the same cleanup for every test regardless of which keywords actually executed
+
+### Summary: Listener Stack vs. RF Built-In Teardowns
+
+| Property | RF Keyword `[Teardown]` | RF Test `[Teardown]` | Listener Stack |
+|---|---|---|---|
+| Cleanup timing | Keyword end (too early) | Test end (correct) | Test end (correct) |
+| LIFO ordering | N/A (per-keyword) | Manual | Automatic (`stack.pop()`) |
+| Co-located with action | Yes (same keyword def) | No (in test case) | Yes (`register_teardown` next to action) |
+| Transparent to test author | No (must define in `.robot`) | No (must define in `.robot`) | Yes (automatic) |
+| Only fires for executed actions | Yes | No (fixed list) | Yes |
+| State persists during test | No | N/A | Yes |
+| Adapts when keywords change | N/A | No (manual sync) | Yes (keyword registers its own cleanup) |
+
+### Complementary Use
+
+Keyword Teardown is not a replacement for the listener stack, but it can **complement** it for internal resource management within compound keywords — database connections, temporary files, or short-lived network probes where the resource lifecycle is fully contained within a single keyword call. The listener stack handles the test-scoped, cross-keyword state cleanup that our scenarios require.
