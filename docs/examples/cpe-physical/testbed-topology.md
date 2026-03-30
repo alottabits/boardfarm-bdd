@@ -9,7 +9,7 @@ via two USB-Ethernet dongles on the host machine.
 
 The testbed operates on two distinct network layers:
 
-- **Docker Management Network** (`192.168.55.0/24`): Provides SSH access to containerized components
+- **OVS Management Bridge** (`192.168.55.0/24`): All containers use `network_mode: none`; SSH access is provided via a dedicated OVS `mgmt` bridge managed by Raikou. See [Management Network Isolation](../../architecture/management-network-isolation.md).
 - **Serial Console**: The RPi is accessed via `picocom` over a USB serial connection (`/dev/ttyUSB0`)
 - **Simulated Network** (`172.25.1.0/24`, `10.1.1.0/24`): The testbed topology created by Raikou using OVS bridges, with USB-Ethernet dongles bridging the physical RPi
 
@@ -47,30 +47,29 @@ The testbed operates on two distinct network layers:
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '12px', 'fontFamily': 'arial' }}}%%
 flowchart LR
-    MGMT[Boardfarm / Host<br/>192.168.55.1<br/>Management & Testing]
+    MGMT[Boardfarm / Host<br/>192.168.55.1<br/>OVS mgmt bridge]
 
-    WAN_MGMT[WAN Container eth0<br/>192.168.55.x<br/>SSH:4001 HTTP:8001]
-    ROUTER_MGMT[Router Container eth0<br/>192.168.55.x<br/>SSH:4000]
-    LAN_MGMT[LAN Container eth0<br/>192.168.55.x<br/>SSH:4002 HTTP:8002]
-    DHCP_MGMT[DHCP Container eth0<br/>192.168.55.x<br/>SSH:4003]
-    ACS_MGMT[ACS Container eth0<br/>192.168.55.x<br/>SSH:4503 TR-069:7547 UI:3000]
+    WAN_MGMT[WAN eth0<br/>192.168.55.10]
+    ROUTER_MGMT[Router eth0<br/>192.168.55.7]
+    LAN_MGMT[LAN eth0<br/>192.168.55.8]
+    DHCP_MGMT[DHCP eth0<br/>192.168.55.6]
+    ACS_MGMT[ACS eth0<br/>192.168.55.11<br/>TR-069:7547 UI:3000]
     CPE_MGMT[Raspberry Pi<br/>Serial Console<br/>picocom /dev/ttyUSB0]
-    SIP_MGMT[SIP Center eth0<br/>192.168.55.x<br/>SSH:4005]
-    LAN_PHONE_MGMT[LAN Phone eth0<br/>192.168.55.x<br/>SSH:4006]
-    WAN_PHONE_MGMT[WAN Phone eth0<br/>192.168.55.x<br/>SSH:4007]
-    WAN_PHONE2_MGMT[WAN Phone 2 eth0<br/>192.168.55.x<br/>SSH:4008]
+    SIP_MGMT[SIP Center eth0<br/>192.168.55.5]
+    LAN_PHONE_MGMT[LAN Phone eth0<br/>192.168.55.12]
+    WAN_PHONE_MGMT[WAN Phone eth0<br/>192.168.55.13]
+    WAN_PHONE2_MGMT[WAN Phone 2 eth0<br/>192.168.55.14]
 
-    %% Management Connections
-    MGMT -.->|SSH/Management| WAN_MGMT
-    MGMT -.->|SSH/Management| ROUTER_MGMT
-    MGMT -.->|SSH/Management| LAN_MGMT
-    MGMT -.->|SSH/Management| DHCP_MGMT
-    MGMT -.->|SSH/Management| ACS_MGMT
+    MGMT -.->|SSH| WAN_MGMT
+    MGMT -.->|SSH| ROUTER_MGMT
+    MGMT -.->|SSH| LAN_MGMT
+    MGMT -.->|SSH| DHCP_MGMT
+    MGMT -.->|SSH| ACS_MGMT
     MGMT -.->|serial console| CPE_MGMT
-    MGMT -.->|SSH/Management| SIP_MGMT
-    MGMT -.->|SSH/Management| LAN_PHONE_MGMT
-    MGMT -.->|SSH/Management| WAN_PHONE_MGMT
-    MGMT -.->|SSH/Management| WAN_PHONE2_MGMT
+    MGMT -.->|SSH| SIP_MGMT
+    MGMT -.->|SSH| LAN_PHONE_MGMT
+    MGMT -.->|SSH| WAN_PHONE_MGMT
+    MGMT -.->|SSH| WAN_PHONE2_MGMT
 
     classDef mgmt stroke-width:3px
     classDef management stroke-width:2px
@@ -190,20 +189,22 @@ the prplOS shell during tests.
 
 ## Container Specifications
 
-### Container Ports and Access
+### Container Access
 
-| Container | SSH Port | Other Ports | Connection Method |
-| ---------- | -------- | ------------------------------------ | -------------------------------------------- |
-| router | 4000 | - | `ssh -p 4000 root@localhost` |
-| wan | 4001 | 8001 (HTTP) | `ssh -p 4001 root@localhost` |
-| lan | 4002 | 8002 (HTTP) | `ssh -p 4002 root@localhost` |
-| dhcp | 4003 | - | `ssh -p 4003 root@localhost` |
-| acs | 4503 | 7547 (TR-069), 7557, 7567, 3000 (UI) | `ssh -p 4503 root@localhost` |
-| RPi | - | - | `picocom -b 115200 /dev/ttyUSB0` (serial) |
-| sipcenter | 4005 | 5060 (SIP) | `ssh -p 4005 root@localhost` |
-| lan-phone | 4006 | - | `ssh -p 4006 root@localhost` (number 1000) |
-| wan-phone | 4007 | - | `ssh -p 4007 root@localhost` (number 2000) |
-| wan-phone2 | 4008 | - | `ssh -p 4008 root@localhost` (number 3000) |
+All containers use `network_mode: none`. Management access is via the OVS `mgmt` bridge — no Docker port mappings.
+
+| Container  | Management IP    | Services                            | Connection Method                    |
+| ---------- | ---------------- | ----------------------------------- | ------------------------------------ |
+| router     | `192.168.55.7`   | SSH                                 | `ssh root@192.168.55.7`             |
+| wan        | `192.168.55.10`  | SSH, HTTP proxy (:8080)             | `ssh root@192.168.55.10`            |
+| lan        | `192.168.55.8`   | SSH, HTTP proxy (:8080)             | `ssh root@192.168.55.8`             |
+| dhcp       | `192.168.55.6`   | SSH                                 | `ssh root@192.168.55.6`             |
+| acs        | `192.168.55.11`  | SSH, TR-069 (:7547), NBI (:7557), UI (:3000) | `ssh root@192.168.55.11`  |
+| RPi        | —                | —                                   | `picocom -b 115200 /dev/ttyUSB0`    |
+| sipcenter  | `192.168.55.5`   | SSH, SIP (:5060)                    | `ssh root@192.168.55.5`             |
+| lan-phone  | `192.168.55.12`  | SSH                                 | `ssh root@192.168.55.12` (num 1000) |
+| wan-phone  | `192.168.55.13`  | SSH                                 | `ssh root@192.168.55.13` (num 2000) |
+| wan-phone2 | `192.168.55.14`  | SSH                                 | `ssh root@192.168.55.14` (num 3000) |
 
 **Default Credentials (containers)**: `root` / `bigfoot1`
 
@@ -216,7 +217,7 @@ the prplOS shell during tests.
 | cpe | cpe-rtr | `10.1.1.1/24` | CPE-facing (LAN side) |
 | eth1 | rtr-wan | `172.25.1.1/24` | WAN-facing (internet-facing) |
 | aux0 | rtr-uplink | `172.25.2.1/24` | Auxiliary uplink |
-| eth0 | Docker network | `192.168.55.x/24` | Management (isolated) - Router only |
+| eth0 | OVS mgmt bridge | `192.168.55.7/24` | Management (SSH access) |
 
 ### NAT Configuration
 
@@ -241,15 +242,15 @@ environment:
 
 ### Device Mapping
 
-| Boardfarm Device | Component | Connection Method |
-| ------------------- | -------------------------------- | --------------------------------- |
-| `bf_rpiprplos_cpe` | Raspberry Pi | `picocom -b 115200 /dev/ttyUSB0` |
-| `bf_wan` | wan | SSH port 4001 |
-| `bf_lan` | lan | SSH port 4002 |
-| `bf_acs` | acs | SSH port 4503 |
-| `bf_dhcp` | dhcp | SSH port 4003 |
-| `bf_kamailio` | sipcenter | SSH port 4005 |
-| `bf_phone` | lan-phone, wan-phone, wan-phone2 | SSH ports 4006, 4007, 4008 |
+| Boardfarm Device | Component | Connection Method                     |
+| ------------------- | -------------------------------- | ------------------------------------- |
+| `bf_rpiprplos_cpe` | Raspberry Pi | `picocom -b 115200 /dev/ttyUSB0`     |
+| `bf_wan` | wan | SSH `192.168.55.10`                   |
+| `bf_lan` | lan | SSH `192.168.55.8`                    |
+| `bf_acs` | acs | SSH `192.168.55.11`                   |
+| `bf_dhcp` | dhcp | SSH `192.168.55.6`                    |
+| `bf_kamailio` | sipcenter | SSH `192.168.55.5`                    |
+| `bf_phone` | lan-phone, wan-phone, wan-phone2 | SSH `192.168.55.12`, `.13`, `.14`     |
 
 ### Boot Process
 
@@ -312,7 +313,7 @@ picocom -b 115200 /dev/ttyUSB0
 #### Wrong IP Address for Testing
 
 **Use**: `172.25.1.2` for WAN services (simulated network)
-**Do NOT use**: `192.168.55.x` (Docker management network)
+**Do NOT use**: management bridge IPs (`192.168.55.x`) for service testing
 
 ### Verification Commands
 
@@ -340,7 +341,7 @@ docker exec -it sipcenter service kamailio status
 
 | Network | Subnet | Purpose |
 | ----------------- | ----------------- | --------------------------------------------------- |
-| Docker Management | `192.168.55.0/24` | Container SSH access (RPi uses serial console) |
+| OVS Management Bridge | `192.168.55.0/24` | Container SSH access (RPi uses serial console) |
 | CPE-Router | `10.1.1.0/24` | RPi WAN connectivity (via USB dongle → OVS bridge) |
 | WAN Services | `172.25.1.0/24` | Infrastructure services |
 | Uplink | `172.25.2.0/24` | External connectivity |

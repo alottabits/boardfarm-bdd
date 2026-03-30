@@ -34,7 +34,7 @@ pytest --inventory-config bf_config/bf_config_sdwan.json --env-config bf_config/
 
 The SD-WAN testbed is a fully Dockerised, Raikou-orchestrated environment that simulates a WAN Edge Appliance deployment with two independent WAN paths and a set of North-side application services. It operates on two distinct network layers:
 
-- **Docker Management Network** (`192.168.55.0/24`): Provides SSH access to all containers for Boardfarm orchestration (the DUT is the exception — see below).
+- **OVS Management Bridge** (`192.168.55.0/24`): All containers use `network_mode: none`; SSH access is provided via a dedicated OVS `mgmt` bridge managed by Raikou (the DUT has no management interface — see below). See [Management Network Isolation](../../architecture/management-network-isolation.md).
 - **Simulated Network** (seven OVS bridges): The functional testbed topology created by Raikou using Open vSwitch. This is the network through which test traffic actually flows.
 
 The Raikou orchestrator container reads `config_sdwan.json` that declares the OVS bridge topology and the interface assignments for each container. Docker Compose (`docker-compose-sdwan.yaml`) starts the containers; Raikou then wires them together via OVS.
@@ -54,7 +54,7 @@ The Raikou orchestrator container reads `config_sdwan.json` that declares the OV
 | **LAN Client** | Client (`QoEClient`) | `lan-qoe-client` | Playwright-based QoE measurement container (productivity, streaming, conferencing). |
 | **Productivity Server** | Server (North-side) | `productivity-server` | Nginx Mock SaaS (index.html, large_asset.js, /api/latency). Separate from `streaming-server` to enable independent L7 path steering. |
 | **Streaming Server** | Server (North-side) | `streaming-server` | Nginx HLS streaming edge (proxies to MinIO via `content-internal` bridge). Separate from `productivity-server` to enable independent L7 path steering. |
-| **MinIO Content Store** | Infrastructure | `minio` | S3-compatible object store. Holds HLS manifests and `.ts` segments. Connected to the `content-internal` Raikou OVS bridge — only `streaming-server` reaches it for proxy traffic. The management host accesses the MinIO S3 API via a Docker management-network port for content ingest. |
+| **MinIO Content Store** | Infrastructure | `minio` | S3-compatible object store. Holds HLS manifests and `.ts` segments. Connected to the `content-internal` Raikou OVS bridge — only `streaming-server` reaches it for proxy traffic. The management host accesses the MinIO S3 API via the OVS management bridge for content ingest. |
 | **Log Collector** | Infrastructure | `log-collector` | Fluent Bit container on the management network. Reads all container stdout/stderr (including DUT) via the Docker socket and writes a unified, timestamped log to the host. No OVS interfaces — log traffic never enters the simulated network. |
 | **Raikou Orchestrator** | Infrastructure | `orchestrator` | OVS bridge manager. Creates and wires simulated network. No test traffic. |
 | **Conferencing Server** | Server (North-side) | `conf-server` | `pion`-based WebRTC Echo server (WSS :8443) for conferencing QoE measurement. Phase 3.5: TLS certificates mounted. |
@@ -79,38 +79,38 @@ The Raikou orchestrator container reads `config_sdwan.json` that declares the OV
 
 ## 2. Network Topology Diagrams
 
-### 2.1 Docker Management Network
+### 2.1 OVS Management Bridge
 
-Boardfarm uses the Docker management network to SSH into containers for configuration, test execution, and log inspection. All containers except the DUT are connected to the management network via their `eth0` (Docker default).
+All containers use `network_mode: none`. Boardfarm accesses them via the OVS `mgmt` bridge (`192.168.55.0/24`) — no Docker port mappings.
 
-> **Device access:** The `linux-sdwan-router` device uses `network_mode: none`. All its interfaces come from Raikou OVS. Boardfarm accesses it via `docker exec` (similar to the CPE in the home-gateway testbed). This prevents management-network traffic from influencing device forwarding decisions.
+> **Device access:** The `linux-sdwan-router` (DUT) has no management bridge interface. All its interfaces come from Raikou OVS. Boardfarm accesses it via `docker exec` (similar to the CPE in the home-gateway testbed). This prevents management-network traffic from influencing device forwarding decisions.
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '12px', 'fontFamily': 'arial' }}}%%
 flowchart LR
-    MGMT[Boardfarm / Host<br/>192.168.55.1<br/>Management & Testing]
+    MGMT[Boardfarm / Host<br/>192.168.55.1<br/>OVS mgmt bridge]
 
-    DUT_MGMT[DUT Container<br/>No Management Network<br/>docker exec only]
-    TC1_MGMT[wan1-tc eth0<br/>192.168.55.x<br/>SSH:5001]
-    TC2_MGMT[wan2-tc eth0<br/>192.168.55.x<br/>SSH:5002]
-    LAN_MGMT[lan-qoe-client eth0<br/>192.168.55.x<br/>SSH:5003 SOCKS:18090]
-    PROD_MGMT[productivity-server eth0<br/>192.168.55.x<br/>SSH:5005 HTTP:18080 HTTPS:18443]
-    STREAM_MGMT[streaming-server eth0<br/>192.168.55.x<br/>SSH:5006 HTTP:18081 HTTPS:18444]
-    CONF_MGMT[conf-server eth0<br/>192.168.55.x<br/>SSH:5007 WSS:18445]
-    MINIO_MGMT[minio<br/>192.168.55.x<br/>S3-API:19000 Console:19001<br/>content ingest only]
-    LAN_TG_MGMT[lan-traffic-gen eth0<br/>192.168.55.x<br/>SSH:5008]
-    NORTH_TG_MGMT[north-traffic-gen eth0<br/>192.168.55.x<br/>SSH:5009]
+    DUT_MGMT[DUT Container<br/>No mgmt interface<br/>docker exec only]
+    TC1_MGMT[wan1-tc eth0<br/>192.168.55.20]
+    TC2_MGMT[wan2-tc eth0<br/>192.168.55.21]
+    LAN_MGMT[lan-qoe-client eth0<br/>192.168.55.30]
+    PROD_MGMT[productivity-server eth0<br/>192.168.55.40]
+    STREAM_MGMT[streaming-server eth0<br/>192.168.55.41]
+    CONF_MGMT[conf-server eth0<br/>192.168.55.42]
+    MINIO_MGMT[minio eth0<br/>192.168.55.50<br/>S3-API:9000 Console:9001]
+    LAN_TG_MGMT[lan-traffic-gen eth0<br/>192.168.55.31]
+    NORTH_TG_MGMT[north-traffic-gen eth0<br/>192.168.55.43]
 
     MGMT -.->|docker exec| DUT_MGMT
-    MGMT -.->|SSH/Management| TC1_MGMT
-    MGMT -.->|SSH/Management| TC2_MGMT
-    MGMT -.->|SSH/Management| LAN_MGMT
-    MGMT -.->|SSH/Management| PROD_MGMT
-    MGMT -.->|SSH/Management| STREAM_MGMT
-    MGMT -.->|SSH/Management| CONF_MGMT
+    MGMT -.->|SSH| TC1_MGMT
+    MGMT -.->|SSH| TC2_MGMT
+    MGMT -.->|SSH| LAN_MGMT
+    MGMT -.->|SSH| PROD_MGMT
+    MGMT -.->|SSH| STREAM_MGMT
+    MGMT -.->|SSH| CONF_MGMT
     MGMT -.->|S3 API / mc CLI| MINIO_MGMT
-    MGMT -.->|SSH/Management| LAN_TG_MGMT
-    MGMT -.->|SSH/Management| NORTH_TG_MGMT
+    MGMT -.->|SSH| LAN_TG_MGMT
+    MGMT -.->|SSH| NORTH_TG_MGMT
 
     classDef mgmt stroke-width:3px
     classDef container stroke-width:2px
@@ -286,7 +286,7 @@ An isolated point-to-point link between `streaming-server` and `minio`. This bri
 | `streaming-server` | `eth2` | `10.100.0.1/30` | HLS proxy → MinIO egress |
 | `minio` | `eth1` | `10.100.0.2/30` | MinIO S3 API endpoint for streaming-server proxy |
 
-> **Management access to MinIO:** The `minio` container also has a Docker management-network interface (`eth0`), which exposes ports 19000 (S3 API) and 19001 (web console) to the host. This is used exclusively for content ingest (`mc cp`) and operational debugging. It does not carry any testbed traffic.
+> **Management access to MinIO:** The `minio` container has a management bridge interface (`eth0` on OVS `mgmt`, `192.168.55.50`), which exposes S3 API (:9000) and web console (:9001) directly on the management bridge. This is used exclusively for content ingest (`mc cp`) and operational debugging. It does not carry any testbed traffic.
 
 ---
 
@@ -401,24 +401,26 @@ The compose file is located at `raikou/docker-compose-sdwan.yaml`. It is the aut
 
 ## 5. Container Specifications
 
-### 5.1 Port and Access Summary
+### 5.1 Access Summary
 
-| Container | SSH Port | Other Ports | Connection Method | Notes |
+All containers use `network_mode: none`. Management access is via the OVS `mgmt` bridge — no Docker port mappings.
+
+| Container | Management IP | Services | Connection Method | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `linux-sdwan-router` | — | — | `docker exec -it linux-sdwan-router bash` | `network_mode: none`; no management network |
-| `wan1-tc` | 5001 | — | `ssh -p 5001 root@localhost` | |
-| `wan2-tc` | 5002 | — | `ssh -p 5002 root@localhost` | |
+| `linux-sdwan-router` | — | — | `docker exec -it linux-sdwan-router bash` | No mgmt interface |
+| `wan1-tc` | `192.168.55.20` | SSH | `ssh root@192.168.55.20` | |
+| `wan2-tc` | `192.168.55.21` | SSH | `ssh root@192.168.55.21` | |
 | `app-router` | — | — | `docker exec -it app-router sh` | Infrastructure only; no SSH |
-| `lan-qoe-client` | 5003 | 18090 (SOCKS v5 proxy) | `ssh -p 5003 root@localhost` | SOCKS proxy for developer browser access to LAN-side services — see §5.2 |
-| `productivity-server` | 5005 | 18080 (HTTP), 18443 (HTTPS/H3) | `ssh -p 5005 root@localhost` | Nginx productivity SaaS; Phase 3.5: TLS certs mounted |
-| `streaming-server` | 5006 | 18081 (HTTP), 18444 (HTTPS) | `ssh -p 5006 root@localhost` | HLS proxy to MinIO via content-internal; Phase 3.5: TLS certs mounted |
-| `conf-server` | 5007 | 18445 (WSS) | `ssh -p 5007 root@localhost` | pion WebRTC Echo; Phase 3.5: TLS certs mounted |
-| `ipsec-hub` | — | — | `docker exec -it ipsec-hub bash` | StrongSwan IKEv2 responder; Phase 3.5: IKEv2 certs mounted |
-| `minio` | — | 19000 (S3 API), 19001 (Console) | `mc alias set testbed http://localhost:19000 testbed testbed-secret` | Management network (ingest/debug only); eth1 on `content-internal` bridge carries proxy traffic |
-| `lan-traffic-gen` | 5008 | — | `ssh -p 5008 root@localhost` | |
-| `north-traffic-gen` | 5009 | — | `ssh -p 5009 root@localhost` | |
-| `malicious-host` _(Phase 4+)_ | 5008 | — | `ssh -p 5008 root@localhost` | |
-| `log-collector` | — | — | `tail -f logs/sdwan-testbed.log` | Management network only; no OVS interfaces — see §5.4 |
+| `lan-qoe-client` | `192.168.55.30` | SSH, SOCKS v5 (:8080) | `ssh root@192.168.55.30` | SOCKS proxy for developer browser access — see §5.2 |
+| `productivity-server` | `192.168.55.40` | SSH, HTTP (:8080), HTTPS (:443) | `ssh root@192.168.55.40` | Nginx productivity SaaS; TLS certs mounted |
+| `streaming-server` | `192.168.55.41` | SSH, HTTP (:8081), HTTPS (:8443) | `ssh root@192.168.55.41` | HLS proxy to MinIO via content-internal; TLS certs mounted |
+| `conf-server` | `192.168.55.42` | SSH, WSS (:8443) | `ssh root@192.168.55.42` | pion WebRTC Echo; TLS certs mounted |
+| `ipsec-hub` | — | — | `docker exec -it ipsec-hub bash` | StrongSwan IKEv2 responder; IKEv2 certs mounted |
+| `minio` | `192.168.55.50` | S3 API (:9000), Console (:9001) | `mc alias set testbed http://192.168.55.50:9000 testbed testbed-secret` | Mgmt bridge (ingest/debug); `eth1` on `content-internal` carries proxy traffic |
+| `lan-traffic-gen` | `192.168.55.31` | SSH | `ssh root@192.168.55.31` | |
+| `north-traffic-gen` | `192.168.55.43` | SSH | `ssh root@192.168.55.43` | |
+| `malicious-host` _(Phase 4+)_ | `192.168.55.44` | SSH | `ssh root@192.168.55.44` | |
+| `log-collector` | — | — | `tail -f logs/sdwan-testbed.log` | Docker socket access; no OVS interfaces — see §5.4 |
 
 **Default credentials:** `root` / `boardfarm`
 
@@ -428,12 +430,12 @@ The `lan-qoe-client` container provides two complementary tools for debugging Qo
 
 #### SOCKS v5 Proxy (Dante) — Browse through the testbed LAN
 
-Dante is running inside `lan-qoe-client` and listening on port 8080, exposed to the host as **port 18090**. Configure your browser to use it as a SOCKS v5 proxy:
+Dante is running inside `lan-qoe-client` and listening on port 8080 at its management IP. Configure your browser to use it as a SOCKS v5 proxy:
 
 ```
 Firefox → Settings → Network Settings → Manual Proxy Configuration
-  SOCKS Host: 127.0.0.1
-  Port:       18090
+  SOCKS Host: 192.168.55.30
+  Port:       8080
   SOCKS v5
   ✓ Proxy DNS when using SOCKS v5
 ```
@@ -660,8 +662,7 @@ Inventory holds device identity and connection details. The DUT uses `local_cmd`
                 "name": "wan1_tc",
                 "type": "linux_traffic_controller",
                 "connection_type": "authenticated_ssh",
-                "ipaddr": "localhost",
-                "port": 5001,
+                "ipaddr": "192.168.55.20",
                 "username": "root",
                 "password": "boardfarm"
             },
@@ -669,8 +670,7 @@ Inventory holds device identity and connection details. The DUT uses `local_cmd`
                 "name": "wan2_tc",
                 "type": "linux_traffic_controller",
                 "connection_type": "authenticated_ssh",
-                "ipaddr": "localhost",
-                "port": 5002,
+                "ipaddr": "192.168.55.21",
                 "username": "root",
                 "password": "boardfarm"
             },
@@ -678,8 +678,7 @@ Inventory holds device identity and connection details. The DUT uses `local_cmd`
                 "name": "lan_qoe_client",
                 "type": "playwright_qoe_client",
                 "connection_type": "authenticated_ssh",
-                "ipaddr": "localhost",
-                "port": 5003,
+                "ipaddr": "192.168.55.30",
                 "username": "root",
                 "password": "boardfarm",
                 "simulated_ip": "192.168.10.10"
@@ -688,8 +687,7 @@ Inventory holds device identity and connection details. The DUT uses `local_cmd`
                 "name": "lan_traffic_gen",
                 "type": "iperf_traffic_generator",
                 "connection_type": "authenticated_ssh",
-                "ipaddr": "localhost",
-                "port": 5008,
+                "ipaddr": "192.168.55.31",
                 "username": "root",
                 "password": "boardfarm",
                 "simulated_ip": "192.168.10.20"
@@ -698,8 +696,7 @@ Inventory holds device identity and connection details. The DUT uses `local_cmd`
                 "name": "north_traffic_gen",
                 "type": "iperf_traffic_generator",
                 "connection_type": "authenticated_ssh",
-                "ipaddr": "localhost",
-                "port": 5009,
+                "ipaddr": "192.168.55.43",
                 "username": "root",
                 "password": "boardfarm",
                 "simulated_ip": "172.16.0.25"
@@ -768,8 +765,8 @@ The environment config defines per-device defaults and behavior. The DUT has SLA
     # Generate synthetic HLS content
     scripts/generate_streaming_content.sh
 
-    # Ingest into MinIO via the management-network S3 API port (host → MinIO eth0)
-    mc alias set testbed http://localhost:19000 testbed testbed-secret
+    # Ingest into MinIO via the management bridge (host → MinIO eth0 on OVS mgmt)
+    mc alias set testbed http://192.168.55.50:9000 testbed testbed-secret
     mc mb --ignore-existing testbed/streaming-content
     mc cp --recursive /tmp/streaming/ testbed/streaming-content/
     ```
@@ -836,7 +833,7 @@ lan-qoe-client (192.168.10.10) attempts outbound TCP → 172.16.0.30:4444
 
 | Network | Subnet | Purpose |
 | :--- | :--- | :--- |
-| Docker Management | `192.168.55.0/24` | Boardfarm SSH access (DUT excluded); MinIO console/ingest |
+| OVS Management Bridge | `192.168.55.0/24` | Boardfarm SSH access (DUT excluded); MinIO console/ingest |
 | LAN Segment | `192.168.10.0/24` | LAN clients and DUT LAN port |
 | DUT–WAN1 (p2p) | `10.10.1.0/30` | DUT WAN1 ↔ WAN1-TC south |
 | DUT–WAN2 (p2p) | `10.10.2.0/30` | DUT WAN2 ↔ WAN2-TC south |
@@ -958,20 +955,20 @@ docker exec wan1-tc ip route show
 docker exec wan1-tc tc qdisc show dev eth-north        # Confirm netem is clean
 docker exec wan1-tc iptables -t nat -L -n               # Should show empty nat table
 
-# Verify application server services (HTTP)
-curl http://localhost:18080/health                     # Productivity (HTTP)
-curl http://localhost:18081/hls/default/index.m3u8    # Streaming (HLS playlist)
+# Verify application server services (via management bridge)
+curl http://192.168.55.40:8080/health                     # Productivity (HTTP)
+curl http://192.168.55.41:8081/hls/default/index.m3u8    # Streaming (HLS playlist)
 
-# Verify application server services (HTTPS — Phase 3.5)
-curl -k https://localhost:18443/health                 # Productivity (HTTPS)
-curl -k https://localhost:18444/hls/default/index.m3u8 # Streaming (HTTPS)
+# Verify application server services (HTTPS)
+curl -k https://192.168.55.40:443/health                  # Productivity (HTTPS)
+curl -k https://192.168.55.41:8443/hls/default/index.m3u8 # Streaming (HTTPS)
 
 # Verify IPsec hub
 docker exec ipsec-hub ipsec statusall
 
-# Check SSH access to all SSH-enabled containers
-for port in 5001 5002 5003 5005 5006 5007 5008 5009; do
-    ssh -p $port -o ConnectTimeout=3 root@localhost "hostname" && echo "Port $port OK"
+# Check SSH access to all SSH-enabled containers (via OVS mgmt bridge)
+for ip in 192.168.55.20 192.168.55.21 192.168.55.30 192.168.55.40 192.168.55.41 192.168.55.42 192.168.55.31 192.168.55.43; do
+    ssh -o ConnectTimeout=3 root@$ip "hostname" && echo "$ip OK"
 done
 ```
 

@@ -38,7 +38,7 @@ test portability across vendors.
 ![Dual-WAN SD-WAN Testbed Topology](../../../Excalidraw/dual-wan-testbed-topology.svg)
 
 All test traffic flows through **Raikou OVS bridges** (not Docker networks).
-The default Docker network is management-only.
+All containers use `network_mode: none` with management access via a dedicated OVS `mgmt` bridge. See [Management Network Isolation](../../architecture/management-network-isolation.md).
 
 ## Use Cases Exercised
 

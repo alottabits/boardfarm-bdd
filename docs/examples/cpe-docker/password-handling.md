@@ -83,17 +83,44 @@ cleanup process must restore the original value. However:
 
 This makes true password restoration impossible without tracking the plaintext.
 
-### Current Solution
+### How Cleanup Works
 
-The cleanup code in `conftest.py` detects password fields and restores to the
-known default:
+Cleanup is **automatic** in both frameworks. The keyword/step that sets the
+password registers its own teardown to restore `"admin"` (the known default):
+
+**pytest-bdd** — cleanup runs after `yield`:
 
 ```python
-if "password" in field_name.lower():
-    restore_value = "admin"  # Default PrplOS password
+@given("the user has set the CPE GUI password to {password}")
+def set_gui_password(acs, cpe, password):
+    admin_idx = discover_admin_user_index(acs, cpe)
+    param_path = f"Device.Users.User.{admin_idx}.Password"
+    acs_use_cases.set_parameter_value(acs, cpe, param_path, password)
+    yield
+    # Automatic cleanup — restore to known default
+    acs_use_cases.set_parameter_value(acs, cpe, param_path, "admin")
 ```
 
-This works because:
+**Robot Framework** — cleanup via the `BoardfarmListener` teardown stack:
+
+```python
+@keyword("The user has set the CPE GUI password to")
+def set_cpe_gui_password(self, acs, cpe, password):
+    admin_idx = discover_admin_user_index(acs, cpe)
+    param_path = f"Device.Users.User.{admin_idx}.Password"
+    acs_use_cases.set_parameter_value(acs, cpe, param_path, password)
+
+    _get_listener().register_teardown(
+        f"Restore password {param_path}",
+        self._restore_password, acs, cpe, param_path,
+    )
+
+@staticmethod
+def _restore_password(acs, cpe, param_path):
+    acs_use_cases.set_parameter_value(acs, cpe, param_path, "admin")
+```
+
+In both cases the password is restored to `"admin"` because:
 - `admin` is the documented default for all PrplOS devices
 - The Boardfarm framework assumes `admin:admin` as the baseline
 - All tests start from this known state
@@ -137,5 +164,6 @@ To verify the default password in a fresh environment:
 - Framework defaults: `boardfarm3/lib/gui/prplos/pages/page_helper.py`
 - Device property: `boardfarm3/devices/prplos_cpe.py`
 - Config example: `bf_config/boardfarm_config_example.json`
-- Cleanup logic: `conftest.py`
-- Background steps: `tests/step_defs/background_steps.py`
+- pytest-bdd cleanup: `tests/step_defs/background_steps.py` (yield-based)
+- Robot Framework cleanup: `robot/libraries/background_keywords.py` (listener teardown stack)
+- Cleanup architecture: [Test Cleanup Architecture](../../architecture/test-cleanup-architecture.md)

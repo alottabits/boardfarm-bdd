@@ -85,8 +85,7 @@ Add a new phone service (e.g., `wan-phone2`):
 wan-phone2:
     container_name: wan-phone2
     image: phone:v1.2.0
-    ports:
-        - 4008:22
+    network_mode: none
     environment:
         - LEGACY=no
     privileged: true
@@ -94,6 +93,8 @@ wan-phone2:
     depends_on:
         - phone-image
 ```
+
+> **Note:** All containers use `network_mode: none`. Docker `ports:` mappings are not used. SSH access is via the OVS management bridge (e.g. `ssh root@192.168.55.14`). See [Management Network Isolation](../../architecture/management-network-isolation.md).
 
 Update the orchestrator dependencies:
 ```yaml
@@ -133,11 +134,10 @@ Add the device configuration:
 {
     "color": "green",
     "connection_type": "authenticated_ssh",
-    "ipaddr": "localhost",
+    "ipaddr": "192.168.55.14",
     "name": "wan_phone2",
     "number": "3000",
     "options": "wan-static-ip:172.25.1.4/24, wan-no-dhcp-server, wan-static-ipv6:2001:dead:beef:2::4/64, static-route:0.0.0.0/0-172.25.1.1",
-    "port": 4008,
     "type": "bf_phone"
 }
 ```

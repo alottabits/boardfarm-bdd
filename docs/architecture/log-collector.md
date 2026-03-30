@@ -36,33 +36,38 @@ The unified log filename and `testbed` label should use the Boardfarm `--board-n
 
 ### 2.1 Location in the Testbed
 
-The log collector sits exclusively on the **Docker management network**. It does not appear in Raikou's `config.json` — it receives no OVS bridges or simulated-network interfaces.
+The log collector is a **special-case container** that does **not** follow the standard `network_mode: none` pattern used by all other testbed containers. It requires access to the Docker socket and Docker log files on the host, so it retains Docker's default networking (or uses `network_mode: host`). It does not appear in Raikou's `config.json` — it receives no OVS bridges or simulated-network interfaces.
+
+> **Why the log-collector keeps Docker networking:** All other containers use `network_mode: none` with management access via the OVS `mgmt` bridge (see [Management Network Isolation](management-network-isolation.md)). The log-collector is the exception because it needs host volume mounts (`/var/lib/docker/containers`, `/var/run/docker.sock`) that work most reliably with Docker's default networking or `network_mode: host`. It has no testbed-facing interfaces and does not participate in the simulated network.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                         DOCKER MANAGEMENT NETWORK                                 │
-│                         (e.g. 192.168.55.0/24)                                   │
+│                         OVS MANAGEMENT BRIDGE (mgmt)                              │
+│                         192.168.55.0/24                                           │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                  │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────────────┐  │
-│   │ Container │  │ Container │  │ Container │  │ Container │  │  log-collector  │  │
-│   │   (DUT)   │  │  (WAN)   │  │  (LAN)   │  │  (ACS)   │  │  Fluent Bit     │  │
-│   │ eth0 only │  │ eth0     │  │ eth0     │  │ eth0     │  │  eth0 only      │  │
-│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────────┬────────┘  │
-│        │              │              │              │                 │           │
-│        └──────────────┴──────────────┴──────────────┴─────────────────┘           │
-│                                     │                                              │
-│                           Docker daemon captures stdout/stderr                     │
-│                           for all containers                                       │
-│                                     │                                              │
-│                                     ▼                                              │
-│                    /var/lib/docker/containers/*/*.log                              │
-│                                     │                                              │
-│                                     ▼                                              │
-│                    log-collector tails → unified output                             │
-│                                     │                                              │
-│                                     ▼                                              │
-│                    ./logs/<testbed-name>.log  (on host)                             │
+│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐                       │
+│   │ Container │  │ Container │  │ Container │  │ Container │  All use             │
+│   │   (DUT)   │  │  (WAN)   │  │  (LAN)   │  │  (ACS)   │  network_mode: none  │
+│   │ no mgmt   │  │ eth0     │  │ eth0     │  │ eth0     │  + OVS mgmt bridge   │
+│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘                       │
+│        │              │              │              │                              │
+│        └──────────────┴──────────────┴──────────────┘                              │
+│                                                                                   │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                         DOCKER HOST                                                │
+│                                                                                   │
+│   ┌─────────────────┐                                                            │
+│   │  log-collector   │  Docker networking (special case)                          │
+│   │  Fluent Bit      │  Reads /var/lib/docker/containers/*/*.log                 │
+│   └────────┬────────┘                                                            │
+│            │                                                                      │
+│            ▼                                                                      │
+│   Docker daemon captures stdout/stderr for ALL containers                         │
+│   (including network_mode: none containers)                                       │
+│            │                                                                      │
+│            ▼                                                                      │
+│   ./logs/<testbed-name>.log  (on host)                                            │
 │                                                                                   │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
@@ -137,7 +142,7 @@ volumes:
 
 ### 3.2 Raikou config.json — Exclusion
 
-The log collector **must not** appear in Raikou's `config.json`. That file declares which containers receive OVS bridge interfaces. The log collector needs only the default Docker network (management) and host volume access.
+The log collector **must not** appear in Raikou's `config.json`. That file declares which containers receive OVS bridge interfaces. The log collector needs only Docker host networking and host volume access — it does not use the OVS management bridge.
 
 ```json
 {

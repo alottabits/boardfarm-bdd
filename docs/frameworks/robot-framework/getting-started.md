@@ -223,22 +223,46 @@ Robot Framework tests use Python keyword libraries that mirror the pytest-bdd st
 
 ```python
 # robot/libraries/acs_keywords.py
+import logging
 from robot.api.deco import keyword
 from boardfarm3.use_cases import acs as acs_use_cases
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _get_listener():
+    from robotframework_boardfarm.listener import get_listener
+    return get_listener()
+
 
 class AcsKeywords:
     ROBOT_LIBRARY_SCOPE = "SUITE"
 
     @keyword("The CPE is online via ACS")
     def verify_cpe_online(self, acs, cpe):
-        """Verify CPE connectivity via ACS."""
+        """Verify CPE connectivity via ACS (read-only, no cleanup needed)."""
         return acs_use_cases.is_cpe_online(acs, cpe)
 
-    @keyword("The ACS initiates a remote reboot of the CPE")
-    def initiate_reboot(self, acs, cpe):
-        """Initiate CPE reboot via ACS."""
-        acs_use_cases.initiate_reboot(acs, cpe)
+    @keyword("Set ACS Parameter Value")
+    def set_parameter(self, acs, cpe, parameter, value):
+        """Set a TR-069 parameter and register automatic restore."""
+        original = acs_use_cases.get_parameter_value(acs, cpe, parameter)
+        acs_use_cases.set_parameter_value(acs, cpe, parameter, value)
+        try:
+            _get_listener().register_teardown(
+                f"Restore {parameter}",
+                self._restore_param, acs, cpe, parameter, original,
+            )
+        except Exception:
+            _LOGGER.debug("Listener unavailable; skipping teardown registration")
+
+    @staticmethod
+    def _restore_param(acs, cpe, parameter, value):
+        acs_use_cases.set_parameter_value(acs, cpe, parameter, value)
 ```
+
+> **Note:** Read-only keywords (like `verify_cpe_online`) don't need `register_teardown`.
+> Only state-changing keywords register cleanup.
 
 ### Using Resources
 
@@ -309,21 +333,32 @@ Tests follow the 4-layer architecture:
 
 ### Role of BoardfarmListener
 
-The `BoardfarmListener` is a **thin interface** between Robot Framework and Boardfarm:
-- **Suite Start**: Deploys devices via Boardfarm hooks
-- **Suite End**: Releases devices
+The `BoardfarmListener` manages the full test lifecycle:
+
+| Phase | Action |
+|-------|--------|
+| **Suite Start** | Deploys devices via Boardfarm hooks |
+| **Test Start** | Creates empty teardown stack, sets library context |
+| **Test End** | Drains teardown stack (LIFO), refreshes CPE console, clears context |
+| **Suite End** | Releases devices |
+
+The listener provides **automatic per-test cleanup** through a LIFO teardown stack. Keyword libraries call `register_teardown()` when they change state, and the listener reverses those changes when the test finishes (pass or fail). This mirrors the `yield`-based cleanup in pytest-bdd.
 
 The listener does **NOT** filter or select tests. Tests are responsible for checking their own preconditions and skipping themselves if requirements aren't met.
+
+See [Test Cleanup Architecture](../../architecture/test-cleanup-architecture.md) for full details.
 
 ## Keyword Naming Convention
 
 Keywords use the `@keyword` decorator to map clean Python function names to scenario step text:
 
-| pytest-bdd                     | Robot Framework                   |
-| ------------------------------ | --------------------------------- |
-| `@when("step text")`           | `@keyword("step text")`           |
-| `tests/step_defs/acs_steps.py` | `robot/libraries/acs_keywords.py` |
-| `boardfarm3.use_cases.acs`     | `boardfarm3.use_cases.acs` (same) |
+| Aspect | pytest-bdd | Robot Framework |
+|--------|-----------|-----------------|
+| Step binding | `@when("step text")` | `@keyword("step text")` |
+| Step location | `tests/step_defs/acs_steps.py` | `robot/libraries/acs_keywords.py` |
+| Use case layer | `boardfarm3.use_cases.acs` | `boardfarm3.use_cases.acs` (same) |
+| Per-test cleanup | `yield` in step function | `register_teardown()` in keyword library |
+| Cleanup execution | pytest fixture teardown (LIFO) | `BoardfarmListener.end_test()` (LIFO) |
 
 **Example comparison:**
 

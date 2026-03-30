@@ -4,7 +4,7 @@
 
 The Raikou + Boardfarm testbed simulates a complete home gateway environment using containerized components. The testbed operates on two distinct network layers:
 
-- **Docker Management Network** (`192.168.56.0/24`): Provides SSH access to most containers for configuration and management (CPE container excluded - uses `network_mode: none`)
+- **OVS Management Bridge** (`192.168.55.0/24`): All containers use `network_mode: none`; SSH access is provided via a dedicated OVS `mgmt` bridge managed by Raikou. See [Management Network Isolation](../../architecture/management-network-isolation.md).
 - **Simulated Network** (`172.25.1.0/24`, `10.1.1.0/24`): The testbed topology created by Raikou using OVS bridges
 
 ## Network Architecture
@@ -36,38 +36,37 @@ The Raikou + Boardfarm testbed simulates a complete home gateway environment usi
 
 ## Network Topology Diagrams
 
-### Docker Management Network
+### OVS Management Bridge
+
+All containers use `network_mode: none`. Management access is via the OVS `mgmt` bridge (`192.168.55.0/24`), not Docker port mappings.
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '12px', 'fontFamily': 'arial' }}}%%
 flowchart LR
-    MGMT[Boardfarm / Host<br/>192.168.56.1<br/>Management & Testing]
+    MGMT[Boardfarm / Host<br/>192.168.55.1<br/>OVS mgmt bridge]
 
-    WAN_MGMT[WAN Container eth0<br/>192.168.56.6<br/>SSH:4001 HTTP:8001]
-    ROUTER_MGMT[Router Container eth0<br/>192.168.56.8<br/>SSH:4000]
-    LAN_MGMT[LAN Container eth0<br/>192.168.56.x<br/>SSH:4002 HTTP:8002]
-    DHCP_MGMT[DHCP Container eth0<br/>192.168.56.x<br/>SSH:4003]
-    ACS_MGMT[ACS Container eth0<br/>192.168.56.x<br/>SSH:4503 TR-069:7547 UI:3000]
-    CPE_MGMT[CPE Container<br/>No Management Network<br/>docker exec only]
-    SIP_MGMT[SIP Center eth0<br/>192.168.56.x<br/>SSH:4005]
-    LAN_PHONE_MGMT[LAN Phone eth0<br/>192.168.56.x<br/>SSH:4006]
-    WAN_PHONE_MGMT[WAN Phone eth0<br/>192.168.56.x<br/>SSH:4007]
-    WAN_PHONE2_MGMT[WAN Phone 2 eth0<br/>192.168.56.x<br/>SSH:4008]
+    WAN_MGMT[WAN eth0<br/>192.168.55.10]
+    ROUTER_MGMT[Router eth0<br/>192.168.55.7]
+    LAN_MGMT[LAN eth0<br/>192.168.55.8]
+    DHCP_MGMT[DHCP eth0<br/>192.168.55.6]
+    ACS_MGMT[ACS eth0<br/>192.168.55.11<br/>TR-069:7547 UI:3000]
+    CPE_MGMT[CPE Container<br/>No mgmt interface<br/>docker exec only]
+    SIP_MGMT[SIP Center eth0<br/>192.168.55.5]
+    LAN_PHONE_MGMT[LAN Phone eth0<br/>192.168.55.12]
+    WAN_PHONE_MGMT[WAN Phone eth0<br/>192.168.55.13]
+    WAN_PHONE2_MGMT[WAN Phone 2 eth0<br/>192.168.55.14]
 
-
-    %% Management Connections
-    MGMT -.->|SSH/Management| WAN_MGMT
-    MGMT -.->|SSH/Management| ROUTER_MGMT
-    MGMT -.->|SSH/Management| LAN_MGMT
-    MGMT -.->|SSH/Management| DHCP_MGMT
-    MGMT -.->|SSH/Management| ACS_MGMT
+    MGMT -.->|SSH| WAN_MGMT
+    MGMT -.->|SSH| ROUTER_MGMT
+    MGMT -.->|SSH| LAN_MGMT
+    MGMT -.->|SSH| DHCP_MGMT
+    MGMT -.->|SSH| ACS_MGMT
     MGMT -.->|docker exec| CPE_MGMT
-    MGMT -.->|SSH/Management| SIP_MGMT
-    MGMT -.->|SSH/Management| LAN_PHONE_MGMT
-    MGMT -.->|SSH/Management| WAN_PHONE_MGMT
-    MGMT -.->|SSH/Management| WAN_PHONE2_MGMT
+    MGMT -.->|SSH| SIP_MGMT
+    MGMT -.->|SSH| LAN_PHONE_MGMT
+    MGMT -.->|SSH| WAN_PHONE_MGMT
+    MGMT -.->|SSH| WAN_PHONE2_MGMT
 
-    %% Styling
     classDef mgmt stroke-width:3px
     classDef management stroke-width:2px
 
@@ -170,24 +169,27 @@ graph LR
 
 ## Container Specifications
 
-### Container Ports and Access
+### Container Access
 
-| Container  | SSH Port | Other Ports                          | Connection Method                                 |
-| ---------- | -------- | ------------------------------------ | ------------------------------------------------- |
-| router     | 4000     | -                                    | `ssh -p 4000 root@localhost`                      |
-| wan        | 4001     | 8001 (HTTP)                          | `ssh -p 4001 root@localhost`                      |
-| lan        | 4002     | 8002 (HTTP)                          | `ssh -p 4002 root@localhost`                      |
-| dhcp       | 4003     | -                                    | `ssh -p 4003 root@localhost`                      |
-| acs        | 4503     | 7547 (TR-069), 7557, 7567, 3000 (UI) | `ssh -p 4503 root@localhost`                      |
-| cpe        | -        | -                                    | `docker exec -it cpe ash` (no management network) |
-| sipcenter  | 4005     | 5060 (SIP)                           | `ssh -p 4005 root@localhost`                      |
-| lan-phone  | 4006     | -                                    | `ssh -p 4006 root@localhost` (number 1000)        |
-| wan-phone  | 4007     | -                                    | `ssh -p 4007 root@localhost` (number 2000)        |
-| wan-phone2 | 4008     | -                                    | `ssh -p 4008 root@localhost` (number 3000)        |
+All containers use `network_mode: none`. Management access is via the OVS `mgmt` bridge — no Docker port mappings.
+
+| Container  | Management IP    | Services                            | Connection Method                    |
+| ---------- | ---------------- | ----------------------------------- | ------------------------------------ |
+| router     | `192.168.55.7`   | SSH                                 | `ssh root@192.168.55.7`             |
+| wan        | `192.168.55.10`  | SSH, HTTP proxy (:8080)             | `ssh root@192.168.55.10`            |
+| lan        | `192.168.55.8`   | SSH, HTTP proxy (:8080)             | `ssh root@192.168.55.8`             |
+| dhcp       | `192.168.55.6`   | SSH                                 | `ssh root@192.168.55.6`             |
+| acs        | `192.168.55.11`  | SSH, TR-069 (:7547), NBI (:7557), UI (:3000) | `ssh root@192.168.55.11`  |
+| cpe        | —                | —                                   | `docker exec -it cpe ash`           |
+| mongo      | `192.168.55.9`   | MongoDB (:27017)                    | —                                   |
+| sipcenter  | `192.168.55.5`   | SSH, SIP (:5060)                    | `ssh root@192.168.55.5`             |
+| lan-phone  | `192.168.55.12`  | SSH                                 | `ssh root@192.168.55.12` (num 1000) |
+| wan-phone  | `192.168.55.13`  | SSH                                 | `ssh root@192.168.55.13` (num 2000) |
+| wan-phone2 | `192.168.55.14`  | SSH                                 | `ssh root@192.168.55.14` (num 3000) |
 
 **Default Credentials**: `root` / `bigfoot1`
 
-**Note**: The CPE container uses `network_mode: none` in docker-compose.yaml and has no Docker management network interface. It is accessed directly via `docker exec` and only has interfaces on the simulated network:
+**Note**: All containers use `network_mode: none`. The CPE container has no management bridge interface and is accessed via `docker exec`. It only has interfaces on the simulated network:
 
 - `eth0`: Connected to `lan-cpe` bridge (LAN side, part of `br-lan` bridge inside container)
 - `eth1`: Connected to `cpe-rtr` bridge (WAN side, gets IP via DHCP)
@@ -201,7 +203,7 @@ graph LR
 | cpe       | cpe-rtr        | `10.1.1.1/24`     | CPE-facing (LAN side)               |
 | eth1      | rtr-wan        | `172.25.1.1/24`   | WAN-facing (internet-facing)        |
 | aux0      | rtr-uplink     | `172.25.2.1/24`   | Auxiliary uplink                    |
-| eth0      | Docker network | `192.168.56.x/24` | Management (isolated) - Router only |
+| eth0      | OVS mgmt bridge | `192.168.55.7/24` | Management (SSH access) |
 
 ### NAT Configuration
 
@@ -226,14 +228,14 @@ environment:
 
 ### Device Mapping
 
-| Boardfarm Device | Container                        | Connection Method          |
-| ---------------- | -------------------------------- | -------------------------- |
-| `bf_cpe`         | cpe                              | `docker exec -it cpe ash`  |
-| `bf_wan`         | wan                              | SSH port 4001              |
-| `bf_lan`         | lan                              | SSH port 4002              |
-| `bf_acs`         | acs                              | SSH port 4503              |
-| `bf_dhcp`        | dhcp                             | SSH port 4003              |
-| `bf_phone`       | lan-phone, wan-phone, wan-phone2 | SSH ports 4006, 4007, 4008 |
+| Boardfarm Device | Container                        | Connection Method                   |
+| ---------------- | -------------------------------- | ----------------------------------- |
+| `bf_cpe`         | cpe                              | `docker exec -it cpe ash`           |
+| `bf_wan`         | wan                              | SSH `192.168.55.10`                 |
+| `bf_lan`         | lan                              | SSH `192.168.55.8`                  |
+| `bf_acs`         | acs                              | SSH `192.168.55.11`                 |
+| `bf_dhcp`        | dhcp                             | SSH `192.168.55.6`                  |
+| `bf_phone`       | lan-phone, wan-phone, wan-phone2 | SSH `192.168.55.12`, `.13`, `.14`   |
 
 ### Boot Process
 
@@ -265,7 +267,7 @@ docker exec -it router bash -c "ip route show"
 #### Wrong IP Address for Testing
 
 **Use**: `172.25.1.2` for WAN services (simulated network)  
-**Do NOT use**: `192.168.56.6` (Docker management network)
+**Do NOT use**: management bridge IPs (`192.168.55.x`) for service testing
 
 #### NAT Not Working
 
@@ -300,7 +302,7 @@ docker compose ps
 
 | Network           | Subnet            | Purpose                                                         |
 | ----------------- | ----------------- | --------------------------------------------------------------- |
-| Docker Management | `192.168.56.0/24` | Container SSH access (CPE excluded - uses `network_mode: none`) |
+| OVS Management Bridge | `192.168.55.0/24` | Container SSH access (all containers use `network_mode: none`) |
 | CPE-Router        | `10.1.1.0/24`     | CPE WAN connectivity                                            |
 | WAN Services      | `172.25.1.0/24`   | Infrastructure services                                         |
 | Uplink            | `172.25.2.0/24`   | External connectivity                                           |

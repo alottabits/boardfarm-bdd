@@ -438,53 +438,73 @@ def restore_cpe_gui_password_to_default(self, acs, cpe, admin_user_index):
 
 ## Cleanup Best Practices
 
-### Align Robot Cleanup with pytest Cleanup
+### Per-Test Cleanup Is Automatic
 
-Robot Framework cleanup should mirror the pytest `cleanup_cpe_config_after_scenario` fixture behavior:
+The `BoardfarmListener` provides a **per-test teardown stack** that handles cleanup automatically. Keyword libraries register reverse actions at the point of state change via `register_teardown()`, and the listener drains the stack in LIFO order when the test ends.
 
-```robot
-*** Keywords ***
-Cleanup After Reboot Test
-    [Documentation]    Cleanup after reboot test - aligned with pytest fixture.
-    # Run common cleanup (includes console refresh)
-    Run Keyword And Ignore Error    Cleanup After Test
-    
-    # Restore password to default 'admin' (not original encrypted value)
-    ${has_index}=    Run Keyword And Return Status    Variable Should Exist    ${ADMIN_USER_INDEX}
-    IF    ${has_index}
-        Run Keyword And Ignore Error    Restore CPE GUI Password To Default
-        ...    ${ACS}    ${CPE}    ${ADMIN_USER_INDEX}
-    END
+This means `.robot` test files do **not** need `[Teardown]` or `Test Teardown` for state reversal.
+
+### How It Works
+
+1. A keyword library performs a state-changing operation (e.g., sets a password, registers a phone, stops TR-069)
+2. Immediately after, it calls `register_teardown()` to push the reverse action onto the stack
+3. When the test ends (pass or fail), `BoardfarmListener.end_test()` pops and executes every action in LIFO order
+4. The listener also refreshes the CPE console and clears the per-test library context
+
+### Keyword Library Pattern
+
+State-changing keywords register their own cleanup via a lazy `_get_listener()` import:
+
+```python
+import logging
+from robot.api.deco import keyword
+from boardfarm3.use_cases import acs as acs_use_cases
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _get_listener():
+    from robotframework_boardfarm.listener import get_listener
+    return get_listener()
+
+
+class BackgroundKeywords:
+    ROBOT_LIBRARY_SCOPE = "SUITE"
+
+    @keyword("The user has set the CPE GUI password to")
+    def set_cpe_gui_password(self, acs, cpe, password):
+        admin_idx = discover_admin_user_index(acs, cpe)
+        param_path = f"Device.Users.User.{admin_idx}.Password"
+        acs_use_cases.set_parameter_value(acs, cpe, param_path, password)
+
+        try:
+            _get_listener().register_teardown(
+                f"Restore password {param_path}",
+                self._restore_password, acs, cpe, param_path,
+            )
+        except Exception:
+            _LOGGER.debug("Listener not available; skipping teardown registration")
+
+    @staticmethod
+    def _restore_password(acs, cpe, param_path):
+        acs_use_cases.set_parameter_value(acs, cpe, param_path, "admin")
 ```
 
-### Common Cleanup Should Refresh Console
+### When Manual Cleanup Is Still Appropriate
 
-The common cleanup keyword should always refresh the console connection:
+The listener handles per-test state cleanup automatically. Manual cleanup keywords (in `cleanup.resource`) are still useful for:
 
-```robot
-Cleanup After Test
-    [Documentation]    Common test teardown.
-    Log    Cleaning up after test...
-    
-    # Always refresh console - previous test might have rebooted CPE
-    ${cpe}=    Run Keyword And Ignore Error    Get CPE Device
-    ${cpe_available}=    Set Variable    ${cpe}[0] == 'PASS'
-    IF    ${cpe_available}
-        Run Keyword And Ignore Error    Refresh CPE Console Connection    ${cpe}[1]
-    END
-```
+- **Suite-level teardown** — releasing resources shared across all tests (e.g., ACS GUI logout)
+- **Ad-hoc debugging** — manually restoring state during interactive sessions
 
-### Use Run Keyword And Ignore Error for Cleanup
-
-Cleanup should not fail the test if something goes wrong:
+When writing manual cleanup, use `Run Keyword And Ignore Error` so failures don't mask test results:
 
 ```robot
-# ✅ CORRECT - Cleanup continues even if individual steps fail
-Cleanup After Test
-    Run Keyword And Ignore Error    Cleanup SIP Phones
+Suite Teardown
     Run Keyword And Ignore Error    Cleanup ACS GUI Session
-    Run Keyword And Ignore Error    Refresh CPE Console Connection    ${CPE}
 ```
+
+For full details on the cleanup architecture, see the [Test Cleanup Architecture](../../architecture/test-cleanup-architecture.md) document.
 
 ---
 
@@ -550,5 +570,5 @@ When writing new Robot Framework keywords:
 
 - [Getting Started Guide](getting-started.md)
 - [Keyword Reference](keyword-reference.md)
-- [Configuration Cleanup Process](../../architecture/configuration-cleanup.md)
-- [pytest conftest.py cleanup](../../tests/conftest.py) - Reference implementation
+- [Test Cleanup Architecture](../../architecture/test-cleanup-architecture.md)
+- [pytest conftest.py cleanup](../../tests/conftest.py) - pytest-bdd yield-based reference

@@ -7,9 +7,10 @@ This directory contains Robot Framework tests for the boardfarm BDD test suite.
 1. **Libraries are the single source of truth** - All keywords are defined in Python libraries (`libraries/*.py`)
 2. **Tests contain no keyword definitions** - Test files (`.robot`) call library keywords directly
 3. **Libraries are thin wrappers** - Keyword libraries delegate to `boardfarm3.use_cases`
-4. **Device objects are the source of testbed data** - All device-specific data (IP addresses, phone numbers, credentials) comes from device object properties, not hard-coded variables
-5. **Tests check their own preconditions** - Tests verify required devices are available and skip if requirements aren't met
-6. **Resource files for patterns only** - Resources provide setup/teardown and true constants (timeouts, TR-069 paths), not testbed-specific configuration
+4. **Cleanup is automatic** - State-changing keywords register their own teardown via `register_teardown()`; the `BoardfarmListener` drains the stack in LIFO order when the test ends
+5. **Device objects are the source of testbed data** - All device-specific data (IP addresses, phone numbers, credentials) comes from device object properties, not hard-coded variables
+6. **Tests check their own preconditions** - Tests verify required devices are available and skip if requirements aren't met
+7. **Resource files for patterns only** - Resources provide setup/teardown and true constants (timeouts, TR-069 paths), not testbed-specific configuration
 
 ## Directory Structure
 
@@ -46,9 +47,18 @@ robot/
 
 ### The Role of BoardfarmListener
 
-The `BoardfarmListener` is a **thin interface** between Robot Framework and Boardfarm:
-- **Does**: Deploy devices at suite start, release at suite end
-- **Does NOT**: Make test selection decisions or filter tests
+The `BoardfarmListener` manages the full test lifecycle:
+
+| Phase | Action |
+|-------|--------|
+| **Suite Start** | Deploys devices via Boardfarm hooks |
+| **Test Start** | Creates empty teardown stack, sets library context |
+| **Test End** | Drains teardown stack (LIFO), refreshes CPE console, clears context |
+| **Suite End** | Releases devices |
+
+Keyword libraries call `register_teardown()` when they change state. The listener reverses those changes automatically when the test finishes — no `[Teardown]` needed in `.robot` files. This mirrors the `yield`-based cleanup in pytest-bdd.
+
+The listener does **NOT** make test selection decisions or filter tests.
 
 ### Tests Check Their Own Preconditions
 
@@ -208,7 +218,8 @@ Resource files should only be used for:
 
 1. **Suite Setup/Teardown** - Patterns that initialize test environments
 2. **Composite Keywords** - High-level workflows combining multiple library calls
-3. **Test Cleanup** - Patterns for cleaning up after tests
+
+Per-test cleanup is **automatic** via the `BoardfarmListener` teardown stack — do not add `[Teardown]` or `Test Teardown` to `.robot` files for state reversal.
 
 Resource files should **NOT**:
 - Duplicate or wrap library keywords with the same name
@@ -264,13 +275,15 @@ class AcsKeywords:
 
 ### Comparison with pytest-bdd
 
-| pytest-bdd | Robot Framework |
-|------------|-----------------|
-| `@when("step text")` | `@keyword("step text")` |
-| `tests/step_defs/acs_steps.py` | `robot/libraries/acs_keywords.py` |
-| `boardfarm3.use_cases.acs` | `boardfarm3.use_cases.acs` (same) |
+| Aspect | pytest-bdd | Robot Framework |
+|--------|-----------|-----------------|
+| Step binding | `@when("step text")` | `@keyword("step text")` |
+| Step location | `tests/step_defs/acs_steps.py` | `robot/libraries/acs_keywords.py` |
+| Use case layer | `boardfarm3.use_cases.acs` | `boardfarm3.use_cases.acs` (same) |
+| Per-test cleanup | `yield` in step function | `register_teardown()` in keyword library |
+| Cleanup execution | pytest fixture teardown (LIFO) | `BoardfarmListener.end_test()` (LIFO) |
 
-Both frameworks delegate to the same `boardfarm3.use_cases` functions.
+Both frameworks delegate to the same `boardfarm3.use_cases` functions. See [Test Cleanup Architecture](../docs/architecture/test-cleanup-architecture.md) for full details.
 
 ## Creating New Keywords
 

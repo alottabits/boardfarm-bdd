@@ -15,8 +15,9 @@ Cross-cutting architecture and conventions shared by all application examples.
 | [Five-Layer Model](architecture/boardfarm-five-layer-model.md) | Boardfarm test automation architecture — five layers from system use cases to device templates |
 | [System Use Case Guide](architecture/system-use-case-guide.md) | How to write a system use case — methodology, process, and examples |
 | [Use Case Template](architecture/use-case-template.md) | Blank copyable form for creating a new system use case |
-| [Configuration Cleanup](architecture/configuration-cleanup.md) | Guidelines for restoring device configuration after tests |
+| [Test Cleanup Architecture](architecture/test-cleanup-architecture.md) | Per-test cleanup architecture — yield-based (pytest-bdd) and listener-based (Robot Framework) |
 | [Log Collector](architecture/log-collector.md) | Centralized log collector design for all testbeds |
+| [Management Network Isolation](architecture/management-network-isolation.md) | Full network isolation via OVS management bridge — all containers use `network_mode: none` |
 | [UI Testing Guide](architecture/ui-testing-guide.md) | FSM-based GUI testing with accessibility-tree discovery and state-graph navigation |
 
 ## Architecture Decision Records

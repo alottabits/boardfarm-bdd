@@ -186,7 +186,7 @@ pip install -e ".[dev]"
 
 - **Single Source of Truth:** Test logic resides in `boardfarm3.use_cases`, not in framework-specific code.
 - **Type Hinting:** All device interactions use Python type hints with boardfarm templates.
-- **Configuration Cleanup:** Tests that modify configuration restore original values. See [Configuration Cleanup](docs/architecture/configuration-cleanup.md).
+- **Automatic Test Cleanup:** State-changing operations register their own teardown — cleanup runs automatically after each test in LIFO order. See [Test Cleanup Architecture](docs/architecture/test-cleanup-architecture.md).
 
 ---
 

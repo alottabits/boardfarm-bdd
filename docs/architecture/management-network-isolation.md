@@ -1,5 +1,10 @@
 # Management Network Isolation
 
+**Status:** Implemented  
+**Scope:** All Boardfarm testbeds (home gateway, SD-WAN, physical RPi)
+
+---
+
 ## Problem Statement
 
 All testbed containers that use Docker's default network (`192.168.55.0/24`) alongside

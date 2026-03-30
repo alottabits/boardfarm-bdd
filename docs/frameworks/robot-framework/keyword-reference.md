@@ -135,23 +135,16 @@ Voice Call Test
     ${phone_a}=    Get Device By Type    SIPPhone    index=0
     ${phone_b}=    Get Device By Type    SIPPhone    index=1
     
-    # Setup
     Initialize Voice Phones    ${phone_a}    ${phone_b}
-    
-    # Make call
     User Makes A Call To Another User    ${phone_a}    ${phone_b}
-    
-    # Answer
     The Called Party Answers    ${phone_b}
-    
-    # Verify
     Voice Call Is Connected    ${phone_a}    ${phone_b}
-    
-    # Hangup
     The Calling Party Hangs Up    ${phone_a}
-    
-    [Teardown]    Cleanup Voice Phones    ${phone_a}    ${phone_b}
 ```
+
+> **Note:** No `[Teardown]` is needed. The `voice_keywords.py` library registers phone
+> cleanup via `register_teardown()` when phones are initialized. The `BoardfarmListener`
+> drains the teardown stack automatically when the test ends.
 
 ### background_keywords.py - Background/Setup Operations
 
@@ -173,15 +166,18 @@ Voice Call Test
 
 ### common.resource
 
-Common setup/teardown keywords:
+Common setup keywords:
 
 | Keyword | Description |
 |---------|-------------|
 | `Setup Testbed Connection` | Suite setup - establish connection |
 | `Teardown Testbed Connection` | Suite teardown - cleanup |
-| `Cleanup After Test` | Test teardown - cleanup artifacts |
 | `Verify CPE Is Online` | Verify CPE is online |
 | `Wait Until CPE Is Online` | Wait for CPE to come online |
+
+> **Note:** Per-test cleanup is handled automatically by the `BoardfarmListener` teardown
+> stack. Explicit `Test Teardown` keywords in `.robot` files are no longer needed for
+> state reversal.
 
 ### variables.resource
 
@@ -196,14 +192,12 @@ Common variables:
 
 ### cleanup.resource
 
-Cleanup keywords:
+Suite-level cleanup keywords (per-test cleanup is automatic via the listener):
 
 | Keyword | Description |
 |---------|-------------|
-| `Cleanup SIP Phones` | Clean up all SIP phones |
-| `Cleanup ACS GUI Session` | Logout from ACS GUI |
-| `Refresh CPE Console Connection` | Refresh console after reboot |
-| `Full Testbed Cleanup` | Comprehensive cleanup |
+| `Cleanup ACS GUI Session` | Logout from ACS GUI (suite teardown) |
+| `Refresh CPE Console Connection` | Refresh console after reboot (done automatically by listener) |
 
 ### voice.resource
 
@@ -257,26 +251,47 @@ When adding new keywords, follow this pattern:
 
 ```python
 # robot/libraries/my_keywords.py
+import logging
 from robot.api.deco import keyword
 from boardfarm3.use_cases import my_module as my_use_cases
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _get_listener():
+    from robotframework_boardfarm.listener import get_listener
+    return get_listener()
+
 
 class MyKeywords:
     ROBOT_LIBRARY_SCOPE = "SUITE"
 
     @keyword("The action is performed")
     def perform_action(self, device, parameter):
-        """Perform the action.
-        
-        Maps to scenario step: "When the action is performed"
-        """
-        return my_use_cases.perform_action(device, parameter)
+        """Perform a state-changing action and register automatic cleanup."""
+        original = my_use_cases.get_value(device, parameter)
+        my_use_cases.perform_action(device, parameter)
+
+        try:
+            _get_listener().register_teardown(
+                f"Restore {parameter}",
+                self._restore_value, device, parameter, original,
+            )
+        except Exception:
+            _LOGGER.debug("Listener not available; skipping teardown registration")
+
+    @staticmethod
+    def _restore_value(device, parameter, value):
+        my_use_cases.set_value(device, parameter, value)
 ```
 
 Key guidelines:
 1. Use `@keyword` decorator with scenario step text
 2. Delegate to `boardfarm3.use_cases` functions
 3. Mirror the corresponding `tests/step_defs/` file structure
-4. Add docstring describing the keyword
+4. Register cleanup via `register_teardown()` for any state-changing operation
+5. Use the `_get_listener()` lazy import to avoid circular dependencies
+6. Keep restore logic in a `@staticmethod` for testability
 
 ---
 
