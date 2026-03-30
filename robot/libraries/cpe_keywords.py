@@ -6,6 +6,7 @@ Uses @keyword decorator to map clean function names to scenario step text.
 Mirrors: tests/step_defs/cpe_steps.py
 """
 
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -15,6 +16,14 @@ from boardfarm3.templates.acs import ACS
 from boardfarm3.templates.cpe.cpe import CPE
 from boardfarm3.use_cases import acs as acs_use_cases
 from boardfarm3.use_cases import cpe as cpe_use_cases
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _get_listener():
+    """Lazy import to avoid circular dependency at module load time."""
+    from robotframework_boardfarm.listener import get_listener
+    return get_listener()
 
 
 @library(scope="SUITE", doc_format="TEXT")
@@ -332,6 +341,14 @@ class CpeKeywords:
             "(cwmp_plugin stopped)"
         )
 
+        try:
+            _get_listener().register_teardown(
+                f"Restart TR-069 client on CPE {cpe_id}",
+                self._safe_start_tr069, cpe,
+            )
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("Listener not available; skipping teardown registration")
+
         context["cpe_was_taken_offline"] = True
         context["cpe_offline_timestamp"] = (
             datetime.now(timezone.utc).replace(tzinfo=None)
@@ -343,6 +360,13 @@ class CpeKeywords:
     def make_cpe_unreachable_for_tr069(self, cpe: CPE) -> dict:
         """Alias for The CPE is unreachable for TR-069 sessions."""
         return self.make_unreachable_for_tr069(cpe)
+
+    @staticmethod
+    def _safe_start_tr069(cpe: CPE) -> None:
+        try:
+            cpe_use_cases.start_tr069_client(cpe)
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("Could not restart TR-069 client: %s", exc)
 
     @keyword("The CPE comes online and connects to the ACS")
     def bring_online_and_connect(

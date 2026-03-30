@@ -6,6 +6,7 @@ Uses @keyword decorator to map clean function names to scenario step text.
 Mirrors: tests/step_defs/sip_phone_steps.py
 """
 
+import logging
 import time
 from typing import Any
 
@@ -14,6 +15,14 @@ from robot.api.deco import keyword, library
 from boardfarm3.templates.sip_phone import SIPPhone
 from boardfarm3.templates.sip_server import SIPServer
 from boardfarm3.use_cases import voice as voice_use_cases
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _get_listener():
+    """Lazy import to avoid circular dependency at module load time."""
+    from robotframework_boardfarm.listener import get_listener
+    return get_listener()
 
 
 def _get_phone_network_location(phone_name: str, phone: SIPPhone) -> str:
@@ -117,6 +126,14 @@ class VoiceKeywords:
 
         if name:
             self._phones[name] = phone
+
+        try:
+            _get_listener().register_teardown(
+                f"Cleanup phone {phone_name}",
+                self._cleanup_single_phone, phone,
+            )
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("Listener not available; skipping teardown registration")
 
         print(f"✓ Phone {phone_name} (number {phone_number}) is registered")
 
@@ -265,6 +282,15 @@ class VoiceKeywords:
         callee_number = getattr(callee, 'number', str(callee))
         print(f"Phone {caller_name} dialing {callee_number}...")
         voice_use_cases.call_a_phone(caller, callee)
+
+        try:
+            _get_listener().register_teardown(
+                f"Disconnect call on {caller_name}",
+                self._safe_disconnect, caller,
+            )
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("Listener not available; skipping teardown registration")
+
         print(f"✓ Phone {caller_name} dialed {callee_number}")
 
     @keyword("The caller dials the callee's number")
@@ -284,6 +310,28 @@ class VoiceKeywords:
         print(f"Phone {phone_name} calling {number}...")
         phone.dial(number)
         print(f"✓ Phone {phone_name} called {number}")
+
+    # =========================================================================
+    # Internal cleanup helpers (used by listener teardown stack)
+    # =========================================================================
+
+    @staticmethod
+    def _safe_disconnect(phone: SIPPhone) -> None:
+        try:
+            voice_use_cases.disconnect_the_call(phone)
+        except Exception:  # noqa: BLE001
+            pass
+
+    @staticmethod
+    def _cleanup_single_phone(phone: SIPPhone) -> None:
+        try:
+            phone.hangup()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            phone.phone_kill()
+        except Exception:  # noqa: BLE001
+            pass
 
     # =========================================================================
     # Call Answer/Reject Keywords

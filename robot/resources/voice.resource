@@ -148,14 +148,8 @@ Setup Phones For Scenario
 
 Teardown Voice Test Environment
     [Documentation]    Clean up voice test environment.
-    ...    Safely hangs up any active calls on all discovered phones.
-    Log    Tearing down voice test environment...
-    
-    # Hang up on all discovered phones (LAN + WAN)
-    FOR    ${phone}    IN    @{LAN_PHONES}    @{WAN_PHONES}
-        Run Keyword And Ignore Error    Phone Hangs Up    ${phone}
-    END
-    
+    ...    Per-test phone cleanup is handled automatically by the listener
+    ...    teardown stack (LIFO). This keyword only logs suite-level teardown.
     Log    Voice test environment torn down
 
 # =============================================================================

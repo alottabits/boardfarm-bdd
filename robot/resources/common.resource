@@ -197,19 +197,12 @@ Log Test Result
 # =============================================================================
 
 Cleanup After Reboot Test
-    [Documentation]    Cleanup after reboot test - restore password to default and refresh console.
-    ...    Aligned with pytest cleanup_cpe_config_after_scenario fixture behavior.
+    [Documentation]    Cleanup after reboot test.
+    ...    NOTE: Password restoration and TR-069 client restart are now handled
+    ...    automatically by the BoardfarmListener teardown stack. This keyword is
+    ...    retained for backwards compatibility but no longer needs explicit arguments.
     [Arguments]    ${acs}=${None}    ${cpe}=${None}    ${admin_user_index}=${None}
-    Log    Cleaning up after reboot test...
-    # First run the common cleanup (includes console refresh)
-    Run Keyword And Ignore Error    Cleanup After Test
-    # Restore password to default 'admin' if it was changed
-    IF    $admin_user_index is not None
-        Log    Restoring CPE GUI password to default 'admin'...
-        Run Keyword And Ignore Error    Restore CPE GUI Password To Default    ${acs}    ${cpe}
-        ...    ${admin_user_index}
-    END
-    Log    Reboot test cleanup complete
+    Log    Reboot test cleanup (automatic via listener teardown stack)
 
 Cleanup SIP Phones After Test
     [Documentation]    Cleanup any active SIP calls after test.

@@ -1,12 +1,16 @@
 *** Settings ***
 Documentation    Cleanup keywords for test teardown and state restoration.
-...              This resource provides keywords for cleaning up test artifacts
-...              and restoring the testbed to a known good state.
 ...              
-...              Device Data Principles:
-...              - Phone cleanup uses dynamically discovered phones, not hard-coded variables
-...              - Cleanup keywords safely handle missing devices
-...              - All cleanup operations use Run Keyword And Ignore Error for safety
+...              NOTE: Most per-test cleanup is now handled automatically by the
+...              BoardfarmListener teardown stack. Keywords register their own
+...              cleanup actions via register_teardown() when they change testbed
+...              state, and the listener drains the stack in LIFO order at test end.
+...              
+...              The keywords in this resource remain available for:
+...              - Suite-level teardown (not per-test)
+...              - Explicit cleanup in compound keywords where the resource
+...                lifecycle is fully contained
+...              - Manual cleanup during debugging or interactive sessions
 
 Library     robotframework_boardfarm.BoardfarmLibrary
 Library     ../libraries/boardfarm_keywords.py

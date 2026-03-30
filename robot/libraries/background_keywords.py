@@ -6,6 +6,7 @@ Uses @keyword decorator to map clean function names to scenario step text.
 Mirrors: tests/step_defs/background_steps.py
 """
 
+import logging
 import time
 from typing import Any
 
@@ -15,6 +16,14 @@ from boardfarm3.templates.acs import ACS
 from boardfarm3.templates.cpe.cpe import CPE
 from boardfarm3.use_cases import acs as acs_use_cases
 from boardfarm3.use_cases import cpe as cpe_use_cases
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _get_listener():
+    """Lazy import to avoid circular dependency at module load time."""
+    from robotframework_boardfarm.listener import get_listener
+    return get_listener()
 
 
 @library(scope="SUITE", doc_format="TEXT")
@@ -158,18 +167,17 @@ class BackgroundKeywords:
             print(f"⚠ Could not verify password change: {e}")
             password_change_successful = True
 
-        # Store original config for cleanup
         if password_change_successful:
-            self._original_config["users"] = {
-                "items": {
-                    str(admin_user_idx): {
-                        "Password": {
-                            "gpv_param": f"Device.Users.User.{admin_user_idx}.Password",
-                            "value": original_password or "PLACEHOLDER_FOR_CLEANUP",
-                        }
-                    }
-                }
-            }
+            param_path = f"Device.Users.User.{admin_user_idx}.Password"
+            try:
+                _get_listener().register_teardown(
+                    f"Restore CPE GUI password for User.{admin_user_idx}",
+                    self._restore_password, acs, cpe, param_path,
+                )
+            except Exception:  # noqa: BLE001
+                _LOGGER.debug(
+                    "Listener not available; skipping teardown registration"
+                )
 
         return {
             "admin_user_index": admin_user_idx,
@@ -272,6 +280,13 @@ class BackgroundKeywords:
         except Exception as e:
             print(f"⚠ Error restoring password: {e}")
             return False
+
+    @staticmethod
+    def _restore_password(acs: ACS, cpe: CPE, param_path: str) -> None:
+        try:
+            acs_use_cases.set_parameter_value(acs, cpe, param_path, "admin")
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("Could not restore CPE GUI password: %s", exc)
 
     def _discover_admin_user_index(self, acs: ACS, cpe: CPE) -> int:
         """Discover which user index corresponds to the GUI admin user.

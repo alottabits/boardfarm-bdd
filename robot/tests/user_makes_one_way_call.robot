@@ -20,15 +20,6 @@ Resource    ../resources/variables.resource
 
 Suite Setup       Setup Voice Test Environment
 Suite Teardown    Teardown Voice Test Environment
-Test Teardown     Cleanup Voice Test
-
-*** Keywords ***
-Cleanup Voice Test
-    [Documentation]    Clean up phones after each test.
-    ...    Uses Run Keyword And Ignore Error because variables may not be set
-    ...    if test was skipped or failed early.
-    Run Keyword And Ignore Error    Cleanup Single SIP Phone    ${CALLER}
-    Run Keyword And Ignore Error    Cleanup Single SIP Phone    ${CALLEE}
 
 *** Test Cases ***
 UC-12348-Main-V1: LAN Phone Calls WAN Phone (NAT Outbound)

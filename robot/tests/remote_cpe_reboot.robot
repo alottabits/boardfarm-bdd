@@ -22,11 +22,6 @@ Resource    ../resources/variables.resource
 
 Suite Setup       Setup Reboot Test Suite
 Suite Teardown    Teardown Testbed Connection
-Test Teardown     Cleanup After Reboot Test    ${ACS}    ${CPE}    ${ADMIN_USER_INDEX}
-
-*** Variables ***
-# Runtime state variable - not a constant
-${ADMIN_USER_INDEX}     ${None}
 
 *** Test Cases ***
 UC-12347-Main: Successful Remote Reboot
@@ -38,8 +33,8 @@ UC-12347-Main: Successful Remote Reboot
     [Tags]    UC-12347    reboot    smoke    main-scenario
 
     # Background: Set CPE GUI password (using TEST_PASSWORD from variables.resource)
-    ${password_result}=    Set CPE GUI Password    ${ACS}    ${CPE}    ${TEST_PASSWORD}
-    Set Suite Variable    ${ADMIN_USER_INDEX}    ${password_result}[admin_user_index]
+    # Listener teardown stack will automatically restore the password to 'admin'
+    Set CPE GUI Password    ${ACS}    ${CPE}    ${TEST_PASSWORD}
 
     # Step 1: Operator initiates reboot task on ACS
     ${reboot_result}=    The Operator Initiates A Reboot Task On The ACS For The CPE    ${ACS}    ${CPE}
@@ -84,10 +79,11 @@ UC-12347-3a: CPE Not Connected When Reboot Requested
     [Tags]    UC-12347    reboot    extension    offline
 
     # Background: Set CPE GUI password (using TEST_PASSWORD from variables.resource)
-    ${password_result}=    Set CPE GUI Password    ${ACS}    ${CPE}    ${TEST_PASSWORD}
-    Set Suite Variable    ${ADMIN_USER_INDEX}    ${password_result}[admin_user_index]
+    # Listener teardown stack will automatically restore the password to 'admin'
+    Set CPE GUI Password    ${ACS}    ${CPE}    ${TEST_PASSWORD}
 
     # Step 1: Make CPE unreachable for TR-069 sessions
+    # Listener teardown stack will automatically restart the TR-069 client
     ${offline_context}=    The CPE Is Unreachable For TR-069 Sessions    ${CPE}
     Sleep    2s    Wait for TR069 client to stop
 
