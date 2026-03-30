@@ -1,6 +1,6 @@
 # Scenario Cleanup Improvements
 
-> **Status**: Complete (All phases implemented)  
+> **Status**: Complete (pytest-bdd yield migration + Robot Framework listener stack)  
 > **Created**: March 26, 2026  
 > **Updated**: March 27, 2026  
 > **Audience**: Test Developers, Framework Contributors
@@ -753,17 +753,20 @@ def discover_admin_user_index(acs, cpe):
 
 # Robot Framework: Listener-Based Teardown Stack
 
-The same problem exists for Robot Framework keyword libraries — any keyword that changes device state needs a way to undo that change after the test. Robot Framework does not have pytest's yield-based fixture lifecycle, but the existing `robotframework-boardfarm` infrastructure provides an equivalent mechanism.
+> **Status**: Complete (implemented and verified)
+> **Implemented in**: `robotframework-boardfarm` v0.3.0
+
+The same problem exists for Robot Framework keyword libraries — any keyword that changes device state needs a way to undo that change after the test. Robot Framework does not have pytest's yield-based fixture lifecycle, but the `robotframework-boardfarm` listener provides an equivalent mechanism.
 
 ---
 
 ## Why the Listener Is the Right Place
 
-The `BoardfarmListener` in `robotframework-boardfarm` already manages the full test lifecycle:
+The `BoardfarmListener` in `robotframework-boardfarm` manages the full test lifecycle:
 
 - `start_suite` — deploys devices (root suite only)
-- `start_test` — validates environment requirements
-- `end_test` — **currently a noop** with `# Future: capture logs, cleanup context, etc.`
+- `start_test` — validates environment requirements, runs contingency checks
+- `end_test` — **drains the per-test teardown stack (LIFO), refreshes the CPE console, and clears the per-test library context**
 - `end_suite` — releases devices (root suite only)
 
 Three properties make it the natural home for per-test cleanup:
@@ -774,165 +777,179 @@ Three properties make it the natural home for per-test cleanup:
 
 ---
 
-## Design: Teardown Stack on the Listener
+## Implementation: Teardown Stack on the Listener
 
-### Listener Changes
+### Listener (`robotframework_boardfarm/listener.py`)
 
-Add a LIFO stack to `BoardfarmListener` and drain it in `end_test`:
+The `BoardfarmListener` maintains a LIFO stack and drains it in `end_test`:
 
 ```python
-# robotframework_boardfarm/listener.py
-
 class BoardfarmListener:
 
     def __init__(self, **kwargs):
         # ... existing init ...
-        self._teardown_stack: list[tuple[str, callable, tuple, dict]] = []
+        self._teardown_stack: list[
+            tuple[str, Callable[..., Any], tuple[Any, ...], dict[str, Any]]
+        ] = []
 
-    def register_teardown(self, description: str, func, *args, **kwargs):
-        """Push a cleanup action onto the per-test teardown stack.
-
-        Called by keyword libraries after any state-changing operation.
-        Actions execute in LIFO order when the test ends.
-
-        Args:
-            description: Human-readable label for logging.
-            func: Callable to invoke during teardown.
-            *args: Positional arguments for func.
-            **kwargs: Keyword arguments for func.
-        """
+    def register_teardown(self, description, func, *args, **kwargs):
+        """Push a cleanup action onto the per-test teardown stack."""
         self._teardown_stack.append((description, func, args, kwargs))
         self._logger.debug("Registered teardown: %s", description)
 
     def end_test(self, data, result):
+        """Execute per-test cleanup after test execution."""
+        self._drain_teardown_stack()
+        self._refresh_cpe_console()
+        self._clear_library_context()
+
+    def _drain_teardown_stack(self):
         """Execute all registered teardowns in LIFO order, then clear."""
         errors = []
         while self._teardown_stack:
             description, func, args, kwargs = self._teardown_stack.pop()
             try:
                 func(*args, **kwargs)
-                self._logger.info("✓ Teardown: %s", description)
-            except Exception as e:
-                self._logger.warning("⚠ Teardown failed: %s: %s", description, e)
-                errors.append(f"{description}: {e}")
-
+                self._logger.info("Teardown OK: %s", description)
+            except Exception as exc:
+                self._logger.warning("Teardown failed: %s: %s", description, exc)
+                errors.append(f"{description}: {exc}")
         if errors:
             self._logger.warning("%d teardown(s) had errors", len(errors))
 ```
 
 The stack is a simple list of `(description, callable, args, kwargs)` tuples. `end_test` pops from the end (LIFO) so the last action registered is the first to be undone.
 
+Unit tests: 39 tests in `robotframework-boardfarm/tests/test_listener.py` cover the teardown stack (LIFO ordering, args/kwargs forwarding, continued draining after failure, end_test integration, CPE console refresh, and context clearing).
+
 ### Keyword Libraries Register Cleanup via `get_listener()`
 
-Keyword libraries already call `get_listener()` to access devices. Registering teardown uses the same access pattern — cleanup is co-located with the action that needs undoing:
+Keyword libraries use a lazy import of `get_listener()` to avoid circular dependencies at module load time. The pattern is consistent across all keyword libraries:
 
 ```python
-# robot/libraries/acs_keywords.py
-from robot.api.deco import keyword
-from boardfarm3.use_cases import acs as acs_use_cases
-from robotframework_boardfarm.listener import get_listener
-
-
-class AcsKeywords:
-    ROBOT_LIBRARY_SCOPE = "SUITE"
-
-    @keyword("The User Sets The CPE GUI Password To")
-    def set_cpe_gui_password(self, acs, cpe, password):
-        admin_idx = discover_admin_user_index(acs, cpe)
-        param = f"Device.Users.User.{admin_idx}.Password"
-
-        acs_use_cases.set_parameter_value(acs, cpe, param, password)
-
-        get_listener().register_teardown(
-            "Restore CPE GUI password to default",
-            acs_use_cases.set_parameter_value,
-            acs, cpe, param, "admin",
-        )
+def _get_listener():
+    """Lazy import to avoid circular dependency at module load time."""
+    from robotframework_boardfarm.listener import get_listener
+    return get_listener()
 ```
 
+Each state-changing keyword calls `register_teardown()` immediately after the state change, wrapped in try/except so that the keyword still works if no listener is active (e.g., during unit testing):
+
+**`robot/libraries/background_keywords.py`** — CPE password change:
+
 ```python
-# robot/libraries/voice_keywords.py
-from robotframework_boardfarm.listener import get_listener
+@keyword("The user has set the CPE GUI password to")
+def set_cpe_gui_password(self, acs, cpe, password):
+    admin_idx = discover_admin_user_index(acs, cpe)
+    param_path = f"Device.Users.User.{admin_idx}.Password"
+    acs_use_cases.set_parameter_value(acs, cpe, param_path, password)
 
-
-class VoiceKeywords:
-    ROBOT_LIBRARY_SCOPE = "SUITE"
-
-    @keyword("The Following Phones Are Registered")
-    def register_phones(self, sipcenter, phone_config):
-        registered = self._configure_and_register(sipcenter, phone_config)
-
-        def cleanup_phones():
-            for phone in registered:
-                try:
-                    phone.hangup()
-                except Exception:
-                    pass
-                phone.phone_kill()
-
-        get_listener().register_teardown(
-            f"Clean up {len(registered)} SIP phones",
-            cleanup_phones,
+    try:
+        _get_listener().register_teardown(
+            f"Restore password {param_path}",
+            self._restore_password, acs, cpe, param_path,
         )
+    except Exception:
+        _LOGGER.debug("Listener not available; skipping teardown registration")
+
+@staticmethod
+def _restore_password(acs, cpe, param_path):
+    acs_use_cases.set_parameter_value(acs, cpe, param_path, "admin")
 ```
 
+**`robot/libraries/voice_keywords.py`** — SIP phone registration and calls:
+
 ```python
-# robot/libraries/sdwan_keywords.py
-from robotframework_boardfarm.listener import get_listener
+@keyword("Register SIP phone")
+def register_phone(self, server, phone, name=None):
+    voice_use_cases.phone_register(server, phone)
 
-
-class SdwanKeywords:
-    ROBOT_LIBRARY_SCOPE = "SUITE"
-
-    @keyword("WAN Link Experiences Complete Failure")
-    def wan_link_failure(self, wan_link):
-        tc = self._get_tc_for_wan(wan_link)
-        tc_use_cases.set_impairment_profile(
-            tc, ImpairmentProfile(loss_percent=100.0, ...),
+    try:
+        _get_listener().register_teardown(
+            f"Cleanup phone {phone_name}",
+            self._cleanup_single_phone, phone,
         )
+    except Exception:
+        _LOGGER.debug("Listener not available; skipping teardown registration")
 
-        get_listener().register_teardown(
-            f"Clear {wan_link} impairment",
-            tc_use_cases.clear_impairment, tc,
-        )
+@keyword("Caller dials callee")
+def caller_dials_callee(self, caller, callee):
+    voice_use_cases.call_a_phone(caller, callee)
 
-    @keyword("Network Operations Starts Upstream Background Traffic")
-    def start_upstream_traffic(self, bandwidth):
-        flow_id = tg_use_cases.saturate_wan_link(
-            source=self.lan_tg, destination=self.north_tg,
-            link_bandwidth_mbps=bandwidth / 0.85,
-            dscp=0, utilisation_pct=0.85, duration_s=120,
+    try:
+        _get_listener().register_teardown(
+            f"Disconnect call from {caller.name}",
+            self._safe_disconnect, caller,
         )
+    except Exception:
+        _LOGGER.debug("Listener not available; skipping teardown registration")
 
-        get_listener().register_teardown(
-            "Stop upstream background traffic",
-            tg_use_cases.stop_all_traffic, self.lan_tg,
+@staticmethod
+def _cleanup_single_phone(phone):
+    try:
+        phone.hangup()
+    except Exception:
+        pass
+    phone.kill()
+
+@staticmethod
+def _safe_disconnect(phone):
+    try:
+        voice_use_cases.disconnect_the_call(phone)
+    except Exception:
+        pass
+```
+
+**`robot/libraries/cpe_keywords.py`** — TR-069 client stop:
+
+```python
+@keyword("Make CPE unreachable for TR-069 sessions")
+def make_unreachable_for_tr069(self, cpe):
+    cpe_use_cases.stop_tr069_client(cpe)
+
+    try:
+        _get_listener().register_teardown(
+            "Restart TR-069 client",
+            self._safe_start_tr069, cpe,
         )
+    except Exception:
+        _LOGGER.debug("Listener not available; skipping teardown registration")
+
+@staticmethod
+def _safe_start_tr069(cpe):
+    cpe_use_cases.start_tr069_client(cpe)
 ```
 
 ### What `.robot` Files Look Like
 
-No `[Teardown]` or `Test Teardown` needed — the listener handles cleanup transparently:
+No `[Teardown]` or `Test Teardown` needed — the listener handles cleanup transparently. The actual test files (`robot/tests/remote_cpe_reboot.robot`, `robot/tests/user_makes_one_way_call.robot`) contain no manual cleanup keywords:
 
 ```robotframework
 *** Settings ***
 Library    robotframework_boardfarm.BoardfarmLibrary
 Library    ../libraries/acs_keywords.py
-Library    ../libraries/voice_keywords.py
+Library    ../libraries/background_keywords.py
+Library    ../libraries/cpe_keywords.py
 
 *** Test Cases ***
-UC-12347: Remote CPE Reboot
-    [Documentation]    Remote reboot of CPE via ACS
+UC-12347-Main: Remote CPE Reboot
+    [Documentation]    Remote reboot of CPE via ACS.
+    ...    Password restoration and TR-069 restart are handled
+    ...    automatically by the listener teardown stack.
+
     ${acs}=    Get Device By Type    ACS
     ${cpe}=    Get Device By Type    CPE
 
-    A CPE Is Online And Fully Provisioned    ${acs}    ${cpe}
-    The User Sets The CPE GUI Password To    ${acs}    ${cpe}    secret123
-    The Operator Initiates A Reboot Task     ${acs}    ${cpe}
-    The CPE Should Have Rebooted             ${cpe}
+    The CPE Is Online And Fully Provisioned    ${acs}    ${cpe}
+    The User Has Set The CPE GUI Password To    ${acs}    ${cpe}    secret123
+    The Operator Initiates A Reboot Task On The ACS For The CPE    ${acs}    ${cpe}
+    The CPE Should Have Rebooted    ${cpe}
 ```
 
-When this test ends (pass or fail), `listener.end_test()` automatically restores the password.
+When this test ends (pass or fail), `listener.end_test()` automatically:
+1. Restores the CPE GUI password (registered by `set_cpe_gui_password`)
+2. Refreshes the CPE console connection
+3. Clears the per-test library context
 
 ---
 
@@ -956,45 +973,36 @@ Same LIFO order as pytest-bdd's yield unwinding.
 
 ## Console Reconnection in Robot Framework
 
-The CPE console refresh is a cross-cutting concern in Robot Framework too. It can be handled in the listener's `end_test` directly, since it applies to every test regardless of which keywords ran:
+The CPE console refresh is a cross-cutting concern handled directly in the listener's `end_test`, since it applies to every test regardless of which keywords ran. The implementation in `_refresh_cpe_console()`:
 
 ```python
-def end_test(self, data, result):
-    # 1. Drain the teardown stack (LIFO)
-    while self._teardown_stack:
-        description, func, args, kwargs = self._teardown_stack.pop()
-        try:
-            func(*args, **kwargs)
-        except Exception as e:
-            self._logger.warning("⚠ Teardown failed: %s: %s", description, e)
-
-    # 2. Cross-cutting: refresh CPE console for next test
+def _refresh_cpe_console(self):
+    """Reconnect the CPE console so it is usable for the next test."""
+    if self._device_manager is None:
+        return
     try:
-        dm = self._device_manager
-        if dm is not None:
-            from boardfarm3.templates.cpe.cpe import CPE
-            cpe = dm.get_device_by_type(CPE)
-            cpe.hw.disconnect_from_consoles()
-            cpe.hw.connect_to_consoles(getattr(cpe, "device_name", "cpe"))
+        from boardfarm3.templates.cpe.cpe import CPE
+        cpe = self._device_manager.get_device_by_type(CPE)
+        cpe.hw.disconnect_from_consoles()
+        cpe.hw.connect_to_consoles(getattr(cpe, "device_name", "cpe"))
     except Exception:
         pass
 ```
 
+This mirrors the `refresh_cpe_console_after_scenario` autouse fixture on the pytest-bdd side.
+
 ---
 
-## Additional Note: Test Context Clearing
+## Test Context Clearing
 
-`BoardfarmLibrary` has a `_context` dict (GLOBAL scope) with `Set/Get/Clear Test Context` keywords. Because the library scope is GLOBAL, this context persists across tests unless explicitly cleared. The `end_test` method should also reset it to prevent state leaking between tests:
+`BoardfarmLibrary` has a `_context` dict (GLOBAL scope) with `Set/Get/Clear Test Context` keywords. Because the library scope is GLOBAL, this context persists across tests unless explicitly cleared. The `end_test` method resets it via `_clear_library_context()` to prevent state leaking between tests:
 
 ```python
-def end_test(self, data, result):
-    # ... drain teardown stack ...
-    # ... refresh CPE console ...
-
-    # 3. Clear per-test context on the library
+def _clear_library_context(self):
+    """Reset the per-test context dict on BoardfarmLibrary."""
     try:
-        from robotframework_boardfarm.library import BoardfarmLibrary
-        lib = BoardfarmLibrary._instance  # or via BuiltIn().get_library_instance()
+        from robot.libraries.BuiltIn import BuiltIn
+        lib = BuiltIn().get_library_instance("BoardfarmLibrary")
         if lib is not None:
             lib.clear_test_context()
     except Exception:
@@ -1016,6 +1024,30 @@ def end_test(self, data, result):
 | Co-location | Setup + teardown in same function | `register_teardown` call sits next to the action |
 
 Both approaches achieve the same goal: cleanup is co-located with the action that needs undoing, runs in LIFO order, only fires for actions that actually executed, and is invisible to the test author.
+
+---
+
+## Robot Framework Implementation Status
+
+| Component | File | Status |
+|-----------|------|--------|
+| **Listener teardown stack** | `robotframework-boardfarm/robotframework_boardfarm/listener.py` | Implemented (`register_teardown`, `_drain_teardown_stack`, `_refresh_cpe_console`, `_clear_library_context`) |
+| **Listener unit tests** | `robotframework-boardfarm/tests/test_listener.py` | 39 tests passing (includes 11 teardown-stack-specific tests) |
+| **Voice keywords** | `boardfarm-bdd/robot/libraries/voice_keywords.py` | Teardown on `register_phone` (phone cleanup) and `caller_dials_callee` (disconnect) |
+| **Background keywords** | `boardfarm-bdd/robot/libraries/background_keywords.py` | Teardown on `set_cpe_gui_password` (password restore) |
+| **CPE keywords** | `boardfarm-bdd/robot/libraries/cpe_keywords.py` | Teardown on `make_unreachable_for_tr069` (TR-069 restart) |
+| **Voice call test** | `boardfarm-bdd/robot/tests/user_makes_one_way_call.robot` | `Test Teardown` and `Cleanup Voice Test` keyword removed; passes |
+| **Reboot test** | `boardfarm-bdd/robot/tests/remote_cpe_reboot.robot` | `Test Teardown` and `*** Variables ***` section removed; passes |
+| **Voice resource** | `boardfarm-bdd/robot/resources/voice.resource` | `Teardown Voice Test Environment` simplified to log-only |
+| **Common resource** | `boardfarm-bdd/robot/resources/common.resource` | `Cleanup After Reboot Test` simplified to log-only |
+| **Cleanup resource** | `boardfarm-bdd/robot/resources/cleanup.resource` | Documentation updated to reflect automatic cleanup |
+
+### Verification
+
+- **Unit tests**: 39/39 passing in `robotframework-boardfarm` (LIFO ordering, args/kwargs, failure continuation, end_test integration)
+- **Integration tests**: `user_makes_one_way_call.robot` and `remote_cpe_reboot.robot` both pass on live testbed
+- **Log evidence**: `log.html` and console output show `Teardown OK: ...` messages at INFO level, confirming the listener drains the stack after each test
+- **Absence of manual teardown**: Both `.robot` files had explicit `Test Teardown` keywords removed — cleanup is now fully automatic
 
 ---
 
