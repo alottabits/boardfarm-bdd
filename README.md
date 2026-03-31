@@ -112,10 +112,10 @@ pytest --board-name sdwan-digital-twin \
 Each application domain demonstrates test implementation in both frameworks,
 sharing `boardfarm3.use_cases` as the single source of truth.
 
-| Framework | Directory | Integration | Best For |
-|---|---|---|---|
-| **pytest-bdd** | `tests/` | `pytest-boardfarm3` | Teams familiar with pytest, Python-centric workflows |
-| **Robot Framework** | `robot/` | `robotframework-boardfarm` | Keyword-driven testing, non-programmer test authors |
+| Framework           | Directory | Integration with Boardfarm |
+| ------------------- | --------- | -------------------------- |
+| **pytest-bdd**      | `tests/`  | `pytest-boardfarm3`        |
+| **Robot Framework** | `robot/`  | `robotframework-boardfarm` |
 
 ### Framework-Specific Conventions
 
