@@ -78,88 +78,7 @@ System level use cases drive the test scenarios. Tests never call device impleme
 
 ### Visual Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ LAYER 0: System Level Use Cases                                         │
-│                                                                         │
-│   Requirement use cases — system behaviour, actors, stakeholders,       │
-│   success guarantees, minimal guarantees                                │
-│   (.md files — docs as code)                                            │
-│                                                                         │
-└──────────────────────────────────┬──────────────────────────────────────┘
-                                   │ drives
-                                   ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ LAYER 1: Test Definition                                                │
-│                                                                         │
-│   pytest-bdd                         Robot Framework                    │
-│   ┌──────────────────────┐          ┌──────────────────────┐            │
-│   │ @given/@when/@then   │          │ *** Test Cases ***   │            │
-│   │ step functions       │          │ Keywords             │            │
-│   │ (.py files)          │          │ (.robot files)       │            │
-│   └──────────┬───────────┘          └──────────┬───────────┘            │
-│              │                                  │                       │
-└──────────────┼──────────────────────────────────┼───────────────────────┘
-               │                                  │
-               ▼                                  ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ LAYER 2: Integration Layer (THIN WRAPPER - NO BUSINESS LOGIC)           │
-│                                                                         │
-│   pytest-bdd                         Robot Framework                    │
-│   ┌──────────────────────┐          ┌──────────────────────┐           │
-│   │ Step definitions     │          │ Keyword libraries    │           │
-│   │ @given/@when/@then   │          │ @keyword decorator   │           │
-│   │ call use_cases       │          │ call use_cases       │           │
-│   │                      │          │                      │           │
-│   │ tests/step_defs/     │          │ robot/libraries/     │           │
-│   │ - acs_steps.py       │          │ - acs_keywords.py    │           │
-│   │ - cpe_steps.py       │          │ - cpe_keywords.py    │           │
-│   └──────────┬───────────┘          └───────────┬──────────┘           │
-│              │                                  │                       │
-└──────────────┼──────────────────────────────────┼───────────────────────┘
-               │                                  │
-               └────────────────┬─────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ LAYER 3: Boardfarm use_cases (boardfarm3/use_cases/*.py)                │
-│                                                                         │
-│   SINGLE SOURCE OF TRUTH FOR TEST OPERATIONS                            │
-│                                                                         │
-│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │
-│   │   acs.py    │  │   cpe.py    │  │  voice.py   │  │networking.py│   │
-│   │             │  │             │  │             │  │             │   │
-│   │ get_param() │  │ get_uptime()│  │ call_phone()│  │   ping()    │   │
-│   │ set_param() │  │ reboot()    │  │ answer()    │  │ http_get()  │   │
-│   │ reboot()    │  │ factory()   │  │ hangup()    │  │ dns_lookup()│   │
-│   └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘   │
-│          │                │                │                │          │
-└──────────┼────────────────┼────────────────┼────────────────┼──────────┘
-           │                │                │                │
-           └────────────────┼────────────────┼────────────────┘
-                            │                │
-                            ▼                ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ LAYER 4: Device Templates (boardfarm3/templates/*.py)                   │
-│                                                                         │
-│   LOW-LEVEL DEVICE OPERATIONS                                           │
-│                                                                         │
-│   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐        │
-│   │      ACS        │  │      CPE        │  │   SIPPhone      │        │
-│   │   ┌─────────┐   │  │   ┌─────────┐   │  │                 │        │
-│   │   │   nbi   │   │  │   │   sw    │   │  │  dial()         │        │
-│   │   │ (REST)  │   │  │   │(software│   │  │  answer()       │        │
-│   │   ├─────────┤   │  │   │ layer)  │   │  │  hangup()       │        │
-│   │   │   gui   │   │  │   ├─────────┤   │  │                 │        │
-│   │   │ (web UI)│   │  │   │   hw    │   │  │                 │        │
-│   │   ├─────────┤   │  │   │(console)│   │  │                 │        │
-│   │   │ console │   │  │   ├─────────┤   │  │                 │        │
-│   │   │ (SSH)   │   │  │   │   gui   │   │  │                 │        │
-│   │   └─────────┘   │  │   │ (LuCI)  │   │  │                 │        │
-│   └─────────────────┘  └─────────────────┘  └─────────────────┘        │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+![Boardfarm Five-Layer Architecture](../../Excalidraw/five-layer-architecture.svg)
 
 ### Layer Responsibilities
 
@@ -534,40 +453,7 @@ Security pillar tests require binary or sensitive payload files that must not be
 
 ## Data Flow Diagram
 
-```mermaid
-flowchart TB
-    subgraph Config
-        INV[Inventory JSON]
-        ENV[Env JSON]
-        MERGE[parse_boardfarm_config]
-        INV --> MERGE
-        ENV --> MERGE
-    end
-
-    subgraph Artifacts
-        ART[gui_artifacts/, test_artifacts/]
-    end
-
-    subgraph Boardfarm
-        DM[DeviceManager]
-        DEV[Device Classes]
-        UC[Use Cases]
-        TMP[Templates]
-    end
-
-    subgraph Tests
-        SD[Step Defs]
-        KW[Keywords]
-    end
-
-    MERGE --> DM
-    MERGE --> DEV
-    INV -.->|paths| ART
-    DEV --> TMP
-    UC --> TMP
-    SD --> UC
-    KW --> UC
-```
+![Data Flow Diagram](../../Excalidraw/data-flow-diagram.svg)
 
 ---
 
@@ -575,44 +461,7 @@ flowchart TB
 
 ### Architecture Overview
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                          pytest-bdd                                     │
-│                                                                        │
-│  ┌──────────────────────────────────────────────────────────────────┐ │
-│  │                    Feature Files (.feature)                       │ │
-│  │  Scenario: Operator reboots CPE via ACS                          │ │
-│  │    Given the CPE is online and provisioned                       │ │
-│  │    When the operator initiates a reboot task on the ACS          │ │
-│  │    Then the CPE executes the reboot command and restarts         │ │
-│  └────────────────────────────────┬─────────────────────────────────┘ │
-│                                   │                                    │
-│  ┌────────────────────────────────▼─────────────────────────────────┐ │
-│  │                  Step Definitions (step_defs/*.py)                │ │
-│  │                                                                   │ │
-│  │  @when("the operator initiates a reboot task on the ACS")        │ │
-│  │  def operator_initiates_reboot(acs, cpe, bf_context):            │ │
-│  │      acs_use_cases.initiate_reboot(acs, cpe)  # ← use_case call   │ │
-│  │      print("✓ Reboot task initiated")                            │ │
-│  │                                                                   │ │
-│  └────────────────────────────────┬─────────────────────────────────┘ │
-│                                   │                                    │
-│  ┌────────────────────────────────▼─────────────────────────────────┐ │
-│  │                         Fixtures (conftest.py)                    │ │
-│  │  - acs: ACS device fixture                                       │ │
-│  │  - cpe: CPE device fixture                                       │ │
-│  │  - bf_context: Test context for state sharing                    │ │
-│  │  - sipcenter: SIP server fixture                                 │ │
-│  └──────────────────────────────────────────────────────────────────┘ │
-│                                                                        │
-└─────────────────────────────────────┬──────────────────────────────────┘
-                                      │
-                                      ▼
-                         ┌────────────────────────┐
-                         │ boardfarm3.use_cases   │
-                         │ (Layer 3)              │
-                         └────────────────────────┘
-```
+![pytest-bdd Architecture](../../Excalidraw/pytest-bdd-architecture.svg)
 
 ### Step Definition Pattern
 
@@ -686,53 +535,7 @@ def bf_context() -> SimpleNamespace:
 
 ### Architecture Overview
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        Robot Framework                                  │
-│                                                                         │
-│  ┌──────────────────────────────────────────────────────────────────┐ │
-│  │                    Test Suite (.robot)                            │ │
-│  │  *** Settings ***                                                │ │
-│  │  Library    robotframework_boardfarm.BoardfarmLibrary            │ │
-│  │  Library    ../libraries/acs_keywords.py                         │ │
-│  │  Library    ../libraries/cpe_keywords.py                         │ │
-│  │                                                                   │ │
-│  │  *** Test Cases ***                                              │ │
-│  │  UC-12347: Operator Reboots CPE Via ACS                          │ │
-│  │      ${acs}=    Get Device By Type    ACS                        │ │
-│  │      ${cpe}=    Get Device By Type    CPE                        │ │
-│  │      The Operator Initiates A Reboot Task On The ACS    ${acs}    │ │
-│  │      The CPE Should Have Rebooted    ${cpe}                      │ │
-│  └────────────────────────────────┬─────────────────────────────────┘ │
-│                                   │                                    │
-│  ┌────────────────────────────────▼─────────────────────────────────┐ │
-│  │                      Keyword Libraries                            │ │
-│  │                                                                   │ │
-│  │  BoardfarmLibrary          │  Keyword Libraries (robot/libraries/)│ │
-│  │  (robotframework-boardfarm)│  (boardfarm-bdd project)             │ │
-│  │  ─────────────────         │  ─────────────────────────         │ │
-│  │  Get Device Manager        │  acs_keywords.py                    │ │
-│  │  Get Device By Type        │  cpe_keywords.py                     │ │
-│  │  Get Boardfarm Config      │  voice_keywords.py                   │ │
-│  │  Require Environment       │  (mirrors tests/step_defs/)          │ │
-│  │                            │  @keyword decorator pattern         │ │
-│  └────────────────────────────┴─────────────────────────────────────┘ │
-│                                                                         │
-│  ┌──────────────────────────────────────────────────────────────────┐ │
-│  │                      BoardfarmListener                            │ │
-│  │  - start_suite() → Deploy devices                                │ │
-│  │  - end_suite()   → Release devices                               │ │
-│  │  - start_test()  → Environment validation                        │ │
-│  └──────────────────────────────────────────────────────────────────┘ │
-│                                                                         │
-└─────────────────────────────────────┬──────────────────────────────────┘
-                                      │
-                                      ▼
-                         ┌────────────────────────┐
-                         │ boardfarm3.use_cases   │
-                         │ (Layer 3)              │
-                         └────────────────────────┘
-```
+![Robot Framework Architecture](../../Excalidraw/robot-framework-architecture.svg)
 
 ### Keyword Libraries - Mirroring pytest-bdd Step Definitions
 
