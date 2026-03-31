@@ -36,7 +36,7 @@ Cockburn.
 Both pytest-bdd and Robot Framework tests follow the same five-layer
 architectural pattern:
 
-![Software Architecture](./Excalidraw/software_architecture.svg)
+<img src="./Excalidraw/software_architecture.svg" alt="Software Architecture" width="60%">
 
 
 For the full architecture reference, see
