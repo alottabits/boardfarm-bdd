@@ -40,99 +40,11 @@ The Raikou + Boardfarm testbed simulates a complete home gateway environment usi
 
 All containers use `network_mode: none`. Management access is via the OVS `mgmt` bridge (`192.168.55.0/24`), not Docker port mappings.
 
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '12px', 'fontFamily': 'arial' }}}%%
-flowchart LR
-    MGMT[Boardfarm / Host<br/>192.168.55.1<br/>OVS mgmt bridge]
-
-    WAN_MGMT[WAN eth0<br/>192.168.55.10]
-    ROUTER_MGMT[Router eth0<br/>192.168.55.7]
-    LAN_MGMT[LAN eth0<br/>192.168.55.8]
-    DHCP_MGMT[DHCP eth0<br/>192.168.55.6]
-    ACS_MGMT[ACS eth0<br/>192.168.55.11<br/>TR-069:7547 UI:3000]
-    CPE_MGMT[CPE Container<br/>No mgmt interface<br/>docker exec only]
-    SIP_MGMT[SIP Center eth0<br/>192.168.55.5]
-    LAN_PHONE_MGMT[LAN Phone eth0<br/>192.168.55.12]
-    WAN_PHONE_MGMT[WAN Phone eth0<br/>192.168.55.13]
-    WAN_PHONE2_MGMT[WAN Phone 2 eth0<br/>192.168.55.14]
-
-    MGMT -.->|SSH| WAN_MGMT
-    MGMT -.->|SSH| ROUTER_MGMT
-    MGMT -.->|SSH| LAN_MGMT
-    MGMT -.->|SSH| DHCP_MGMT
-    MGMT -.->|SSH| ACS_MGMT
-    MGMT -.->|docker exec| CPE_MGMT
-    MGMT -.->|SSH| SIP_MGMT
-    MGMT -.->|SSH| LAN_PHONE_MGMT
-    MGMT -.->|SSH| WAN_PHONE_MGMT
-    MGMT -.->|SSH| WAN_PHONE2_MGMT
-
-    classDef mgmt stroke-width:3px
-    classDef management stroke-width:2px
-
-    class MGMT mgmt
-    class WAN_MGMT,ROUTER_MGMT,LAN_MGMT,DHCP_MGMT,ACS_MGMT,CPE_MGMT,SIP_MGMT,LAN_PHONE_MGMT,WAN_PHONE_MGMT,WAN_PHONE2_MGMT management
-```
+![OVS Management Bridge](../../../Excalidraw/ovs-management-bridge.svg)
 
 ### Simulated Network Topology
 
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '12px', 'fontFamily': 'arial' }}}%%
-graph LR
-    %% --- NODES ---
-    %% 1. Infrastructure Nodes
-    ROUTER[Router Container<br/>ISP Edge Gateway]
-    WAN[WAN Container<br/>Network Services]
-    ACS[ACS Container<br/>TR-069 Management]
-    DHCP[DHCP Container<br/>Network Provisioning]
-    SIP[SIP Center<br/>Voice Services]
-
-    %% 2. CPE Nodes
-    CPE[CPE Container<br/>PrplOS Firmware]
-
-    %% 3. Client Nodes
-    LAN[LAN Container<br/>Test Client Device]
-    LAN_PHONE[LAN Phone]
-    WAN_PHONE[WAN Phone]
-    WAN_PHONE2[WAN Phone 2]
-
-    %% 4. Bridge Nodes
-    BRIDGE_CPE_RTR[cpe-rtr bridge]
-    BRIDGE_LAN_CPE[lan-cpe bridge]
-    BRIDGE_RTR_WAN[rtr-wan bridge]
-    BRIDGE_RTR_UPLINK[rtr-uplink bridge]
-
-    %% --- VISIBLE CONNECTIONS (Indices 0-12) ---
-    CPE <-->|eth1| BRIDGE_CPE_RTR
-    ROUTER <-->|cpe| BRIDGE_CPE_RTR
-    CPE <-->|eth0| BRIDGE_LAN_CPE
-    LAN <-->|eth1| BRIDGE_LAN_CPE
-    LAN_PHONE <-->|eth1| BRIDGE_LAN_CPE
-    ROUTER <-->|eth1| BRIDGE_RTR_WAN
-    WAN <-->|eth1| BRIDGE_RTR_WAN
-    ACS <-->|eth1| BRIDGE_RTR_WAN
-    DHCP <-->|eth1| BRIDGE_RTR_WAN
-    SIP <-->|eth1| BRIDGE_RTR_WAN
-    WAN_PHONE <-->|eth1| BRIDGE_RTR_WAN
-    WAN_PHONE2 <-->|eth1| BRIDGE_RTR_WAN
-    ROUTER <-->|aux0| BRIDGE_RTR_UPLINK
-
-
-
-    %% Tighter Styling
-    %% font: Make text smaller (default is usually 16px)
-    %% padding: Reduce internal whitespace (default is usually higher)
-    classDef infra fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:black;
-    classDef cpe fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:black;
-    classDef client fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:black;
-    classDef bridge fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:black;
-
-    %% Apply classes
-    class WAN,ACS,DHCP,SIP,ROUTER infra
-    class CPE cpe
-    class LAN,LAN_PHONE,WAN_PHONE,WAN_PHONE2 client
-    class BRIDGE_CPE_RTR,BRIDGE_LAN_CPE,BRIDGE_RTR_WAN,BRIDGE_RTR_UPLINK bridge
-```
+![Simulated Network Topology](../../../Excalidraw/simulated-network-topology.svg)
 
 ### CPE-Router Segment (`cpe-rtr` bridge)
 
