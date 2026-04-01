@@ -91,7 +91,7 @@
             {
                 "bridge": "mgmt",
                 "iface": "eth0",
-                "ipaddress": "192.168.55.23/24"
+                "ipaddress": "192.168.55.8/24"
             },
             {
                 "bridge": "lan-segment",

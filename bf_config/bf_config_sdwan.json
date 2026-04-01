@@ -42,7 +42,7 @@
                 "name": "lan_qoe_client",
                 "type": "playwright_qoe_client",
                 "connection_type": "authenticated_ssh",
-                "ipaddr": "192.168.55.23",
+                "ipaddr": "192.168.55.8",
                 "port": 22,
                 "username": "root",
                 "password": "boardfarm",
