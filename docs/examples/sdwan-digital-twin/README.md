@@ -45,7 +45,7 @@ All containers use `network_mode: none` with management access via a dedicated O
 | Use Case | Feature File |
 |---|---|
 | [UC-SDWAN-01 WAN Failover](../../../requirements/UC-SDWAN-01%20WAN%20Failover%20Maintains%20Application%20Continuity.md) | `tests/features/WAN Failover Maintains Application Continuity.feature` |
-| [UC-SDWAN-02 Remote Worker Cloud App](../../../requirements/UC-SDWAN-02%20Remote%20Worker%20Accesses%20Cloud%20Application.md) | — (planned) |
+| [UC-SDWAN-02 Remote Worker Cloud App](../../../requirements/UC-SDWAN-02%20Remote%20Worker%20Accesses%20Cloud%20Application.md) | `tests/features/Remote Worker Accesses Cloud Application.feature` |
 | [UC-SDWAN-03 Video Conference QoE](../../../requirements/UC-SDWAN-03%20Video%20Conference%20Quality%20Under%20WAN%20Degradation.md) | — (planned) |
 | [UC-SDWAN-04 Encrypted Overlay Tunnel](../../../requirements/UC-SDWAN-04%20SD-WAN%20Appliance%20Establishes%20Encrypted%20Overlay%20Tunnel.md) | — (planned) |
 | [UC-SDWAN-05 Tunnel Survives Failover](../../../requirements/UC-SDWAN-05%20Encrypted%20Tunnel%20Survives%20WAN%20Failover.md) | — (planned) |

@@ -55,7 +55,7 @@ User-goal
 2. Under typical subscriber WAN conditions (moderate latency, minor jitter and loss), the page loads with TTFB < 300 ms and total load time < 4000 ms.
 3. Under mobile network WAN conditions (elevated latency, jitter, and loss), the page loads with TTFB < 500 ms and total load time < 6000 ms.
 4. Under satellite WAN conditions (very high latency and loss), the page loads with TTFB < 3000 ms and total load time < 12000 ms.
-5. When the application is accessed over HTTPS, the browser negotiates the expected TLS-based protocol (HTTP/2 or HTTP/3).
+5. When the application is accessed over HTTPS under nominal WAN conditions, the page loads with TTFB < 500 ms and total load time < 8000 ms, and the browser negotiates the expected TLS-based protocol (HTTP/2 or HTTP/3). The relaxed thresholds relative to HTTP account for TLS 1.3 handshake overhead and QUIC connection establishment.
 6. When the application is unreachable, the browser reports a clear failure (the system does not hang indefinitely).
 
 ## Trigger
@@ -75,7 +75,7 @@ The remote worker opens their browser and navigates to the cloud-hosted producti
 
   1. The remote worker navigates to the productivity application URL over HTTPS.
   2. The remote worker's browser negotiates HTTP/3 (QUIC) with the application server.
-  3. The remote worker's browser renders the page with TTFB and load time within nominal SLOs.
+  3. The remote worker's browser renders the page with TTFB < 500 ms and total load time < 8000 ms.
   4. The remote worker confirms the negotiated protocol is HTTP/3.
   5. Use case succeeds.
 

@@ -167,7 +167,7 @@ pip install -e ".[dev]"
 | UC-12348 Voice Call | cpe-docker | `UC-12348 User makes a one-way call.feature` | `user_makes_one_way_call.robot` |
 | UC-ACS-GUI-01 ACS GUI Device Mgmt | cpe-docker | `ACS GUI Device Management.feature` | — |
 | UC-SDWAN-01 WAN Failover | sdwan-digital-twin | `WAN Failover Maintains Application Continuity.feature` | — |
-| UC-SDWAN-02 Remote Worker Cloud App | sdwan-digital-twin | — (planned) | — |
+| UC-SDWAN-02 Remote Worker Cloud App | sdwan-digital-twin | `Remote Worker Accesses Cloud Application.feature` | — |
 | UC-SDWAN-03 Video Conference QoE | sdwan-digital-twin | — (planned) | — |
 | UC-SDWAN-04 Encrypted Overlay Tunnel | sdwan-digital-twin | — (planned) | — |
 | UC-SDWAN-05 Tunnel Survives Failover | sdwan-digital-twin | — (planned) | — |

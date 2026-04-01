@@ -427,20 +427,82 @@ class MockQoEClient:
         self._productivity_result = None
         self._should_succeed = True
 
-    def measure_productivity(self, url, *, scenario="page_load"):
+    def measure(self, url, spec):
+        """Dispatch based on spec.tool — mirrors PlaywrightQoEClient.measure."""
         from types import SimpleNamespace
 
+        if spec.tool == "browser":
+            return SimpleNamespace(
+                success=self._should_succeed,
+                ttfb_ms=50.0 if self._should_succeed else None,
+                load_time_ms=800.0 if self._should_succeed else None,
+                protocol="http/1.1" if self._should_succeed else None,
+            )
+        if spec.tool == "http_client":
+            if spec.completion == "duration":
+                return SimpleNamespace(
+                    success=True, startup_time_ms=500.0, rebuffer_ratio=0.001
+                )
+            return SimpleNamespace(
+                success=self._should_succeed,
+                ttfb_ms=25.0 if self._should_succeed else None,
+                load_time_ms=100.0 if self._should_succeed else None,
+            )
+        if spec.tool == "webrtc":
+            return SimpleNamespace(
+                success=True,
+                latency_ms=15.0,
+                jitter_ms=2.0,
+                packet_loss_pct=0.1,
+                mos_score=4.2,
+            )
+        if spec.tool == "tcp_probe":
+            return SimpleNamespace(success=self._should_succeed)
+        return SimpleNamespace(success=False)
+
+    def measure_productivity(self, url, *, spec=None, scenario="page_load",
+                              wait_until="networkidle", timeout_ms=30000):
+        from types import SimpleNamespace
+
+        if spec is not None:
+            return self.measure(url, spec)
         return SimpleNamespace(
             success=self._should_succeed,
             ttfb_ms=50.0 if self._should_succeed else None,
             load_time_ms=800.0 if self._should_succeed else None,
         )
 
-    def measure_streaming(self, stream_url, *, duration_s=30):
+    def measure_http_timing(self, url, *, spec=None, timeout_s=30.0):
         from types import SimpleNamespace
 
+        if spec is not None:
+            return self.measure(url, spec)
+        return SimpleNamespace(
+            success=self._should_succeed,
+            ttfb_ms=25.0 if self._should_succeed else None,
+            load_time_ms=100.0 if self._should_succeed else None,
+        )
+
+    def measure_streaming(self, stream_url, *, spec=None, duration_s=30):
+        from types import SimpleNamespace
+
+        if spec is not None:
+            return self.measure(stream_url, spec)
         return SimpleNamespace(
             success=True, startup_time_ms=500.0, rebuffer_ratio=0.001
+        )
+
+    def measure_conferencing(self, session_url, *, spec=None, duration_s=60):
+        from types import SimpleNamespace
+
+        if spec is not None:
+            return self.measure(session_url, spec)
+        return SimpleNamespace(
+            success=True,
+            latency_ms=15.0,
+            jitter_ms=2.0,
+            packet_loss_pct=0.1,
+            mos_score=4.2,
         )
 
     def attempt_outbound_connection(self, host, port, *, timeout_s=5.0):

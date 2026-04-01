@@ -131,10 +131,10 @@ This class implements the `QoEClient` template defined in the Technical Brief.
 **Canonical location:** `boardfarm3/lib/qoe.py` — imported by the `QoEClient` template (`boardfarm3/templates/qoe_client.py`) and the use-case layer (`boardfarm3/use_cases/qoe.py`). Defined once, used at all layers:
 
 ```
-boardfarm3/lib/qoe.py                        ← QoEResult + MOS R-Factor calculation
-boardfarm3/templates/qoe_client.py            ← QoEClient template (imports QoEResult)
+boardfarm3/lib/qoe.py                        ← QoEResult + MeasurementSpec + MOS calculation
+boardfarm3/templates/qoe_client.py            ← QoEClient template (imports QoEResult, MeasurementSpec)
 boardfarm3/devices/playwright_qoe_client.py   ← concrete Playwright implementation
-boardfarm3/use_cases/qoe.py                   ← SLO assertion helpers (imports QoEResult)
+boardfarm3/use_cases/qoe.py                   ← SLO assertion helpers (imports QoEResult, MeasurementSpec)
 ```
 
 All measurement methods return a `QoEResult` instance. Fields are `None` when not applicable to the measurement type. `success` defaults to `True`; the device class sets it to `False` when the underlying request fails or is blocked (e.g., EICAR download intercepted by Application Control).
@@ -180,21 +180,79 @@ class QoEResult:
     network error, or EICAR download intercepted)."""
 ```
 
+#### `MeasurementSpec` Dataclass
+
+**Canonical location:** `boardfarm3/lib/qoe.py` (alongside `QoEResult`).
+
+`MeasurementSpec` describes **how** to conduct a measurement — which tool to use and what completion event to wait for. It follows the same pattern as `ImpairmentProfile` for the TrafficController: a single portable dataclass that the template accepts and the concrete implementation translates to engine-specific operations.
+
+```python
+@dataclass
+class MeasurementSpec:
+    """Describes how a QoE measurement should be conducted."""
+
+    tool: str = "browser"
+    """Measurement engine: 'browser', 'http_client', 'webrtc', 'tcp_probe'."""
+
+    completion: str = "networkidle"
+    """Completion event: 'networkidle', 'load', 'domcontentloaded',
+    'response', 'duration', 'connect'."""
+
+    timeout_ms: int = 30000
+    """Maximum time to wait for the completion event (ms)."""
+
+    duration_s: int | None = None
+    """Session length for duration-based completion (seconds)."""
+```
+
+**Tool x Completion matrix:**
+
+| Tool | Valid completion events | Use case |
+|------|----------------------|----------|
+| `browser` | `networkidle`, `load`, `domcontentloaded` | Full page navigation via Playwright/Chromium |
+| `http_client` | `response`, `duration` | Lightweight HTTP timing via urllib (no browser) |
+| `webrtc` | `duration` | WebRTC peer-connection session |
+| `tcp_probe` | `connect` | TCP socket connection attempt |
+
+**Use case examples:**
+
+| Scenario need | Spec |
+|---------------|------|
+| Session continuity (UC-SDWAN-01) | `MeasurementSpec(tool="browser", completion="networkidle")` |
+| Page-load SLO under impairment (UC-SDWAN-02) | `MeasurementSpec(tool="browser", completion="load", timeout_ms=60000)` |
+| Lightweight HTTP probe | `MeasurementSpec(tool="http_client", completion="response", timeout_ms=10000)` |
+| Streaming startup | `MeasurementSpec(tool="http_client", completion="duration", duration_s=15)` |
+| Conferencing MOS | `MeasurementSpec(tool="webrtc", completion="duration", duration_s=10)` |
+| TCP reachability | `MeasurementSpec(tool="tcp_probe", completion="connect", timeout_ms=5000)` |
+
+Conversion from dict (for env-config presets): `spec_from_dict({"tool": "browser", "completion": "load", "timeout_ms": 60000})`.
+
+Validation: `validate_spec(spec)` raises `ValueError` for invalid tool+completion combinations or missing `duration_s` when required.
+
 #### Key Methods
 
-1. **`measure_productivity(url, scenario="page_load")`**
-    - Launches a browser, navigates to `url`, and waits for `networkidle`.
+1. **`measure(url, spec)`** — Core dispatch method. Validates the spec and delegates to the appropriate internal handler based on `spec.tool`. All named convenience methods delegate here.
+
+2. **`measure_productivity(url, *, spec=None, scenario="page_load", wait_until="networkidle", timeout_ms=30000)`**
+    - Convenience wrapper — constructs a browser spec from kwargs when `spec` is `None`.
+    - Launches Chromium, navigates to `url`, waits for the specified completion event.
     - Extracts `window.performance.timing` data: **TTFB** (`responseStart - requestStart`), **Load Time** (`loadEventEnd - navigationStart`).
     - Reads `performance.getEntriesByType('navigation')[0].nextHopProtocol` to populate `QoEResult.protocol`. For HTTPS origins Chromium reports `"h2"`; after receiving an `Alt-Svc` header a subsequent request to the same origin upgrades to `"h3"`.
-    - Success requires HTTP 200 and visibility of a target element.
+    - Success requires HTTP 2xx/3xx status.
 
-2. **`measure_streaming(stream_url, duration_s)`**
-    - Navigates to a page hosting a `<video>` player (HLS/DASH).
-    - Polls `<video>` element properties: `buffered`, `currentTime`, `waiting` events.
-    - **Startup Time:** time from `play()` to `playing` event.
-    - **Rebuffer Ratio:** total time in `waiting` state divided by session duration.
+3. **`measure_http_timing(url, *, spec=None, timeout_s=30.0)`**
+    - Lightweight HTTP timing — no browser overhead.
+    - Measures TTFB and total response time via `urllib.request`.
+    - Suitable for page-load SLO probes under severe WAN impairment where Chromium startup adds unacceptable overhead.
 
-3. **`measure_conferencing(session_url, duration_s)`**
+4. **`measure_streaming(stream_url, *, spec=None, duration_s=30)`**
+    - Convenience wrapper — constructs an `http_client` + `duration` spec.
+    - Fetches the HLS manifest and first media segment.
+    - **Startup Time:** time from first request to first segment received.
+    - **Rebuffer Ratio:** 0.0 in Phase 1 (live tracking in Phase 3+).
+
+5. **`measure_conferencing(session_url, *, spec=None, duration_s=60)`**
+    - Convenience wrapper — constructs a `webrtc` + `duration` spec.
     - Joins a WebRTC session on the testbed's `pion`-based Echo server.
     - Reads `RTCPeerConnection.getStats()` for **latency** (`roundTripTime`), **jitter**, and **packet loss** (`packetsLost`).
     - Passes raw stats to `lib/qoe.py` to compute the MOS score.
@@ -243,7 +301,9 @@ Two complementary tools cover different failure modes without compromising testb
 
 ### 5.1 SOCKS v5 Proxy (Dante) — Network & Service Debugging
 
-The `lan-qoe-client` container runs a **Dante SOCKS v5 proxy** on port 8080, exposed to the host as port 18090 (see `testbed-configuration.md §5.1`). This proxy routes outbound traffic via `eth1` — the same interface Playwright uses — so the developer's browser traverses the identical network path, including any active `tc netem` impairment profiles on WAN1/WAN2.
+The `lan-qoe-client` container runs a **Dante SOCKS v5 proxy** on port 8080, accessible via the management bridge at `192.168.55.8:8080`. This proxy routes outbound traffic via `eth1` — the same interface Playwright uses — so the developer's browser traverses the identical network path, including any active `tc netem` impairment profiles on WAN1/WAN2.
+
+The management IP (`192.168.55.8`) is shared with the `lan` container in the CPE testbed, so the same browser proxy configuration works across all testbeds — no settings change needed when switching.
 
 **What this enables:**
 
@@ -256,8 +316,8 @@ The `lan-qoe-client` container runs a **Dante SOCKS v5 proxy** on port 8080, exp
 
 ```
 Settings → Network Settings → Manual Proxy Configuration:
-  SOCKS Host: 127.0.0.1
-  Port: 18090
+  SOCKS Host: 192.168.55.8
+  Port: 8080
   SOCKS v5
   ✓ Proxy DNS when using SOCKS v5
 ```

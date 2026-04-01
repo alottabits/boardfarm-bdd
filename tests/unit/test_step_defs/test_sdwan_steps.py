@@ -23,8 +23,10 @@ from tests.unit.mocks import (
     MockTrafficGenerator,
     MockWANEdgeDevice,
 )
+from boardfarm3.lib.qoe import MeasurementSpec
 from tests.step_defs.sdwan_steps import (
     APP_CONFIG,
+    PAGE_LOAD_SLO_SPEC,
     _get_app_config,
     _get_tc_for_wan,
     appliance_converges_within_slo,
@@ -36,7 +38,15 @@ from tests.step_defs.sdwan_steps import (
     network_ops_verifies_active_path,
     network_ops_verifies_active_path_given,
     network_ops_verifies_wan_links_up,
+    remote_worker_confirms_productivity_slo,
+    appliance_configured_single_wan,
+    network_conditions_set_on_active_wan,
+    remote_worker_browser_reports_failure,
+    remote_worker_loads_productivity_page,
+    remote_worker_confirms_protocol,
     remote_worker_confirms_responsive,
+    remote_worker_navigates_unreachable,
+    remote_worker_starts_session_over_scheme,
     remote_worker_confirms_session_functional,
     remote_worker_starts_session,
     sdwan_appliance_operational,
@@ -392,26 +402,22 @@ class TestRemoteWorkerStartsSession:
     """Tests for 'the remote worker starts a "<app_type>" session …'."""
 
     @pytest.mark.parametrize(
-        "app_type,measure_fn,expected_url,"
-        "expected_measure_kwargs",
+        "app_type,measure_fn,expected_url",
         [
             (
                 "productivity",
                 "measure_productivity",
                 "http://172.16.0.10:8080/",
-                {},
             ),
             (
                 "streaming",
                 "measure_streaming",
                 "http://172.16.0.11:8081/hls/default/index.m3u8",
-                {"duration_s": 15},
             ),
             (
                 "conferencing",
                 "measure_conferencing",
                 "wss://172.16.0.12:8443/room",
-                {"duration_s": 10},
             ),
         ],
     )
@@ -421,7 +427,6 @@ class TestRemoteWorkerStartsSession:
         app_type,
         measure_fn,
         expected_url,
-        expected_measure_kwargs,
     ):
         """Statement is true: measurement succeeds → baseline and config stored."""
         mock_result = SimpleNamespace(success=True)
@@ -437,12 +442,13 @@ class TestRemoteWorkerStartsSession:
                 bf_context, app_type
             )
 
+            expected_spec = APP_CONFIG[app_type]["spec"]
             getattr(
                 mock_qoe, measure_fn
             ).assert_called_once_with(
                 bf_context.lan_client,
                 expected_url,
-                **expected_measure_kwargs,
+                spec=expected_spec,
             )
             assert (
                 bf_context.app_session_baseline is mock_result
@@ -580,15 +586,13 @@ class TestRemoteWorkerConfirmsSessionFunctional:
 
     @pytest.mark.parametrize(
         "app_type,measure_fn,assert_slo_fn,"
-        "expected_url,expected_measure_kwargs,"
-        "expected_slo_kwargs",
+        "expected_url,expected_slo_kwargs",
         [
             (
                 "productivity",
                 "measure_productivity",
                 "assert_productivity_slo",
                 "http://172.16.0.10:8080/",
-                {},
                 {
                     "max_ttfb_ms": 200,
                     "max_load_time_ms": 15000,
@@ -599,7 +603,6 @@ class TestRemoteWorkerConfirmsSessionFunctional:
                 "measure_streaming",
                 "assert_streaming_slo",
                 "http://172.16.0.11:8081/hls/default/index.m3u8",
-                {"duration_s": 15},
                 {
                     "max_startup_time_ms": 5000,
                     "max_rebuffer_ratio": 0.0,
@@ -610,7 +613,6 @@ class TestRemoteWorkerConfirmsSessionFunctional:
                 "measure_conferencing",
                 "assert_conferencing_slo",
                 "wss://172.16.0.12:8443/room",
-                {"duration_s": 10},
                 {"min_mos": 3.5},
             ),
         ],
@@ -622,7 +624,6 @@ class TestRemoteWorkerConfirmsSessionFunctional:
         measure_fn,
         assert_slo_fn,
         expected_url,
-        expected_measure_kwargs,
         expected_slo_kwargs,
     ):
         """Statement is true: re-measurement within SLO → step passes."""
@@ -639,12 +640,13 @@ class TestRemoteWorkerConfirmsSessionFunctional:
                 bf_context, app_type
             )
 
+            expected_spec = APP_CONFIG[app_type]["spec"]
             getattr(
                 mock_qoe, measure_fn
             ).assert_called_once_with(
                 bf_context.lan_client,
                 expected_url,
-                **expected_measure_kwargs,
+                spec=expected_spec,
             )
             getattr(
                 mock_qoe, assert_slo_fn
@@ -1308,3 +1310,545 @@ class TestNetworkOpsStopsUpstreamTraffic:
                 network_ops_stops_upstream_traffic(
                     bf_ctx_with_flow
                 )
+
+
+# ---------------------------------------------------------------------------
+# UC-SDWAN-02: Remote Worker Accesses Cloud Application
+# ---------------------------------------------------------------------------
+
+
+class TestRemoteWorkerLoadsProductivityPage:
+    """Tests for 'the remote worker loads the productivity page
+    through the appliance'."""
+
+    def test_measures_with_load_wait_strategy(self):
+        """Step uses wait_until='load' for page-load SLO measurement."""
+        bf_context = MockContext()
+        bf_context.lan_client = MockQoEClient()
+
+        with patch(
+            "tests.step_defs.sdwan_steps.qoe_use_cases",
+            _make_qoe_mock(),
+        ) as mock_qoe:
+            mock_qoe.measure_productivity.return_value = (
+                SimpleNamespace(
+                    success=True,
+                    ttfb_ms=50.0,
+                    load_time_ms=800.0,
+                    protocol="http/1.1",
+                )
+            )
+            remote_worker_loads_productivity_page(bf_context)
+
+            mock_qoe.measure_productivity.assert_called_once_with(
+                bf_context.lan_client,
+                "http://172.16.0.10:8080/",
+                spec=PAGE_LOAD_SLO_SPEC,
+            )
+            assert bf_context.app_session_baseline.success is True
+            assert bf_context.app_type == "productivity"
+
+    def test_failure_propagates(self):
+        """Step propagates exception from use case."""
+        bf_context = MockContext()
+        bf_context.lan_client = MockQoEClient()
+
+        with patch(
+            "tests.step_defs.sdwan_steps.qoe_use_cases",
+            _make_qoe_mock(),
+        ) as mock_qoe:
+            mock_qoe.measure_productivity.side_effect = (
+                RuntimeError("Client error")
+            )
+            with pytest.raises(
+                RuntimeError, match="Client error"
+            ):
+                remote_worker_loads_productivity_page(bf_context)
+
+
+class TestRemoteWorkerConfirmsProductivitySlo:
+    """Tests for 'the remote worker confirms the productivity page loads
+    within {max_ttfb} ms TTFB and {max_load_time} ms total'."""
+
+    def test_slo_met_within_thresholds(self):
+        """Statement is true: TTFB and load time within SLO → passes."""
+        bf_context = MockContext()
+        bf_context.app_session_baseline = SimpleNamespace(
+            success=True, ttfb_ms=150.0, load_time_ms=2000.0
+        )
+
+        with patch(
+            "tests.step_defs.sdwan_steps.qoe_use_cases",
+            _make_qoe_mock(),
+        ) as mock_qoe:
+            remote_worker_confirms_productivity_slo(
+                bf_context, max_ttfb=200, max_load_time=2500
+            )
+
+            mock_qoe.assert_productivity_slo.assert_called_once_with(
+                bf_context.app_session_baseline,
+                max_ttfb_ms=200,
+                max_load_time_ms=2500,
+            )
+
+    def test_slo_violated_raises(self):
+        """Statement not true: SLO exceeded → raises AssertionError."""
+        bf_context = MockContext()
+        bf_context.app_session_baseline = SimpleNamespace(
+            success=True, ttfb_ms=350.0, load_time_ms=5000.0
+        )
+
+        mock_qoe = _make_qoe_mock()
+        mock_qoe.assert_productivity_slo.side_effect = (
+            AssertionError(
+                "TTFB SLO violation: 350.0 ms > max 200.0 ms"
+            )
+        )
+
+        with patch(
+            "tests.step_defs.sdwan_steps.qoe_use_cases",
+            mock_qoe,
+        ):
+            with pytest.raises(
+                AssertionError, match="TTFB SLO violation"
+            ):
+                remote_worker_confirms_productivity_slo(
+                    bf_context, max_ttfb=200, max_load_time=2500
+                )
+
+    @pytest.mark.parametrize(
+        "max_ttfb,max_load_time",
+        [(200, 2500), (300, 4000), (500, 6000), (3000, 12000)],
+        ids=["nominal", "cable_typical", "mobile", "satellite"],
+    )
+    def test_slo_thresholds_forwarded_correctly(
+        self, max_ttfb, max_load_time
+    ):
+        """Each WAN condition's SLO thresholds are passed to the use case."""
+        bf_context = MockContext()
+        bf_context.app_session_baseline = SimpleNamespace(
+            success=True, ttfb_ms=50.0, load_time_ms=500.0
+        )
+
+        with patch(
+            "tests.step_defs.sdwan_steps.qoe_use_cases",
+            _make_qoe_mock(),
+        ) as mock_qoe:
+            remote_worker_confirms_productivity_slo(
+                bf_context,
+                max_ttfb=max_ttfb,
+                max_load_time=max_load_time,
+            )
+
+            mock_qoe.assert_productivity_slo.assert_called_once_with(
+                bf_context.app_session_baseline,
+                max_ttfb_ms=max_ttfb,
+                max_load_time_ms=max_load_time,
+            )
+
+
+class TestRemoteWorkerStartsSessionOverScheme:
+    """Tests for 'the remote worker starts a "{app_type}" session
+    over "{scheme}" through the appliance'."""
+
+    def test_https_session_uses_https_url(self):
+        """Statement is true: HTTPS scheme → uses HTTPS URL."""
+        bf_context = MockContext()
+        bf_context.lan_client = MockQoEClient()
+
+        with patch(
+            "tests.step_defs.sdwan_steps.qoe_use_cases",
+            _make_qoe_mock(),
+        ) as mock_qoe:
+            mock_qoe.measure_productivity.return_value = (
+                SimpleNamespace(
+                    success=True,
+                    ttfb_ms=100.0,
+                    load_time_ms=1500.0,
+                    protocol="h3",
+                )
+            )
+            remote_worker_starts_session_over_scheme(
+                bf_context, "productivity", "https"
+            )
+
+            mock_qoe.measure_productivity.assert_called_once_with(
+                bf_context.lan_client,
+                "https://172.16.0.10/",
+                spec=PAGE_LOAD_SLO_SPEC,
+            )
+            assert bf_context.app_type == "productivity"
+            assert bf_context.app_session_baseline.protocol == "h3"
+
+    def test_http_session_uses_http_url(self):
+        """Statement is true: HTTP scheme → uses HTTP URL."""
+        bf_context = MockContext()
+        bf_context.lan_client = MockQoEClient()
+
+        with patch(
+            "tests.step_defs.sdwan_steps.qoe_use_cases",
+            _make_qoe_mock(),
+        ) as mock_qoe:
+            mock_qoe.measure_productivity.return_value = (
+                SimpleNamespace(
+                    success=True,
+                    ttfb_ms=50.0,
+                    load_time_ms=800.0,
+                    protocol="http/1.1",
+                )
+            )
+            remote_worker_starts_session_over_scheme(
+                bf_context, "productivity", "http"
+            )
+
+            mock_qoe.measure_productivity.assert_called_once_with(
+                bf_context.lan_client,
+                "http://172.16.0.10:8080/",
+                spec=PAGE_LOAD_SLO_SPEC,
+            )
+
+    def test_unknown_scheme_raises(self):
+        """Statement not true: unsupported scheme → raises ValueError."""
+        bf_context = MockContext()
+        bf_context.lan_client = MockQoEClient()
+
+        with pytest.raises(ValueError, match="Unknown scheme"):
+            remote_worker_starts_session_over_scheme(
+                bf_context, "productivity", "ftp"
+            )
+
+
+class TestRemoteWorkerConfirmsProtocol:
+    """Tests for 'the remote worker confirms the negotiated
+    protocol is "{expected_protocol}"'."""
+
+    def test_protocol_matches(self):
+        """Statement is true: protocol matches → passes."""
+        bf_context = MockContext()
+        bf_context.app_session_baseline = SimpleNamespace(
+            protocol="h3"
+        )
+        remote_worker_confirms_protocol(bf_context, "h3")
+
+    def test_protocol_mismatch_raises(self):
+        """Statement not true: protocol mismatch → raises."""
+        bf_context = MockContext()
+        bf_context.app_session_baseline = SimpleNamespace(
+            protocol="h2"
+        )
+        with pytest.raises(
+            AssertionError, match="Protocol mismatch"
+        ):
+            remote_worker_confirms_protocol(bf_context, "h3")
+
+    def test_protocol_none_raises(self):
+        """Statement not true: protocol not reported → raises."""
+        bf_context = MockContext()
+        bf_context.app_session_baseline = SimpleNamespace(
+            protocol=None
+        )
+        with pytest.raises(
+            AssertionError, match="Protocol not reported"
+        ):
+            remote_worker_confirms_protocol(bf_context, "h3")
+
+
+class TestRemoteWorkerNavigatesUnreachable:
+    """Tests for 'the remote worker navigates to an unreachable
+    application URL'."""
+
+    def test_navigates_and_stores_result(self):
+        """Step measures with unreachable URL and stores result."""
+        bf_context = MockContext()
+        bf_context.lan_client = MockQoEClient()
+
+        with patch(
+            "tests.step_defs.sdwan_steps.qoe_use_cases",
+            _make_qoe_mock(),
+        ) as mock_qoe:
+            mock_qoe.measure_productivity.return_value = (
+                SimpleNamespace(success=False, ttfb_ms=None, load_time_ms=None)
+            )
+            remote_worker_navigates_unreachable(bf_context)
+
+            mock_qoe.measure_productivity.assert_called_once_with(
+                bf_context.lan_client,
+                "http://192.0.2.1:9999/unreachable",
+            )
+            assert bf_context.last_qoe_result.success is False
+
+    def test_measurement_failure_propagates(self):
+        """Step propagates exception from use case."""
+        bf_context = MockContext()
+        bf_context.lan_client = MockQoEClient()
+
+        with patch(
+            "tests.step_defs.sdwan_steps.qoe_use_cases",
+            _make_qoe_mock(),
+        ) as mock_qoe:
+            mock_qoe.measure_productivity.side_effect = (
+                RuntimeError("Client error")
+            )
+            with pytest.raises(
+                RuntimeError, match="Client error"
+            ):
+                remote_worker_navigates_unreachable(bf_context)
+
+
+class TestRemoteWorkerBrowserReportsFailure:
+    """Tests for 'the remote worker's browser reports a connection
+    failure'."""
+
+    def test_failure_detected(self):
+        """Statement is true: request failed → passes."""
+        bf_context = MockContext()
+        bf_context.last_qoe_result = SimpleNamespace(success=False)
+
+        with patch(
+            "tests.step_defs.sdwan_steps.qoe_use_cases",
+            _make_qoe_mock(),
+        ) as mock_qoe:
+            remote_worker_browser_reports_failure(bf_context)
+
+            mock_qoe.assert_request_blocked.assert_called_once_with(
+                bf_context.last_qoe_result,
+                label="unreachable application",
+            )
+
+    def test_success_when_expected_failure_raises(self):
+        """Statement not true: request succeeded → raises."""
+        bf_context = MockContext()
+        bf_context.last_qoe_result = SimpleNamespace(success=True)
+
+        mock_qoe = _make_qoe_mock()
+        mock_qoe.assert_request_blocked.side_effect = (
+            AssertionError("Request was unexpectedly allowed")
+        )
+
+        with patch(
+            "tests.step_defs.sdwan_steps.qoe_use_cases",
+            mock_qoe,
+        ):
+            with pytest.raises(
+                AssertionError,
+                match="unexpectedly allowed",
+            ):
+                remote_worker_browser_reports_failure(bf_context)
+
+
+class TestApplianceConfiguredSingleWan:
+    """Tests for 'the appliance is configured for single-WAN
+    operation on "{active_wan}"'.
+
+    This is a yielding step (admin-downs WAN interfaces), so it
+    has both standard pass/fail tests and teardown tests.
+    """
+
+    @pytest.fixture()
+    def bf_context_dual_wan(self):
+        """Context with dual-WAN appliance and traffic controllers."""
+        ctx = MockContext()
+        edge = MockWANEdgeDevice()
+        edge.bring_wan_down = MagicMock()
+        edge.bring_wan_up = MagicMock()
+        ctx.sdwan_appliance = edge
+        ctx.wan1_tc = MockTrafficController("wan1_tc")
+        ctx.wan2_tc = MockTrafficController("wan2_tc")
+        return ctx
+
+    def test_brings_down_inactive_wan_links(
+        self, bf_context_dual_wan
+    ):
+        """Statement is true: wan2 admin-down, wan1 active → passes."""
+        gen = _run_step(
+            appliance_configured_single_wan,
+            bf_context_dual_wan,
+            "wan1",
+        )
+
+        edge = bf_context_dual_wan.sdwan_appliance
+        edge.bring_wan_down.assert_called_once_with("wan2")
+
+        assert bf_context_dual_wan.active_wan == "wan1"
+        assert bf_context_dual_wan.blocked_wans == ["wan2"]
+        assert gen is not None  # yielding step
+
+    def test_unknown_active_wan_raises(self, bf_context_dual_wan):
+        """Statement not true: active WAN not found → raises."""
+        with pytest.raises(ValueError, match="not found"):
+            _run_step(
+                appliance_configured_single_wan,
+                bf_context_dual_wan,
+                "wan99",
+            )
+
+    # --- Teardown tests ---
+
+    def test_teardown_restores_blocked_links(
+        self, bf_context_dual_wan
+    ):
+        """Teardown fires: bring_wan_up called on blocked links."""
+        gen = _run_step(
+            appliance_configured_single_wan,
+            bf_context_dual_wan,
+            "wan1",
+        )
+
+        edge = bf_context_dual_wan.sdwan_appliance
+        edge.bring_wan_up.reset_mock()
+
+        with pytest.raises(StopIteration):
+            next(gen)
+
+        edge.bring_wan_up.assert_called_once_with("wan2")
+
+    def test_teardown_is_idempotent(
+        self, bf_context_dual_wan
+    ):
+        """Teardown idempotent: already up → no exception."""
+        gen = _run_step(
+            appliance_configured_single_wan,
+            bf_context_dual_wan,
+            "wan1",
+        )
+
+        edge = bf_context_dual_wan.sdwan_appliance
+        edge.bring_wan_up.side_effect = RuntimeError("already up")
+
+        with pytest.raises(StopIteration):
+            next(gen)  # should NOT raise RuntimeError
+
+    def test_teardown_swallows_infrastructure_errors(
+        self, bf_context_dual_wan
+    ):
+        """Teardown swallows errors: device unreachable → no exception."""
+        gen = _run_step(
+            appliance_configured_single_wan,
+            bf_context_dual_wan,
+            "wan1",
+        )
+
+        edge = bf_context_dual_wan.sdwan_appliance
+        edge.bring_wan_up.side_effect = ConnectionError(
+            "device unreachable"
+        )
+
+        with pytest.raises(StopIteration):
+            next(gen)  # should NOT raise ConnectionError
+
+
+class TestNetworkConditionsSetOnActiveWan:
+    """Tests for 'the network conditions on the active WAN link
+    are set to "{preset_name}"'.
+
+    Yielding step — needs pass/fail + teardown tests.
+    """
+
+    @pytest.fixture()
+    def bf_context_single_wan(self):
+        ctx = MockContext()
+        ctx.active_wan = "wan1"
+        ctx.wan1_tc = MockTrafficController("wan1_tc")
+        ctx.wan2_tc = MockTrafficController("wan2_tc")
+        return ctx
+
+    def test_applies_preset_to_active_wan_only(
+        self, bf_context_single_wan, mock_boardfarm_config
+    ):
+        """Statement is true: preset applied to wan1_tc only."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tc_use_cases"
+        ) as mock_tc:
+            gen = _run_step(
+                network_conditions_set_on_active_wan,
+                bf_context_single_wan,
+                "cable_typical",
+                mock_boardfarm_config,
+            )
+
+            mock_tc.apply_preset.assert_called_once_with(
+                bf_context_single_wan.wan1_tc,
+                "cable_typical",
+                mock_boardfarm_config,
+            )
+            assert gen is not None
+
+    def test_failure_propagates(
+        self, bf_context_single_wan, mock_boardfarm_config
+    ):
+        """Statement not true: apply_preset fails → raises."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tc_use_cases"
+        ) as mock_tc:
+            mock_tc.apply_preset.side_effect = RuntimeError(
+                "Unknown preset"
+            )
+            with pytest.raises(RuntimeError, match="Unknown preset"):
+                _run_step(
+                    network_conditions_set_on_active_wan,
+                    bf_context_single_wan,
+                    "bad_preset",
+                    mock_boardfarm_config,
+                )
+
+    def test_teardown_clears_active_wan(
+        self, bf_context_single_wan, mock_boardfarm_config
+    ):
+        """Teardown fires: clears impairment on active WAN TC."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tc_use_cases"
+        ) as mock_tc:
+            gen = _run_step(
+                network_conditions_set_on_active_wan,
+                bf_context_single_wan,
+                "cable_typical",
+                mock_boardfarm_config,
+            )
+            mock_tc.clear_impairment.reset_mock()
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+            mock_tc.clear_impairment.assert_called_once_with(
+                bf_context_single_wan.wan1_tc
+            )
+
+    def test_teardown_is_idempotent(
+        self, bf_context_single_wan, mock_boardfarm_config
+    ):
+        """Teardown idempotent: already cleared → no exception."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tc_use_cases"
+        ) as mock_tc:
+            gen = _run_step(
+                network_conditions_set_on_active_wan,
+                bf_context_single_wan,
+                "cable_typical",
+                mock_boardfarm_config,
+            )
+            mock_tc.clear_impairment.side_effect = RuntimeError(
+                "already cleared"
+            )
+
+            with pytest.raises(StopIteration):
+                next(gen)
+
+    def test_teardown_swallows_errors(
+        self, bf_context_single_wan, mock_boardfarm_config
+    ):
+        """Teardown swallows errors: device unreachable → no exception."""
+        with patch(
+            "tests.step_defs.sdwan_steps.tc_use_cases"
+        ) as mock_tc:
+            gen = _run_step(
+                network_conditions_set_on_active_wan,
+                bf_context_single_wan,
+                "cable_typical",
+                mock_boardfarm_config,
+            )
+            mock_tc.clear_impairment.side_effect = ConnectionError(
+                "device unreachable"
+            )
+
+            with pytest.raises(StopIteration):
+                next(gen)
