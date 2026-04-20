@@ -20,7 +20,7 @@ test portability across vendors.
 
 | Component | Description | Image |
 |---|---|---|
-| **LinuxSDWANRouter** | Digital twin DUT — FRR routing, BFD, PBR, StrongSwan IPsec | `sdwan-router:0.03` |
+| **LinuxSDWANRouter** | Digital twin DUT — FRR routing, BFD, PBR, StrongSwan IPsec | `sdwan-router:0.04` |
 | **WAN1-TC / WAN2-TC** | Traffic controllers — dual-port `tc netem` impairment per WAN link | `traffic-controller:0.02` |
 | **App Router** | North-side traffic routing between WAN links and application servers | `app-router:0.01` |
 | **LAN QoE Client** | Playwright/Chromium browser for QoE measurement | `qoe-client:0.02` |
