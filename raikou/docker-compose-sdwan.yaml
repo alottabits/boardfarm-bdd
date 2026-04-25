@@ -25,7 +25,7 @@ services:
     # All interfaces from Raikou OVS (eth-lan, eth-wan1, eth-wan2). No Docker network.
     # Phase 3.5: StrongSwan IKEv2 certs mounted at /etc/strongswan/
     linux-sdwan-router:
-        image: ghcr.io/alottabits/boardfarm-bdd/sdwan-router:0.03
+        image: ghcr.io/alottabits/test-components/sdwan-router:0.04
         container_name: linux-sdwan-router
         restart: always
         network_mode: none
@@ -52,7 +52,7 @@ services:
     # Pure tc netem impairment. Test traffic via Raikou OVS:
     #   eth-dut (dut-wan1/dut-wan2), eth-north (north-wan1/north-wan2).
     wan1-tc:
-        image: ghcr.io/alottabits/boardfarm-bdd/traffic-controller:0.03
+        image: ghcr.io/alottabits/test-components/traffic-controller:0.03
         container_name: wan1-tc
         network_mode: none
         environment:
@@ -71,7 +71,7 @@ services:
                     memory: 64M
 
     wan2-tc:
-        image: ghcr.io/alottabits/boardfarm-bdd/traffic-controller:0.03
+        image: ghcr.io/alottabits/test-components/traffic-controller:0.03
         container_name: wan2-tc
         network_mode: none
         environment:
@@ -96,7 +96,7 @@ services:
     #   eth-south (north-segment).
     # See: docs/app-router-implementation.md
     app-router:
-        image: ghcr.io/alottabits/boardfarm-bdd/app-router:0.01
+        image: ghcr.io/alottabits/test-components/app-router:0.01
         container_name: app-router
         network_mode: none
         privileged: true
@@ -114,7 +114,7 @@ services:
     # Test traffic via Raikou OVS: eth1 (lan-segment).
     # Phase 3.5: testbed CA cert mounted for Playwright/Chromium HTTPS trust.
     lan-qoe-client:
-        image: ghcr.io/alottabits/boardfarm-bdd/lan-qoe-client:0.02
+        image: ghcr.io/alottabits/test-components/lan-qoe-client:0.02
         container_name: lan-qoe-client
         network_mode: none
         environment:
@@ -137,7 +137,7 @@ services:
     # Test traffic via Raikou OVS: eth1 (lan-segment or north-segment).
     # See: docs/examples/sdwan-digital-twin/future/traffic-generator.md
     lan-traffic-gen:
-        image: ghcr.io/alottabits/boardfarm-bdd/traffic-gen:0.01
+        image: ghcr.io/alottabits/test-components/traffic-gen:0.01
         container_name: lan-traffic-gen
         network_mode: none
         environment:
@@ -156,7 +156,7 @@ services:
                     memory: 128M
 
     north-traffic-gen:
-        image: ghcr.io/alottabits/boardfarm-bdd/traffic-gen:0.01
+        image: ghcr.io/alottabits/test-components/traffic-gen:0.01
         container_name: north-traffic-gen
         network_mode: none
         environment:
@@ -180,7 +180,7 @@ services:
     # See: docs/WAN_Edge_Appliance_testing.md §4.2
     # See: docs/Application_Services_Implementation_Plan.md §6 Phase 3.5
     productivity-server:
-        image: ghcr.io/alottabits/boardfarm-bdd/productivity-server:0.02
+        image: ghcr.io/alottabits/test-components/productivity-server:0.02
         container_name: productivity-server
         network_mode: none
         environment:
@@ -203,7 +203,7 @@ services:
     # Test traffic via Raikou OVS: eth1 (north-segment), eth2 (content-internal → MinIO).
     # Phase 3.5: TLS certs mounted at /certs/ for HTTPS.
     streaming-server:
-        image: ghcr.io/alottabits/boardfarm-bdd/streaming-server:0.02
+        image: ghcr.io/alottabits/test-components/streaming-server:0.02
         container_name: streaming-server
         network_mode: none
         environment:
@@ -228,7 +228,7 @@ services:
     # Test traffic via Raikou OVS: eth1 (north-segment, 172.16.0.12).
     # See: docs/Application_Services_Implementation_Plan.md §3.3
     conf-server:
-        image: ghcr.io/alottabits/boardfarm-bdd/conf-server:0.02
+        image: ghcr.io/alottabits/test-components/conf-server:0.02
         container_name: conf-server
         network_mode: none
         environment:
@@ -257,7 +257,7 @@ services:
     # Test traffic via Raikou OVS: eth1 (north-segment, 172.16.0.20).
     # See: docs/LinuxSDWANRouter_Implementation_Plan.md §3.4
     ipsec-hub:
-        image: ghcr.io/alottabits/boardfarm-bdd/ipsec-hub:0.01
+        image: ghcr.io/alottabits/test-components/ipsec-hub:0.01
         container_name: ipsec-hub
         network_mode: none
         privileged: true
@@ -279,7 +279,7 @@ services:
     # S3-compatible store for HLS content. Raikou OVS: eth1 on content-internal only.
     # Management: host accesses MinIO via mgmt bridge at 192.168.55.30:9000/9001.
     minio:
-        image: ghcr.io/alottabits/boardfarm-bdd/minio:0.01
+        image: ghcr.io/alottabits/test-components/minio:0.01
         container_name: minio
         network_mode: none
         environment:

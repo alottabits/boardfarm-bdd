@@ -232,7 +232,7 @@ For each compose file, apply two changes per container:
 
 ```yaml
 acs:
-    image: ghcr.io/alottabits/boardfarm-bdd/acs:v1.2.0
+    image: ghcr.io/alottabits/test-components/acs:v1.2.0
     depends_on:
         - mongo
     restart: always
@@ -255,7 +255,7 @@ acs:
 
 ```yaml
 acs:
-    image: ghcr.io/alottabits/boardfarm-bdd/acs:v1.2.0
+    image: ghcr.io/alottabits/test-components/acs:v1.2.0
     depends_on:
         - mongo
     restart: always

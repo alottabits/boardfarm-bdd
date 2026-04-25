@@ -107,10 +107,10 @@ The server pool is started by the container init script at boot and verified by 
 
 **Location:** `boardfarm-bdd-components/components/traffic-gen/`
 
-**Dockerfile** — based on the `ssh:v1.2.0` base image:
+**Dockerfile** — based on the `ssh:v1.3.0` base image:
 
 ```dockerfile
-FROM ghcr.io/alottabits/boardfarm-bdd/ssh:v1.2.0
+FROM ghcr.io/alottabits/test-components/ssh:v1.3.0
 RUN apt-get update && apt-get install -y --no-install-recommends \
         iperf3 iproute2 iputils-ping net-tools \
     && rm -rf /var/lib/apt/lists/*
@@ -226,7 +226,7 @@ Both containers use SSH port mapping and environment variables for OVS routing:
 
 ```yaml
 lan-traffic-gen:
-    image: ghcr.io/alottabits/boardfarm-bdd/traffic-gen:0.01
+    image: ghcr.io/alottabits/test-components/traffic-gen:0.01
     ports: ["5008:22"]
     environment:
         - TG_GATEWAY=192.168.10.1
