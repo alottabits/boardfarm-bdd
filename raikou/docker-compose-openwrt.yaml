@@ -20,7 +20,7 @@ name: boardfarm-bdd-openwrt
 
 services:
     router:
-        image: ghcr.io/alottabits/boardfarm-bdd/router:v1.2.0
+        image: ghcr.io/alottabits/test-components/router:v1.2.0
         container_name: router
         network_mode: none
         environment:
@@ -36,7 +36,7 @@ services:
     # NOTE: CPE service removed - using physical RPi with OpenWrt instead
 
     wan:
-        image: ghcr.io/alottabits/boardfarm-bdd/wan:v1.2.0
+        image: ghcr.io/alottabits/test-components/wan:v1.2.0
         container_name: wan
         network_mode: none
         environment:
@@ -46,7 +46,7 @@ services:
         hostname: wan
 
     sipcenter:
-        image: ghcr.io/alottabits/boardfarm-bdd/sip:v1.2.0
+        image: ghcr.io/alottabits/test-components/sip:v1.2.0
         container_name: sipcenter
         network_mode: none
         environment:
@@ -58,7 +58,7 @@ services:
         hostname: sipcenter
 
     lan-phone:
-        image: ghcr.io/alottabits/boardfarm-bdd/phone:v1.2.0
+        image: ghcr.io/alottabits/test-components/phone:v1.2.0
         container_name: lan-phone
         network_mode: none
         environment:
@@ -67,7 +67,7 @@ services:
         hostname: lan-phone
 
     wan-phone:
-        image: ghcr.io/alottabits/boardfarm-bdd/phone:v1.2.0
+        image: ghcr.io/alottabits/test-components/phone:v1.2.0
         container_name: wan-phone
         network_mode: none
         environment:
@@ -76,7 +76,7 @@ services:
         hostname: wan-phone
 
     wan-phone2:
-        image: ghcr.io/alottabits/boardfarm-bdd/phone:v1.2.0
+        image: ghcr.io/alottabits/test-components/phone:v1.2.0
         container_name: wan-phone2
         network_mode: none
         environment:
@@ -85,7 +85,7 @@ services:
         hostname: wan-phone2
 
     lan:
-        image: ghcr.io/alottabits/boardfarm-bdd/lan:v1.2.0
+        image: ghcr.io/alottabits/test-components/lan:v1.2.0
         container_name: lan
         network_mode: none
         environment:
@@ -94,7 +94,7 @@ services:
         hostname: lan
 
     dhcp:
-        image: ghcr.io/alottabits/boardfarm-bdd/dhcp:v1.2.0
+        image: ghcr.io/alottabits/test-components/dhcp:v1.2.0
         container_name: dhcp
         network_mode: none
         environment:
@@ -122,7 +122,7 @@ services:
             - data_configdb:/data/configdb
 
     acs:
-        image: ghcr.io/alottabits/boardfarm-bdd/acs:v1.2.0
+        image: ghcr.io/alottabits/test-components/acs:v1.2.0
         depends_on:
             - mongo
         restart: always
