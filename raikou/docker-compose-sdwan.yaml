@@ -25,7 +25,7 @@ services:
     # All interfaces from Raikou OVS (eth-lan, eth-wan1, eth-wan2). No Docker network.
     # Phase 3.5: StrongSwan IKEv2 certs mounted at /etc/strongswan/
     linux-sdwan-router:
-        image: ghcr.io/alottabits/test-components/sdwan-router:0.03
+        image: ghcr.io/alottabits/test-components/sdwan-router:0.04
         container_name: linux-sdwan-router
         restart: always
         network_mode: none
